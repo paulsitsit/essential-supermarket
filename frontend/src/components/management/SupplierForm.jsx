@@ -1,0 +1,11 @@
+import { useState } from 'react';
+import client from '../../api/client';
+import { getErrorMessage } from '../../utils/errors';
+
+export default function SupplierForm({ supplier, onSaved, onCancel }) {
+  const [form, setForm] = useState({ name: supplier?.name || '', contactPerson: supplier?.contactPerson || '', phone: supplier?.phone || '', email: supplier?.email || '', address: supplier?.address || '', status: supplier?.status || 'active' });
+  const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
+  function change(key, value) { setForm(current => ({ ...current, [key]: value })); }
+  async function submit(event) { event.preventDefault(); setBusy(true); setError(''); try { if (supplier) await client.put(`/suppliers/${supplier._id}`, form); else await client.post('/suppliers', form); onSaved(); } catch (err) { setError(getErrorMessage(err)); } finally { setBusy(false); } }
+  return <form className="inline-form" onSubmit={submit}>{error && <div className="form-error">{error}</div>}<div className="form-grid"><label>Supplier name<input required value={form.name} onChange={e => change('name', e.target.value)} /></label><label>Contact person<input value={form.contactPerson} onChange={e => change('contactPerson', e.target.value)} /></label><label>Phone number<input value={form.phone} onChange={e => change('phone', e.target.value)} /></label><label>Email<input type="email" value={form.email} onChange={e => change('email', e.target.value)} /></label><label className="span-two">Address<textarea rows="3" value={form.address} onChange={e => change('address', e.target.value)} /></label><label>Status<select value={form.status} onChange={e => change('status', e.target.value)}><option value="active">Active</option><option value="inactive">Inactive</option></select></label></div><div className="modal-actions"><button type="button" className="secondary-btn" onClick={onCancel}>Cancel</button><button className="primary-btn" disabled={busy}>{busy ? 'Saving...' : supplier ? 'Update supplier' : 'Create supplier'}</button></div></form>;
+}

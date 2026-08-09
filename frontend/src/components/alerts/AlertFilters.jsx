@@ -1,0 +1,3 @@
+export default function AlertFilters({ value, onChange }) {
+  return <div className="alert-filters"><button className={value === 'all' ? 'alert-filter active' : 'alert-filter'} onClick={() => onChange('all')}>All alerts</button><button className={value === 'unread' ? 'alert-filter active' : 'alert-filter'} onClick={() => onChange('unread')}>Unread</button><button className={value === 'read' ? 'alert-filter active' : 'alert-filter'} onClick={() => onChange('read')}>Read</button><button className={value === 'resolved' ? 'alert-filter active' : 'alert-filter'} onClick={() => onChange('resolved')}>Resolved</button></div>;
+}

@@ -1,0 +1,6 @@
+import StatusBadge from '../common/StatusBadge';
+import { dateTime, movementLabel } from '../../utils/format';
+
+export default function MovementTable({ movements }) {
+  return <div className="table-wrap"><table className="data-table"><thead><tr><th>Product</th><th>Movement type</th><th>Quantity changed</th><th>Previous stock</th><th>New stock</th><th>Reason</th><th>Account</th><th>Date and time</th></tr></thead><tbody>{movements.map(item => <tr key={item._id}><td><strong>{item.product?.name || 'Deleted product'}</strong><small className="table-subtext">{item.product?.barcode} · {item.product?.sku}</small></td><td><span className={`movement-pill movement-${item.movementType}`}>{movementLabel(item.movementType)}</span></td><td className={item.quantityChanged >= 0 ? 'quantity-positive' : 'quantity-negative'}>{item.quantityChanged >= 0 ? '+' : ''}{item.quantityChanged}</td><td>{item.previousStock}</td><td>{item.newStock}</td><td>{item.reason}</td><td><strong>{item.account?.fullName || '—'}</strong><small className="table-subtext">{item.account?.role}</small></td><td>{dateTime(item.createdAt)}</td></tr>)}</tbody></table></div>;
+}

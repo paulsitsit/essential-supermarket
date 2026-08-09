@@ -1,0 +1,9 @@
+import { X } from 'lucide-react';
+import ProductQrCode from '../common/ProductQrCode';
+import StatusBadge from '../common/StatusBadge';
+import { peso, dateTime } from '../../utils/format';
+
+export default function ProductDetailsModal({ product, onClose, onReceive }) {
+  if (!product) return null;
+  return <div className="modal-backdrop"><div className="modal-card details-modal"><div className="modal-header"><div><p className="eyebrow">PRODUCT DETAILS</p><h3>{product.name}</h3></div><button className="icon-btn" onClick={onClose}><X size={20} /></button></div><div className="details-layout"><div className="details-information"><div className="details-grid"><div><span>Barcode</span><strong>{product.barcode}</strong></div><div><span>SKU</span><strong>{product.sku}</strong></div><div><span>Category</span><strong>{product.category?.name || 'Uncategorized'}</strong></div><div><span>Brand</span><strong>{product.brand || '—'}</strong></div><div><span>Current stock</span><strong>{product.currentStock} {product.unitType}</strong></div><div><span>Reorder level</span><strong>{product.reorderLevel}</strong></div><div><span>Cost price</span><strong>{peso(product.costPrice)}</strong></div><div><span>Inventory value</span><strong>{peso(product.inventoryValue)}</strong></div><div><span>Supplier</span><strong>{product.supplier?.name || '—'}</strong></div><div><span>Last updated</span><strong>{dateTime(product.updatedAt)}</strong></div></div><div className="details-status"><span>Status</span><StatusBadge status={product.status} /></div><p className="details-description">{product.description || 'No description provided.'}</p></div><ProductQrCode value={product.qrCode || product.barcode} name={product.name} /></div><div className="modal-actions"><button className="secondary-btn" onClick={onClose}>Close</button><button className="primary-btn" onClick={() => onReceive(product)}>Add Stock</button></div></div></div>;
+}

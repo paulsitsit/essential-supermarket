@@ -18,6 +18,7 @@ import exportRoutes from './routes/export.routes.js';
 import { notFound, errorHandler } from './middleware/error.js';
 
 const app = express();
+app.set('trust proxy', 1);
 
 const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
   .split(',')

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Bell,
   Menu,
@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import client from '../../api/client';
 
 export default function Topbar({
   onMenu,
@@ -21,6 +22,44 @@ export default function Topbar({
 
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  useEffect(() => {
+    const term = searchTerm.trim();
+
+    if (term.length < 2) {
+      setSuggestions([]);
+      setSearchLoading(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        setSearchLoading(true);
+
+        const { data } = await client.get('/products', {
+          params: {
+            search: term,
+            limit: 6
+          }
+        });
+
+        const products = Array.isArray(data)
+          ? data
+          : data.products || data.data || [];
+
+        setSuggestions(products.slice(0, 6));
+      } catch (error) {
+        console.error('Product search failed:', error);
+        setSuggestions([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   function toggleNotifications() {
     setNotificationsOpen(value => !value);
@@ -33,10 +72,26 @@ export default function Topbar({
 
     if (!term) {
       navigate('/products');
+      setSuggestions([]);
       return;
     }
 
     navigate(`/products?search=${encodeURIComponent(term)}`);
+    setSuggestions([]);
+  }
+
+  function selectProduct(product) {
+    const productName =
+      product.name ||
+      product.productName ||
+      '';
+
+    setSearchTerm(productName);
+    setSuggestions([]);
+
+    navigate(
+      `/products?search=${encodeURIComponent(productName)}`
+    );
   }
 
   function getAlertName(alert) {
@@ -71,21 +126,70 @@ export default function Topbar({
         <Menu size={23} />
       </button>
 
-      <form
-        className="global-search"
-        onSubmit={submitSearch}
-        role="search"
-      >
-        <Search size={18} aria-hidden="true" />
+      <div className="global-search-container">
+        <form
+          className="global-search"
+          onSubmit={submitSearch}
+          role="search"
+        >
+          <Search size={18} aria-hidden="true" />
 
-        <input
-          type="search"
-          value={searchTerm}
-          onChange={event => setSearchTerm(event.target.value)}
-          placeholder="Search products, SKU, or barcode..."
-          aria-label="Search products, SKU, or barcode"
-        />
-      </form>
+          <input
+            type="search"
+            value={searchTerm}
+            onChange={event => setSearchTerm(event.target.value)}
+            placeholder="Search products, SKU, or barcode..."
+            aria-label="Search products, SKU, or barcode"
+          />
+        </form>
+
+        {searchLoading && (
+          <div className="search-status">
+            Searching...
+          </div>
+        )}
+
+        {!searchLoading &&
+          searchTerm.trim().length >= 2 &&
+          suggestions.length > 0 && (
+            <div className="search-suggestions">
+              {suggestions.map((product, index) => (
+                <button
+                  type="button"
+                  className="search-suggestion"
+                  key={product._id || product.id || index}
+                  onClick={() => selectProduct(product)}
+                >
+                  <div>
+                    <strong>
+                      {product.name ||
+                        product.productName ||
+                        'Unnamed product'}
+                    </strong>
+
+                    <small>
+                      {product.sku
+                        ? `SKU: ${product.sku}`
+                        : product.barcode
+                          ? `Barcode: ${product.barcode}`
+                          : 'Product'}
+                    </small>
+                  </div>
+
+                  <ArrowRight size={16} />
+                </button>
+              ))}
+            </div>
+          )}
+
+        {!searchLoading &&
+          searchTerm.trim().length >= 2 &&
+          suggestions.length === 0 && (
+            <div className="search-status">
+              No matching products
+            </div>
+          )}
+      </div>
 
       <div className="topbar-actions">
         <div className="notification-wrapper">
@@ -138,8 +242,13 @@ export default function Topbar({
                       </div>
 
                       <div className="notification-content">
-                        <strong>{getAlertName(alert)}</strong>
-                        <small>{getAlertMessage(alert)}</small>
+                        <strong>
+                          {getAlertName(alert)}
+                        </strong>
+
+                        <small>
+                          {getAlertMessage(alert)}
+                        </small>
                       </div>
 
                       <ArrowRight size={14} />
@@ -151,7 +260,9 @@ export default function Topbar({
                   {alertCount > 0 ? (
                     <>
                       <AlertTriangle size={25} />
-                      <strong>Low-stock alerts available</strong>
+                      <strong>
+                        Low-stock alerts available
+                      </strong>
                       <span>
                         Open alerts to view the affected products.
                       </span>
@@ -185,7 +296,9 @@ export default function Topbar({
 
           <div>
             <strong>{account?.fullName}</strong>
-            <small className="role-text">{account?.role}</small>
+            <small className="role-text">
+              {account?.role}
+            </small>
           </div>
         </div>
       </div>

@@ -1,13 +1,17 @@
 import Product from '../models/Product.js';
 import { writeAudit } from '../utils/audit.js';
+
 import {
   createOrUpdateAlert
 } from '../services/inventory.service.js';
+
 import {
   createOrUpdateExpirationAlert,
   resolveExpirationAlert
 } from '../services/expirationAlert.service.js';
+
 import { generateInternalBarcode } from '../utils/barcode.js';
+import { generateUniqueSku } from '../utils/sku.js';
 
 export async function listProducts(req, res) {
   const {
@@ -21,7 +25,9 @@ export async function listProducts(req, res) {
   const filter =
     includeArchived === 'true'
       ? {}
-      : { isArchived: false };
+      : {
+          isArchived: false
+        };
 
   if (status) {
     filter.status = status;
@@ -47,22 +53,34 @@ export async function listProducts(req, res) {
     );
 
     filter.$or = [
-      { name: searchRegex },
-      { barcode: searchRegex },
-      { sku: searchRegex }
+      {
+        name: searchRegex
+      },
+      {
+        barcode: searchRegex
+      },
+      {
+        sku: searchRegex
+      }
     ];
   }
 
   const products = await Product.find(filter)
     .populate('category supplier', 'name')
-    .sort({ updatedAt: -1 });
+    .sort({
+      updatedAt: -1
+    });
 
   res.json(products);
 }
 
 export async function getProduct(req, res) {
-  const product = await Product.findById(req.params.id)
-    .populate('category supplier', 'name');
+  const product = await Product.findById(
+    req.params.id
+  ).populate(
+    'category supplier',
+    'name'
+  );
 
   if (!product) {
     return res.status(404).json({
@@ -80,7 +98,8 @@ export async function scanProduct(req, res) {
 
   if (!rawCode) {
     return res.status(400).json({
-      message: 'A barcode or QR code is required'
+      message:
+        'A barcode or QR code is required'
     });
   }
 
@@ -88,10 +107,18 @@ export async function scanProduct(req, res) {
 
   const product = await Product.findOne({
     $or: [
-      { barcode: upperCode },
-      { sku: upperCode },
-      { qrCode: rawCode },
-      { qrCode: upperCode }
+      {
+        barcode: upperCode
+      },
+      {
+        sku: upperCode
+      },
+      {
+        qrCode: rawCode
+      },
+      {
+        qrCode: upperCode
+      }
     ]
   }).populate(
     'category supplier',
@@ -107,7 +134,10 @@ export async function scanProduct(req, res) {
   res.json(product);
 }
 
-export async function lookupExternalProduct(req, res) {
+export async function lookupExternalProduct(
+  req,
+  res
+) {
   const barcode = String(
     req.params.barcode || ''
   ).trim();
@@ -225,26 +255,39 @@ export async function lookupExternalProduct(req, res) {
 }
 
 export async function createProduct(req, res) {
-  const requestedBarcode =
-    req.body.barcode?.trim().toUpperCase();
+  const requestedBarcode = String(
+    req.body.barcode || ''
+  )
+    .trim()
+    .toUpperCase();
 
-  const generatedBarcode =
+  const requestedSku = String(
+    req.body.sku || ''
+  )
+    .trim()
+    .toUpperCase();
+
+  const barcode =
     requestedBarcode ||
     await generateInternalBarcode();
 
+  const sku =
+    requestedSku ||
+    await generateUniqueSku();
+
   const data = {
     ...req.body,
-    barcode: generatedBarcode,
-    sku: req.body.sku?.trim().toUpperCase(),
+    barcode,
+    sku,
     qrCode:
-      req.body.qrCode?.trim() ||
-      generatedBarcode,
+      String(req.body.qrCode || '').trim() ||
+      barcode,
     createdBy: req.account._id
   };
 
-  if (!data.name || !data.sku) {
+  if (!data.name?.trim()) {
     return res.status(400).json({
-      message: 'Name and SKU are required'
+      message: 'Product name is required'
     });
   }
 
@@ -259,7 +302,38 @@ export async function createProduct(req, res) {
     });
   }
 
-  const product = await Product.create(data);
+  let product;
+
+  try {
+    product = await Product.create(data);
+  } catch (error) {
+    if (error.code === 11000) {
+      const duplicateField = Object.keys(
+        error.keyPattern || {}
+      )[0];
+
+      if (duplicateField === 'sku') {
+        return res.status(409).json({
+          message:
+            'This SKU already exists. Please try again.'
+        });
+      }
+
+      if (duplicateField === 'barcode') {
+        return res.status(409).json({
+          message:
+            'This barcode already exists.'
+        });
+      }
+
+      return res.status(409).json({
+        message:
+          'A product with this information already exists.'
+      });
+    }
+
+    throw error;
+  }
 
   if (
     Number(product.currentStock) <=
@@ -297,7 +371,11 @@ export async function createProduct(req, res) {
     req,
     account: req.account,
     action: 'product_created',
-    affectedRecord: product._id.toString()
+    affectedRecord: product._id.toString(),
+    metadata: {
+      sku: product.sku,
+      barcode: product.barcode
+    }
   });
 
   req.app.get('io')?.emit(
@@ -332,16 +410,55 @@ export async function updateProduct(req, res) {
     )
   );
 
-  if (updates.barcode) {
-    updates.barcode = updates.barcode
-      .trim()
-      .toUpperCase();
+  if (updates.name !== undefined) {
+    updates.name = String(
+      updates.name
+    ).trim();
   }
 
-  if (updates.sku) {
-    updates.sku = updates.sku
+  if (updates.barcode !== undefined) {
+    const barcode = String(
+      updates.barcode || ''
+    )
       .trim()
       .toUpperCase();
+
+    if (barcode) {
+      updates.barcode = barcode;
+    } else {
+      delete updates.barcode;
+    }
+  }
+
+  if (updates.sku !== undefined) {
+    const sku = String(
+      updates.sku || ''
+    )
+      .trim()
+      .toUpperCase();
+
+    /*
+     * If the edit form sends an empty SKU,
+     * keep the existing SKU instead of replacing
+     * it with an empty value.
+     */
+    if (sku) {
+      updates.sku = sku;
+    } else {
+      delete updates.sku;
+    }
+  }
+
+  if (updates.qrCode !== undefined) {
+    const qrCode = String(
+      updates.qrCode || ''
+    ).trim();
+
+    if (qrCode) {
+      updates.qrCode = qrCode;
+    } else {
+      delete updates.qrCode;
+    }
   }
 
   if (
@@ -364,14 +481,33 @@ export async function updateProduct(req, res) {
     });
   }
 
-  const product = await Product.findByIdAndUpdate(
-    req.params.id,
-    updates,
-    {
-      new: true,
-      runValidators: true
+  let product;
+
+  try {
+    product = await Product.findByIdAndUpdate(
+      req.params.id,
+      updates,
+      {
+        new: true,
+        runValidators: true
+      }
+    );
+  } catch (error) {
+    if (error.code === 11000) {
+      const duplicateField = Object.keys(
+        error.keyPattern || {}
+      )[0];
+
+      return res.status(409).json({
+        message:
+          duplicateField === 'sku'
+            ? 'This SKU already exists.'
+            : 'This barcode already exists.'
+      });
     }
-  );
+
+    throw error;
+  }
 
   if (!product) {
     return res.status(404).json({

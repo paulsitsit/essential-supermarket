@@ -871,3 +871,128 @@ background: #dcfce7;
     padding-right: 14px;
   }
 }
+.product-scan-box {
+  margin-bottom: 24px;
+  padding: 17px;
+  border: 1px solid rgba(22, 101, 52, 0.13);
+  border-radius: 16px;
+  background: rgba(240, 253, 244, 0.68);
+}
+
+.product-scan-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin-bottom: 14px;
+}
+
+.product-scan-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  color: #166534;
+  border-radius: 12px;
+  background: #dcfce7;
+}
+
+.product-scan-heading h3 {
+  margin: 0;
+  color: #285737;
+  font-size: 13px;
+}
+
+.product-scan-heading p {
+  margin: 5px 0 0;
+  color: #789484;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.scan-product-btn {
+  width: 100%;
+}
+
+.product-scanner-wrapper {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.product-scanner-wrapper .scanner-reader {
+  width: 100%;
+  min-height: 280px;
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.product-scanner-wrapper video {
+  display: block;
+  width: 100% !important;
+  max-height: 420px;
+  object-fit: cover;
+}
+
+.scanner-status {
+  padding: 10px 12px;
+  color: #166534;
+  border-radius: 9px;
+  background: #dcfce7;
+  font-size: 11px;
+  text-align: center;
+}
+
+.close-scanner-btn {
+  width: 100%;
+}
+
+.scan-success-message {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 16px;
+  padding: 11px 12px;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  background: #f0fdf4;
+  font-size: 11px;
+}
+
+.scan-success-message span {
+  flex: 1;
+  line-height: 1.5;
+}
+
+.scan-success-message button {
+  display: grid;
+  place-items: center;
+  padding: 3px;
+  color: #4d7c5b;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+@media (max-width: 620px) {
+  .product-scan-box {
+    padding: 14px;
+  }
+
+  .product-scan-heading {
+    gap: 9px;
+  }
+
+  .product-scanner-wrapper .scanner-reader {
+    min-height: 240px;
+  }
+
+  .product-scanner-wrapper video {
+    max-height: 300px;
+  }
+
+  .scan-success-message {
+    align-items: flex-start;
+  }
+}

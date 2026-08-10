@@ -24,7 +24,6 @@ export default function Topbar({
   const { account } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-
   const searchRef = useRef(null);
 
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -33,14 +32,16 @@ export default function Topbar({
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // Close notifications and search suggestions when changing pages
+  // Reset everything when the route changes
   useEffect(() => {
-    setNotificationsOpen(false);
-    setSearchOpen(false);
+    setSearchTerm('');
     setSuggestions([]);
+    setSearchLoading(false);
+    setSearchOpen(false);
+    setNotificationsOpen(false);
   }, [location.pathname, location.search]);
 
-  // Close search suggestions when clicking outside the search box
+  // Close search suggestions when clicking outside the search area
   useEffect(() => {
     function handleOutsideClick(event) {
       if (
@@ -49,6 +50,7 @@ export default function Topbar({
       ) {
         setSearchOpen(false);
         setSuggestions([]);
+        setSearchLoading(false);
       }
     }
 
@@ -102,12 +104,22 @@ export default function Topbar({
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  function closeSearch() {
+    setSearchTerm('');
+    setSuggestions([]);
+    setSearchLoading(false);
+    setSearchOpen(false);
+  }
+
+  function handleMenuClick() {
+    closeSearch();
+    setNotificationsOpen(false);
+    onMenu?.();
+  }
+
   function toggleNotifications() {
     setNotificationsOpen(value => !value);
-
-    // Close search when opening notifications
-    setSearchOpen(false);
-    setSuggestions([]);
+    closeSearch();
   }
 
   function submitSearch(event) {
@@ -115,8 +127,7 @@ export default function Topbar({
 
     const term = searchTerm.trim();
 
-    setSearchOpen(false);
-    setSuggestions([]);
+    closeSearch();
 
     if (!term) {
       navigate('/products');
@@ -132,9 +143,7 @@ export default function Topbar({
       product.productName ||
       '';
 
-    setSearchTerm(productName);
-    setSearchOpen(false);
-    setSuggestions([]);
+    closeSearch();
 
     navigate(
       `/products?search=${encodeURIComponent(productName)}`
@@ -167,7 +176,7 @@ export default function Topbar({
       <button
         type="button"
         className="icon-btn menu-btn"
-        onClick={onMenu}
+        onClick={handleMenuClick}
         aria-label="Open menu"
       >
         <Menu size={23} />
@@ -300,8 +309,7 @@ export default function Topbar({
                       key={alert._id || alert.id || index}
                       onClick={() => {
                         setNotificationsOpen(false);
-                        setSearchOpen(false);
-                        setSuggestions([]);
+                        closeSearch();
                       }}
                     >
                       <div className="notification-icon">
@@ -327,11 +335,9 @@ export default function Topbar({
                   {alertCount > 0 ? (
                     <>
                       <AlertTriangle size={25} />
-
                       <strong>
                         Low-stock alerts available
                       </strong>
-
                       <span>
                         Open alerts to view the affected products.
                       </span>
@@ -339,11 +345,7 @@ export default function Topbar({
                   ) : (
                     <>
                       <CheckCircle2 size={25} />
-
-                      <strong>
-                        All clear
-                      </strong>
-
+                      <strong>All clear</strong>
                       <span>
                         There are no active inventory alerts.
                       </span>
@@ -357,8 +359,7 @@ export default function Topbar({
                 className="notification-footer"
                 onClick={() => {
                   setNotificationsOpen(false);
-                  setSearchOpen(false);
-                  setSuggestions([]);
+                  closeSearch();
                 }}
               >
                 View all alerts
@@ -372,9 +373,7 @@ export default function Topbar({
           <UserCircle size={29} />
 
           <div>
-            <strong>
-              {account?.fullName}
-            </strong>
+            <strong>{account?.fullName}</strong>
 
             <small className="role-text">
               {account?.role}

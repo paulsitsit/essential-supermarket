@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react';
+import {
+  CheckCircle2,
+  ScanLine,
+  Search,
+  X
+} from 'lucide-react';
 
 import client from '../../api/client';
 import { getErrorMessage } from '../../utils/errors';
+import CameraScanner from '../scanner/CameraScanner';
 
 const emptyForm = {
   name: '',
@@ -58,6 +65,34 @@ function getInitialForm(initialProduct) {
   };
 }
 
+function productToForm(product, currentForm) {
+  return {
+    ...currentForm,
+    name: product.name || '',
+    barcode: product.barcode || '',
+    sku: product.sku || '',
+    qrCode: product.qrCode || product.barcode || '',
+    category:
+      product.category?._id ||
+      product.category ||
+      '',
+    supplier:
+      product.supplier?._id ||
+      product.supplier ||
+      '',
+    brand: product.brand || '',
+    description: product.description || '',
+    unitType: product.unitType || 'piece',
+    branch: product.branch || 'Main Branch',
+    currentStock: product.currentStock ?? 0,
+    reorderLevel: product.reorderLevel ?? 10,
+    costPrice: product.costPrice ?? 0,
+    expirationDate: formatDateInput(
+      product.expirationDate
+    )
+  };
+}
+
 export default function ProductForm({
   initialProduct,
   categories = [],
@@ -69,6 +104,10 @@ export default function ProductForm({
   );
 
   const [error, setError] = useState('');
+  const [scanMessage, setScanMessage] = useState('');
+  const [scanError, setScanError] = useState('');
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -91,11 +130,92 @@ export default function ProductForm({
     }));
   }
 
+  async function lookupScannedCode(code) {
+    const cleanCode = String(code || '').trim();
+
+    if (!cleanCode || scanning) {
+      return;
+    }
+
+    setScanning(true);
+    setScanError('');
+    setScanMessage('');
+
+    try {
+      const { data } = await client.get(
+        `/products/scan/${encodeURIComponent(cleanCode)}`
+      );
+
+      const product = data?.product || data;
+
+      if (!product) {
+        throw new Error(
+          'No product information was returned.'
+        );
+      }
+
+      setForm(current =>
+        productToForm(product, {
+          ...current,
+          barcode:
+            product.barcode || cleanCode,
+          qrCode:
+            product.qrCode ||
+            product.barcode ||
+            cleanCode
+        })
+      );
+
+      setScanMessage(
+        'Product found. The form was filled automatically.'
+      );
+
+      setScannerOpen(false);
+    } catch (err) {
+      if (err.response?.status === 404) {
+        setForm(current => ({
+          ...current,
+          barcode: cleanCode,
+          qrCode: current.qrCode || cleanCode
+        }));
+
+        setScanMessage(
+          'This product is not registered yet. The scanned code was added to the form. Complete the remaining fields.'
+        );
+
+        setScannerOpen(false);
+      } else {
+        setScanError(
+          getErrorMessage(
+            err,
+            'Unable to look up the scanned product.'
+          )
+        );
+      }
+    } finally {
+      setScanning(false);
+    }
+  }
+
+  function handleScannerDetected(code) {
+    lookupScannedCode(code);
+  }
+
+  function clearScanMessage() {
+    setScanMessage('');
+    setScanError('');
+  }
+
   async function submit(event) {
     event.preventDefault();
-    setError('');
 
-    if (!form.name.trim() || !form.sku.trim()) {
+    setError('');
+    clearScanMessage();
+
+    if (
+      !form.name.trim() ||
+      !form.sku.trim()
+    ) {
       setError(
         'Product name and SKU are required.'
       );
@@ -118,7 +238,8 @@ export default function ProductForm({
     try {
       const payload = {
         name: form.name.trim(),
-        barcode: form.barcode.trim() || undefined,
+        barcode:
+          form.barcode.trim() || undefined,
         sku: form.sku.trim().toUpperCase(),
         qrCode:
           form.qrCode.trim() ||
@@ -130,9 +251,15 @@ export default function ProductForm({
         description: form.description.trim(),
         unitType: form.unitType,
         branch: form.branch.trim(),
-        currentStock: Number(form.currentStock || 0),
-        reorderLevel: Number(form.reorderLevel || 0),
-        costPrice: Number(form.costPrice || 0),
+        currentStock: Number(
+          form.currentStock || 0
+        ),
+        reorderLevel: Number(
+          form.reorderLevel || 0
+        ),
+        costPrice: Number(
+          form.costPrice || 0
+        ),
         expirationDate:
           form.expirationDate || undefined
       };
@@ -173,6 +300,81 @@ export default function ProductForm({
         </div>
       )}
 
+      {scanMessage && (
+        <div className="scan-success-message">
+          <CheckCircle2 size={17} />
+          <span>{scanMessage}</span>
+
+          <button
+            type="button"
+            onClick={clearScanMessage}
+            aria-label="Close scan message"
+          >
+            <X size={15} />
+          </button>
+        </div>
+      )}
+
+      {scanError && (
+        <div className="form-error">
+          {scanError}
+        </div>
+      )}
+
+      {!initialProduct && (
+        <div className="product-scan-box">
+          <div className="product-scan-heading">
+            <div className="product-scan-icon">
+              <ScanLine size={20} />
+            </div>
+
+            <div>
+              <h3>Scan product code</h3>
+              <p>
+                Scan a QR code or barcode to fill the product information automatically.
+              </p>
+            </div>
+          </div>
+
+          {!scannerOpen ? (
+            <button
+              type="button"
+              className="secondary-btn scan-product-btn"
+              onClick={() => {
+                setScannerOpen(true);
+                setScanError('');
+                setScanMessage('');
+              }}
+            >
+              <ScanLine size={17} />
+              Scan QR or Barcode
+            </button>
+          ) : (
+            <div className="product-scanner-wrapper">
+              <CameraScanner
+                onDetected={handleScannerDetected}
+              />
+
+              {scanning && (
+                <div className="scanner-status">
+                  Searching product information...
+                </div>
+              )}
+
+              <button
+                type="button"
+                className="secondary-btn close-scanner-btn"
+                onClick={() => setScannerOpen(false)}
+                disabled={scanning}
+              >
+                <X size={16} />
+                Close Scanner
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="form-section">
         <h3>Basic information</h3>
 
@@ -210,7 +412,8 @@ export default function ProductForm({
           </label>
 
           <label>
-            Barcode{' '}
+            Barcode
+
             <span className="field-hint">
               Leave blank to generate
             </span>
@@ -405,7 +608,8 @@ export default function ProductForm({
           </label>
 
           <label>
-            Expiration date{' '}
+            Expiration date
+
             <span className="field-hint">
               Optional
             </span>
@@ -475,7 +679,7 @@ export default function ProductForm({
         <button
           type="submit"
           className="primary-btn"
-          disabled={busy}
+          disabled={busy || scanning}
         >
           {busy
             ? 'Saving...'

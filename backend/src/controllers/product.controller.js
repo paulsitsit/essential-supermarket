@@ -66,16 +66,29 @@ export async function getProduct(req, res) {
 }
 
 export async function scanProduct(req, res) {
-  const code = req.params.barcode;
-  const upper = code.toUpperCase();
+  const rawCode = String(
+    req.params.barcode || ''
+  ).trim();
+
+  if (!rawCode) {
+    return res.status(400).json({
+      message: 'A barcode or QR code is required'
+    });
+  }
+
+  const upper = rawCode.toUpperCase();
 
   const product = await Product.findOne({
     $or: [
       { barcode: upper },
       { sku: upper },
-      { qrCode: code }
+      { qrCode: rawCode },
+      { qrCode: upper }
     ]
-  }).populate('category supplier', 'name');
+  }).populate(
+    'category supplier',
+    'name'
+  );
 
   if (!product || product.isArchived) {
     return res.status(404).json({
@@ -141,7 +154,8 @@ export async function createProduct(req, res) {
     await writeAudit({
       req,
       account: req.account,
-      action: 'product_created_with_initial_stock',
+      action:
+        'product_created_with_initial_stock',
       affectedRecord: product._id.toString(),
       metadata: {
         quantity: product.currentStock

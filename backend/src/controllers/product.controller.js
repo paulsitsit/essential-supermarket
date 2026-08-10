@@ -23,9 +23,17 @@ export async function listProducts(req, res) {
       ? {}
       : { isArchived: false };
 
-  if (status) filter.status = status;
-  if (category) filter.category = category;
-  if (supplier) filter.supplier = supplier;
+  if (status) {
+    filter.status = status;
+  }
+
+  if (category) {
+    filter.category = category;
+  }
+
+  if (supplier) {
+    filter.supplier = supplier;
+  }
 
   if (search) {
     const escapedSearch = search.replace(
@@ -76,14 +84,14 @@ export async function scanProduct(req, res) {
     });
   }
 
-  const upper = rawCode.toUpperCase();
+  const upperCode = rawCode.toUpperCase();
 
   const product = await Product.findOne({
     $or: [
-      { barcode: upper },
-      { sku: upper },
+      { barcode: upperCode },
+      { sku: upperCode },
       { qrCode: rawCode },
-      { qrCode: upper }
+      { qrCode: upperCode }
     ]
   }).populate(
     'category supplier',
@@ -92,24 +100,145 @@ export async function scanProduct(req, res) {
 
   if (!product || product.isArchived) {
     return res.status(404).json({
-      message:
-        'Product not found. Only the Admin can register a new product. Please contact the Admin before receiving this product.'
+      message: 'Product not found'
     });
   }
 
   res.json(product);
 }
 
+export async function lookupExternalProduct(req, res) {
+  const barcode = String(
+    req.params.barcode || ''
+  ).trim();
+
+  if (!barcode) {
+    return res.status(400).json({
+      message: 'A barcode is required'
+    });
+  }
+
+  if (!/^\d{8,14}$/.test(barcode)) {
+    return res.status(400).json({
+      message: 'Invalid barcode format'
+    });
+  }
+
+  const fields = [
+    'code',
+    'product_name',
+    'product_name_en',
+    'generic_name',
+    'brands',
+    'categories',
+    'quantity',
+    'ingredients_text',
+    'image_url',
+    'packaging',
+    'countries',
+    'stores'
+  ].join(',');
+
+  const lookupUrl =
+    `https://world.openfoodfacts.org/api/v2/product/${barcode}` +
+    `?fields=${fields}`;
+
+  try {
+    const response = await fetch(lookupUrl, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent':
+          'EssentialSupermarket/1.0'
+      }
+    });
+
+    if (!response.ok) {
+      return res.status(502).json({
+        message:
+          'The external product service is unavailable'
+      });
+    }
+
+    const result = await response.json();
+
+    if (
+      result.status !== 1 ||
+      !result.product
+    ) {
+      return res.status(404).json({
+        message:
+          'Product was not found in Open Food Facts'
+      });
+    }
+
+    const external = result.product;
+
+    res.json({
+      source: 'openfoodfacts',
+      found: true,
+      product: {
+        barcode:
+          external.code || barcode,
+
+        name:
+          external.product_name_en ||
+          external.product_name ||
+          external.generic_name ||
+          '',
+
+        brand:
+          external.brands || '',
+
+        description:
+          external.ingredients_text || '',
+
+        quantity:
+          external.quantity || '',
+
+        categoryText:
+          external.categories || '',
+
+        imageUrl:
+          external.image_url || '',
+
+        packaging:
+          external.packaging || '',
+
+        countries:
+          external.countries || '',
+
+        stores:
+          external.stores || ''
+      }
+    });
+  } catch (error) {
+    console.error(
+      'Open Food Facts lookup failed:',
+      error
+    );
+
+    res.status(502).json({
+      message:
+        'Unable to connect to Open Food Facts'
+    });
+  }
+}
+
 export async function createProduct(req, res) {
+  const requestedBarcode =
+    req.body.barcode?.trim().toUpperCase();
+
   const generatedBarcode =
-    req.body.barcode?.trim().toUpperCase() ||
+    requestedBarcode ||
     await generateInternalBarcode();
 
   const data = {
     ...req.body,
     barcode: generatedBarcode,
     sku: req.body.sku?.trim().toUpperCase(),
-    qrCode: req.body.qrCode || generatedBarcode,
+    qrCode:
+      req.body.qrCode?.trim() ||
+      generatedBarcode,
     createdBy: req.account._id
   };
 
@@ -125,7 +254,8 @@ export async function createProduct(req, res) {
     Number(data.costPrice || 0) < 0
   ) {
     return res.status(400).json({
-      message: 'Inventory values cannot be negative'
+      message:
+        'Inventory values cannot be negative'
     });
   }
 
@@ -219,7 +349,8 @@ export async function updateProduct(req, res) {
     Number(updates.reorderLevel) < 0
   ) {
     return res.status(400).json({
-      message: 'Reorder level cannot be negative'
+      message:
+        'Reorder level cannot be negative'
     });
   }
 
@@ -228,7 +359,8 @@ export async function updateProduct(req, res) {
     Number(updates.costPrice) < 0
   ) {
     return res.status(400).json({
-      message: 'Cost price cannot be negative'
+      message:
+        'Cost price cannot be negative'
     });
   }
 

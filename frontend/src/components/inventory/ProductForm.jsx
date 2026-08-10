@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import {
   CheckCircle2,
   ScanLine,
-  Search,
   X
 } from 'lucide-react';
 
@@ -24,7 +23,8 @@ const emptyForm = {
   currentStock: 0,
   reorderLevel: 10,
   costPrice: 0,
-  expirationDate: ''
+  expirationDate: '',
+  imageUrl: ''
 };
 
 function formatDateInput(value) {
@@ -51,45 +51,148 @@ function getInitialForm(initialProduct) {
   return {
     ...emptyForm,
     ...initialProduct,
+
     category:
       initialProduct.category?._id ||
       initialProduct.category ||
       '',
+
     supplier:
       initialProduct.supplier?._id ||
       initialProduct.supplier ||
       '',
+
     expirationDate: formatDateInput(
       initialProduct.expirationDate
     )
   };
 }
 
-function productToForm(product, currentForm) {
+function getProductId(value) {
+  if (!value) {
+    return '';
+  }
+
+  if (typeof value === 'object') {
+    return value._id || '';
+  }
+
+  return value;
+}
+
+function applyLocalProduct(product, currentForm, code) {
   return {
     ...currentForm,
-    name: product.name || '',
-    barcode: product.barcode || '',
-    sku: product.sku || '',
-    qrCode: product.qrCode || product.barcode || '',
+
+    name:
+      product.name ||
+      currentForm.name,
+
+    barcode:
+      product.barcode ||
+      code,
+
+    sku:
+      product.sku ||
+      currentForm.sku,
+
+    qrCode:
+      product.qrCode ||
+      product.barcode ||
+      code,
+
     category:
-      product.category?._id ||
-      product.category ||
-      '',
+      getProductId(product.category) ||
+      currentForm.category,
+
     supplier:
-      product.supplier?._id ||
-      product.supplier ||
+      getProductId(product.supplier) ||
+      currentForm.supplier,
+
+    brand:
+      product.brand ||
+      currentForm.brand,
+
+    description:
+      product.description ||
+      currentForm.description,
+
+    imageUrl:
+      product.imageUrl ||
+      currentForm.imageUrl ||
       '',
-    brand: product.brand || '',
-    description: product.description || '',
-    unitType: product.unitType || 'piece',
-    branch: product.branch || 'Main Branch',
-    currentStock: product.currentStock ?? 0,
-    reorderLevel: product.reorderLevel ?? 10,
-    costPrice: product.costPrice ?? 0,
-    expirationDate: formatDateInput(
-      product.expirationDate
-    )
+
+    unitType:
+      product.unitType ||
+      currentForm.unitType,
+
+    branch:
+      product.branch ||
+      currentForm.branch,
+
+    currentStock:
+      product.currentStock ??
+      currentForm.currentStock,
+
+    reorderLevel:
+      product.reorderLevel ??
+      currentForm.reorderLevel,
+
+    costPrice:
+      product.costPrice ??
+      currentForm.costPrice,
+
+    expirationDate:
+      formatDateInput(product.expirationDate) ||
+      currentForm.expirationDate
+  };
+}
+
+function applyExternalProduct(
+  product,
+  currentForm,
+  code
+) {
+  return {
+    ...currentForm,
+
+    name:
+      product.name ||
+      currentForm.name,
+
+    barcode:
+      product.barcode ||
+      code,
+
+    qrCode:
+      product.qrCode ||
+      product.barcode ||
+      code,
+
+    brand:
+      product.brand ||
+      currentForm.brand,
+
+    description:
+      product.description ||
+      currentForm.description,
+
+    imageUrl:
+      product.imageUrl ||
+      currentForm.imageUrl ||
+      '',
+
+    /*
+     * These fields belong to your supermarket,
+     * so they remain unchanged.
+     */
+    sku: currentForm.sku,
+    category: currentForm.category,
+    supplier: currentForm.supplier,
+    currentStock: currentForm.currentStock,
+    reorderLevel: currentForm.reorderLevel,
+    costPrice: currentForm.costPrice,
+    expirationDate: currentForm.expirationDate
   };
 }
 
@@ -142,11 +245,39 @@ export default function ProductForm({
     setScanMessage('');
 
     try {
-      const { data } = await client.get(
-        `/products/scan/${encodeURIComponent(cleanCode)}`
-      );
+      let product;
+      let source = 'local';
 
-      const product = data?.product || data;
+      /*
+       * First search your own database.
+       */
+      try {
+        const localResponse = await client.get(
+          `/products/scan/${encodeURIComponent(cleanCode)}`
+        );
+
+        product =
+          localResponse.data?.product ||
+          localResponse.data;
+      } catch (localError) {
+        /*
+         * Only use Open Food Facts when
+         * the local product was not found.
+         */
+        if (localError.response?.status !== 404) {
+          throw localError;
+        }
+
+        const externalResponse = await client.get(
+          `/products/lookup/${encodeURIComponent(cleanCode)}`
+        );
+
+        product =
+          externalResponse.data?.product ||
+          externalResponse.data;
+
+        source = 'openfoodfacts';
+      }
 
       if (!product) {
         throw new Error(
@@ -155,19 +286,23 @@ export default function ProductForm({
       }
 
       setForm(current =>
-        productToForm(product, {
-          ...current,
-          barcode:
-            product.barcode || cleanCode,
-          qrCode:
-            product.qrCode ||
-            product.barcode ||
-            cleanCode
-        })
+        source === 'openfoodfacts'
+          ? applyExternalProduct(
+              product,
+              current,
+              cleanCode
+            )
+          : applyLocalProduct(
+              product,
+              current,
+              cleanCode
+            )
       );
 
       setScanMessage(
-        'Product found. The form was filled automatically.'
+        source === 'openfoodfacts'
+          ? 'Product information was found online. Review the fields before saving.'
+          : 'Registered product found. The form was filled automatically.'
       );
 
       setScannerOpen(false);
@@ -176,11 +311,13 @@ export default function ProductForm({
         setForm(current => ({
           ...current,
           barcode: cleanCode,
-          qrCode: current.qrCode || cleanCode
+          qrCode:
+            current.qrCode ||
+            cleanCode
         }));
 
         setScanMessage(
-          'This product is not registered yet. The scanned code was added to the form. Complete the remaining fields.'
+          'Product was not found online. The scanned code was added to the form. Complete the remaining fields manually.'
         );
 
         setScannerOpen(false);
@@ -188,7 +325,7 @@ export default function ProductForm({
         setScanError(
           getErrorMessage(
             err,
-            'Unable to look up the scanned product.'
+            'Unable to look up this product'
           )
         );
       }
@@ -238,28 +375,50 @@ export default function ProductForm({
     try {
       const payload = {
         name: form.name.trim(),
+
         barcode:
-          form.barcode.trim() || undefined,
-        sku: form.sku.trim().toUpperCase(),
+          form.barcode.trim() ||
+          undefined,
+
+        sku:
+          form.sku.trim().toUpperCase(),
+
         qrCode:
           form.qrCode.trim() ||
           form.barcode.trim() ||
           undefined,
-        category: form.category || undefined,
-        supplier: form.supplier || undefined,
-        brand: form.brand.trim(),
-        description: form.description.trim(),
-        unitType: form.unitType,
-        branch: form.branch.trim(),
-        currentStock: Number(
-          form.currentStock || 0
-        ),
-        reorderLevel: Number(
-          form.reorderLevel || 0
-        ),
-        costPrice: Number(
-          form.costPrice || 0
-        ),
+
+        category:
+          form.category || undefined,
+
+        supplier:
+          form.supplier || undefined,
+
+        brand:
+          form.brand.trim(),
+
+        description:
+          form.description.trim(),
+
+        imageUrl:
+          form.imageUrl?.trim() ||
+          undefined,
+
+        unitType:
+          form.unitType,
+
+        branch:
+          form.branch.trim(),
+
+        currentStock:
+          Number(form.currentStock || 0),
+
+        reorderLevel:
+          Number(form.reorderLevel || 0),
+
+        costPrice:
+          Number(form.costPrice || 0),
+
         expirationDate:
           form.expirationDate || undefined
       };
@@ -303,6 +462,7 @@ export default function ProductForm({
       {scanMessage && (
         <div className="scan-success-message">
           <CheckCircle2 size={17} />
+
           <span>{scanMessage}</span>
 
           <button
@@ -330,8 +490,9 @@ export default function ProductForm({
 
             <div>
               <h3>Scan product code</h3>
+
               <p>
-                Scan a QR code or barcode to fill the product information automatically.
+                Scan a QR code or barcode to search your inventory and Open Food Facts.
               </p>
             </div>
           </div>
@@ -357,7 +518,7 @@ export default function ProductForm({
 
               {scanning && (
                 <div className="scanner-status">
-                  Searching product information...
+                  Searching your inventory and Open Food Facts...
                 </div>
               )}
 
@@ -462,6 +623,21 @@ export default function ProductForm({
           </label>
 
           <label className="span-two">
+            Product image URL
+
+            <input
+              value={form.imageUrl || ''}
+              onChange={event =>
+                change(
+                  'imageUrl',
+                  event.target.value
+                )
+              }
+              placeholder="Automatically filled when available"
+            />
+          </label>
+
+          <label className="span-two">
             Description
 
             <textarea
@@ -473,7 +649,7 @@ export default function ProductForm({
                 )
               }
               rows="3"
-              placeholder="Product description"
+              placeholder="Product description or ingredients"
             />
           </label>
         </div>

@@ -16,23 +16,29 @@ import { useAuth } from '../context/AuthContext';
 
 function sortAlerts(rows) {
   return [...rows].sort((a, b) => {
-    const resolvedOrder =
-      (a.status === 'resolved' ? 1 : 0) -
-      (b.status === 'resolved' ? 1 : 0);
+    const statusRank = {
+      unread: 0,
+      read: 1,
+      resolved: 2
+    };
 
-    if (resolvedOrder !== 0) {
-      return resolvedOrder;
+    const statusDifference =
+      (statusRank[a.status] ?? 3) -
+      (statusRank[b.status] ?? 3);
+
+    if (statusDifference !== 0) {
+      return statusDifference;
     }
 
-    const severityOrder = {
+    const severityRank = {
       critical: 0,
       warning: 1,
       info: 2
     };
 
     const severityDifference =
-      (severityOrder[a.severity] ?? 3) -
-      (severityOrder[b.severity] ?? 3);
+      (severityRank[a.severity] ?? 3) -
+      (severityRank[b.severity] ?? 3);
 
     if (severityDifference !== 0) {
       return severityDifference;
@@ -59,8 +65,8 @@ export default function AlertsPage() {
   const { account } = useAuth();
 
   const {
-    lowStockAlerts,
-    expirationAlerts,
+    lowStockAlerts = [],
+    expirationAlerts = [],
     loading,
     error,
     activeCount,
@@ -70,15 +76,8 @@ export default function AlertsPage() {
     resolve
   } = useLowStockAlerts();
 
-  const [
-    lowStockFilter,
-    setLowStockFilter
-  ] = useState('all');
-
-  const [
-    expirationFilter,
-    setExpirationFilter
-  ] = useState('all');
+  const [lowStockFilter, setLowStockFilter] = useState('all');
+  const [expirationFilter, setExpirationFilter] = useState('all');
 
   const filteredLowStock = useMemo(
     () =>
@@ -98,6 +97,18 @@ export default function AlertsPage() {
     [expirationAlerts, expirationFilter]
   );
 
+  const resolvedCount = [
+    ...lowStockAlerts,
+    ...expirationAlerts
+  ].filter(
+    alert => alert.status === 'resolved'
+  ).length;
+
+  const canResolve = [
+    'admin',
+    'manager'
+  ].includes(account?.role);
+
   async function safeAction(action) {
     try {
       await action();
@@ -109,12 +120,12 @@ export default function AlertsPage() {
     }
   }
 
-  const canResolve = [
-    'admin',
-    'manager'
-  ].includes(account?.role);
-
-  function renderAlertList(rows, emptyTitle, emptyDescription) {
+  function renderAlerts(
+    rows,
+    type,
+    emptyTitle,
+    emptyDescription
+  ) {
     if (loading) {
       return (
         <div className="page-loading">
@@ -137,28 +148,19 @@ export default function AlertsPage() {
         {rows.map(alert => (
           <AlertCard
             key={alert._id}
-            alert={alert}
+            alert={{
+              ...alert,
+              alertType: type
+            }}
             canResolve={canResolve}
             onRead={id =>
               safeAction(() =>
-                markRead(
-                  id,
-                  alert.alertType ||
-                    (alert.expirationDate
-                      ? 'expiration'
-                      : 'low_stock')
-                )
+                markRead(id, type)
               )
             }
             onResolve={id =>
               safeAction(() =>
-                resolve(
-                  id,
-                  alert.alertType ||
-                    (alert.expirationDate
-                      ? 'expiration'
-                      : 'low_stock')
-                )
+                resolve(id, type)
               )
             }
           />
@@ -168,22 +170,24 @@ export default function AlertsPage() {
   }
 
   return (
-    <div>
+    <div className="alerts-page">
       <div className="page-heading">
         <div>
           <p className="eyebrow">
             INVENTORY NOTIFICATIONS
           </p>
 
-          <h1>Alert Center</h1>
+          <h1>
+            Low Stock & Expiration Alerts
+          </h1>
 
           <p>
-            Review low-stock and expiration alerts
-            separately.
+            Review inventory risks and take action quickly.
           </p>
         </div>
 
         <button
+          type="button"
           className="secondary-btn"
           onClick={load}
         >
@@ -207,7 +211,7 @@ export default function AlertsPage() {
           <div>
             <span>Active alerts</span>
             <strong>{activeCount}</strong>
-            <small>Low-stock and expiration alerts</small>
+            <small>Require review</small>
           </div>
         </GlassCard>
 
@@ -230,76 +234,67 @@ export default function AlertsPage() {
 
           <div>
             <span>Resolved alerts</span>
-            <strong>
-              {
-                [...lowStockAlerts, ...expirationAlerts]
-                  .filter(
-                    alert =>
-                      alert.status === 'resolved'
-                  ).length
-              }
-            </strong>
+            <strong>{resolvedCount}</strong>
             <small>Completed reviews</small>
           </div>
         </GlassCard>
       </div>
 
-      <GlassCard className="alerts-container">
-        <div className="section-heading">
-          <div>
-            <h3>
-              <ShieldAlert size={18} />
-              Low-Stock Alerts
-            </h3>
+      <div className="alerts-stack">
+        <GlassCard className="alerts-container">
+          <div className="section-heading">
+            <div>
+              <h3>
+                <ShieldAlert size={18} />
+                Low Stock Alerts
+              </h3>
 
-            <p>
-              Products at or below their reorder level.
-            </p>
+              <p>
+                Products at or below their reorder level.
+              </p>
+            </div>
+
+            <AlertFilters
+              value={lowStockFilter}
+              onChange={setLowStockFilter}
+            />
           </div>
 
-          <AlertFilters
-            value={lowStockFilter}
-            onChange={setLowStockFilter}
-          />
-        </div>
+          {renderAlerts(
+            filteredLowStock,
+            'low_stock',
+            'No low-stock alerts',
+            'Products requiring replenishment will appear here.'
+          )}
+        </GlassCard>
 
-        {renderAlertList(
-          filteredLowStock,
-          lowStockFilter === 'all'
-            ? 'No low-stock alerts'
-            : `No ${lowStockFilter} low-stock alerts`,
-          'Products reaching their reorder level will appear here automatically.'
-        )}
-      </GlassCard>
+        <GlassCard className="alerts-container">
+          <div className="section-heading">
+            <div>
+              <h3>
+                <CalendarClock size={18} />
+                Expiration Alerts
+              </h3>
 
-      <GlassCard className="alerts-container">
-        <div className="section-heading">
-          <div>
-            <h3>
-              <CalendarClock size={18} />
-              Expiration Alerts
-            </h3>
+              <p>
+                Products with upcoming or incomplete expiry information.
+              </p>
+            </div>
 
-            <p>
-              Products approaching or passing their
-              expiration date.
-            </p>
+            <AlertFilters
+              value={expirationFilter}
+              onChange={setExpirationFilter}
+            />
           </div>
 
-          <AlertFilters
-            value={expirationFilter}
-            onChange={setExpirationFilter}
-          />
-        </div>
-
-        {renderAlertList(
-          filteredExpiration,
-          expirationFilter === 'all'
-            ? 'No expiration alerts'
-            : `No ${expirationFilter} expiration alerts`,
-          'Products expiring soon will appear here automatically.'
-        )}
-      </GlassCard>
+          {renderAlerts(
+            filteredExpiration,
+            'expiration',
+            'No expiration alerts',
+            'Products requiring expiry-date review will appear here.'
+          )}
+        </GlassCard>
+      </div>
     </div>
   );
 }

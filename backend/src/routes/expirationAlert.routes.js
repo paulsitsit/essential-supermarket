@@ -1,17 +1,22 @@
 import { Router } from 'express';
+
 import { protect } from '../middleware/auth.js';
 import { allowRoles } from '../middleware/roles.js';
+
 import {
   listExpirationAlerts,
   markExpirationRead,
   resolveExpiration
-} from '../controllers/alert.controller.js';
+} from '../controllers/expirationAlert.controller.js';
 
 const router = Router();
 
 router.use(protect);
 
-router.get('/', listExpirationAlerts);
+router.get(
+  '/',
+  listExpirationAlerts
+);
 
 router.put(
   '/:id/read',

@@ -21,6 +21,7 @@ export async function listLowStockAlerts(req, res) {
     .populate('product', productFields)
     .populate('resolvedBy', 'fullName')
     .sort({
+      status: 1,
       severity: -1,
       createdAt: -1
     });
@@ -35,7 +36,8 @@ export async function markLowStockRead(req, res) {
       status: 'read'
     },
     {
-      new: true
+      new: true,
+      runValidators: true
     }
   ).populate('product', productFields);
 
@@ -46,7 +48,7 @@ export async function markLowStockRead(req, res) {
   }
 
   req.app.get('io')?.emit(
-    'notificationCreated',
+    'lowStockAlertUpdated',
     alert
   );
 
@@ -62,9 +64,12 @@ export async function resolveLowStock(req, res) {
       resolvedBy: req.account._id
     },
     {
-      new: true
+      new: true,
+      runValidators: true
     }
-  ).populate('product', productFields);
+  )
+    .populate('product', productFields)
+    .populate('resolvedBy', 'fullName');
 
   if (!alert) {
     return res.status(404).json({
@@ -96,6 +101,7 @@ export async function listExpirationAlerts(req, res) {
     .populate('product', productFields)
     .populate('resolvedBy', 'fullName')
     .sort({
+      status: 1,
       severity: -1,
       expirationDate: 1,
       createdAt: -1
@@ -111,9 +117,12 @@ export async function markExpirationRead(req, res) {
       status: 'read'
     },
     {
-      new: true
+      new: true,
+      runValidators: true
     }
-  ).populate('product', productFields);
+  )
+    .populate('product', productFields)
+    .populate('resolvedBy', 'fullName');
 
   if (!alert) {
     return res.status(404).json({
@@ -138,9 +147,12 @@ export async function resolveExpiration(req, res) {
       resolvedBy: req.account._id
     },
     {
-      new: true
+      new: true,
+      runValidators: true
     }
-  ).populate('product', productFields);
+  )
+    .populate('product', productFields)
+    .populate('resolvedBy', 'fullName');
 
   if (!alert) {
     return res.status(404).json({

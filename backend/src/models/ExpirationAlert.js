@@ -44,10 +44,17 @@ const expirationAlertSchema = new mongoose.Schema(
     resolvedAt: {
       type: Date,
       default: null
+    },
+
+    resolvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Account',
+      default: null
     }
   },
   {
-    timestamps: true
+    timestamps: true,
+    collection: 'expirationAlerts'
   }
 );
 

@@ -1,4 +1,51 @@
-import { CheckCircle2, PackageSearch, RotateCcw } from 'lucide-react';
+import React from 'react';
+import {
+  CheckCircle2,
+  ImageOff,
+  PackageSearch,
+  RotateCcw
+} from 'lucide-react';
+
+function ProductImage({
+  product,
+  className = ''
+}) {
+  const [imageError, setImageError] =
+    React.useState(false);
+
+  const imageUrl =
+    product?.imageUrl ||
+    product?.image_url ||
+    '';
+
+  const productName =
+    product?.name ||
+    'Product';
+
+  if (!imageUrl || imageError) {
+    return (
+      <div
+        className={`product-image product-image-fallback ${className}`}
+        aria-label={`${productName} image unavailable`}
+      >
+        <ImageOff size={24} />
+        <span>
+          {productName.charAt(0).toUpperCase() || 'P'}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      className={`product-image ${className}`}
+      src={imageUrl}
+      alt={productName}
+      loading="lazy"
+      onError={() => setImageError(true)}
+    />
+  );
+}
 
 export default function ScannedProductCard({
   product,
@@ -55,12 +102,16 @@ export default function ScannedProductCard({
   return (
     <div className="scan-result">
       <div className="scan-product-heading">
-        <div className="product-avatar large-product-avatar">
-          {product.name?.charAt(0)?.toUpperCase() || 'P'}
-        </div>
+        <ProductImage
+          product={product}
+          className="scan-product-image"
+        />
 
-        <div>
-          <h3>{product.name || 'Product found'}</h3>
+        <div className="scan-product-title">
+          <h3>
+            {product.name || 'Product found'}
+          </h3>
+
           <span>{productCode}</span>
         </div>
       </div>
@@ -68,12 +119,16 @@ export default function ScannedProductCard({
       <div className="scan-details">
         <div>
           <span>Barcode</span>
-          <strong>{product.barcode || 'Not available'}</strong>
+          <strong>
+            {product.barcode || 'Not available'}
+          </strong>
         </div>
 
         <div>
           <span>SKU</span>
-          <strong>{product.sku || 'Not available'}</strong>
+          <strong>
+            {product.sku || 'Not available'}
+          </strong>
         </div>
 
         <div>
@@ -88,12 +143,34 @@ export default function ScannedProductCard({
 
         <div>
           <span>Current stock</span>
-          <strong>{product.currentStock ?? 0}</strong>
+          <strong>
+            {product.currentStock ?? 0}
+          </strong>
         </div>
 
         <div>
           <span>Reorder level</span>
-          <strong>{product.reorderLevel ?? 0}</strong>
+          <strong>
+            {product.reorderLevel ?? 0}
+          </strong>
+        </div>
+
+        <div>
+          <span>Brand</span>
+          <strong>
+            {product.brand || 'Not available'}
+          </strong>
+        </div>
+
+        <div>
+          <span>Expiration date</span>
+          <strong>
+            {product.expirationDate
+              ? new Date(
+                  product.expirationDate
+                ).toLocaleDateString('en-PH')
+              : 'Not recorded'}
+          </strong>
         </div>
       </div>
 
@@ -105,7 +182,9 @@ export default function ScannedProductCard({
             product.status || 'normal'
           }`}
         >
-          {String(product.status || 'normal').replaceAll('_', ' ')}
+          {String(
+            product.status || 'normal'
+          ).replaceAll('_', ' ')}
         </span>
       </div>
 

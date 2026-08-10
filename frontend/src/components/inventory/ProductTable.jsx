@@ -1,14 +1,54 @@
+import React from 'react';
 import {
   Archive,
   Eye,
+  ImageOff,
   PackagePlus,
   Pencil,
   Trash2
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+
 import StatusBadge from '../common/StatusBadge';
 import ProductQrCode from '../common/ProductQrCode.jsx';
 import { peso, dateOnly } from '../../utils/format';
+
+function ProductTableImage({ product }) {
+  const [imageFailed, setImageFailed] =
+    React.useState(false);
+
+  const imageUrl =
+    product.imageUrl ||
+    product.image_url ||
+    '';
+
+  const productName =
+    product.name || 'Product';
+
+  if (!imageUrl || imageFailed) {
+    return (
+      <div
+        className="table-product-image table-product-image-fallback"
+        title={`${productName} image unavailable`}
+      >
+        <ImageOff size={15} />
+        <span>
+          {productName.charAt(0).toUpperCase() || 'P'}
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      className="table-product-image"
+      src={imageUrl}
+      alt={productName}
+      loading="lazy"
+      onError={() => setImageFailed(true)}
+    />
+  );
+}
 
 export default function ProductTable({
   products,
@@ -42,14 +82,18 @@ export default function ProductTable({
             <tr key={product._id}>
               <td>
                 <div className="table-product">
-                  <div className="product-avatar">
-                    {product.name?.charAt(0)}
-                  </div>
+                  <ProductTableImage
+                    product={product}
+                  />
 
-                  <div>
-                    <strong>{product.name}</strong>
+                  <div className="table-product-info">
+                    <strong>
+                      {product.name}
+                    </strong>
+
                     <small>
-                      {product.brand || 'No brand'} · per {product.unitType}
+                      {product.brand || 'No brand'} · per{' '}
+                      {product.unitType || 'piece'}
                     </small>
                   </div>
                 </div>
@@ -59,28 +103,43 @@ export default function ProductTable({
                 <strong className="mono-text">
                   {product.barcode || '—'}
                 </strong>
+
                 <small className="table-subtext">
                   {product.sku || 'No SKU'}
                 </small>
               </td>
 
               <td>
-                {product.category?.name || 'Uncategorized'}
+                {product.category?.name ||
+                  'Uncategorized'}
               </td>
 
               <td>
-                <strong>{product.currentStock}</strong>{' '}
-                <small>{product.unitType}</small>
+                <strong>
+                  {product.currentStock ?? 0}
+                </strong>{' '}
+
+                <small>
+                  {product.unitType || 'piece'}
+                </small>
               </td>
 
-              <td>{product.reorderLevel}</td>
-
-              <td>{peso(product.costPrice)}</td>
-
-              <td>{peso(product.inventoryValue)}</td>
+              <td>
+                {product.reorderLevel ?? 0}
+              </td>
 
               <td>
-                <StatusBadge status={product.status} />
+                {peso(product.costPrice)}
+              </td>
+
+              <td>
+                {peso(product.inventoryValue)}
+              </td>
+
+              <td>
+                <StatusBadge
+                  status={product.status}
+                />
               </td>
 
               <td>
@@ -97,7 +156,9 @@ export default function ProductTable({
                     type="button"
                     className="row-icon"
                     title="View"
-                    onClick={() => onView(product)}
+                    onClick={() =>
+                      onView?.(product)
+                    }
                   >
                     <Eye size={16} />
                   </button>
@@ -106,7 +167,9 @@ export default function ProductTable({
                     type="button"
                     className="row-icon"
                     title="Add stock"
-                    onClick={() => onReceive(product)}
+                    onClick={() =>
+                      onReceive?.(product)
+                    }
                   >
                     <PackagePlus size={16} />
                   </button>
@@ -134,7 +197,9 @@ export default function ProductTable({
                         type="button"
                         className="row-icon warning-icon"
                         title="Archive"
-                        onClick={() => onArchive(product)}
+                        onClick={() =>
+                          onArchive?.(product)
+                        }
                       >
                         <Archive size={16} />
                       </button>
@@ -143,7 +208,9 @@ export default function ProductTable({
                         type="button"
                         className="row-icon danger-icon"
                         title="Delete"
-                        onClick={() => onDelete(product)}
+                        onClick={() =>
+                          onDelete?.(product)
+                        }
                       >
                         <Trash2 size={16} />
                       </button>

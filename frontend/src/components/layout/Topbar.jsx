@@ -32,7 +32,6 @@ export default function Topbar({
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // Reset everything when the route changes
   useEffect(() => {
     setSearchTerm('');
     setSuggestions([]);
@@ -41,7 +40,6 @@ export default function Topbar({
     setNotificationsOpen(false);
   }, [location.pathname, location.search]);
 
-  // Close search suggestions when clicking outside the search area
   useEffect(() => {
     function handleOutsideClick(event) {
       if (
@@ -54,7 +52,10 @@ export default function Topbar({
       }
     }
 
-    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener(
+      'mousedown',
+      handleOutsideClick
+    );
 
     return () => {
       document.removeEventListener(
@@ -64,7 +65,6 @@ export default function Topbar({
     };
   }, []);
 
-  // Search products while typing
   useEffect(() => {
     const term = searchTerm.trim();
 
@@ -94,7 +94,11 @@ export default function Topbar({
 
         setSuggestions(products.slice(0, 6));
       } catch (error) {
-        console.error('Product search failed:', error);
+        console.error(
+          'Product search failed:',
+          error
+        );
+
         setSuggestions([]);
       } finally {
         setSearchLoading(false);
@@ -134,7 +138,9 @@ export default function Topbar({
       return;
     }
 
-    navigate(`/products?search=${encodeURIComponent(term)}`);
+    navigate(
+      `/products?search=${encodeURIComponent(term)}`
+    );
   }
 
   function selectProduct(product) {
@@ -160,6 +166,30 @@ export default function Topbar({
   }
 
   function getAlertMessage(alert) {
+    if (alert.type === 'expiration') {
+      if (alert.message) {
+        return alert.message;
+      }
+
+      if (
+        alert.daysUntilExpiration !== undefined
+      ) {
+        if (alert.daysUntilExpiration <= 0) {
+          return 'Product expires today';
+        }
+
+        return `Product expires in ${
+          alert.daysUntilExpiration
+        } day${
+          alert.daysUntilExpiration === 1
+            ? ''
+            : 's'
+        }`;
+      }
+
+      return 'Product expiration is near';
+    }
+
     if (alert.message) {
       return alert.message;
     }
@@ -228,8 +258,14 @@ export default function Topbar({
                 <button
                   type="button"
                   className="search-suggestion"
-                  key={product._id || product.id || index}
-                  onClick={() => selectProduct(product)}
+                  key={
+                    product._id ||
+                    product.id ||
+                    index
+                  }
+                  onClick={() =>
+                    selectProduct(product)
+                  }
                 >
                   <div>
                     <strong>
@@ -268,7 +304,7 @@ export default function Topbar({
           <button
             type="button"
             className="notification-btn"
-            title="Low-stock alerts"
+            title="Low-stock and expiration alerts"
             aria-label="Open notifications"
             aria-expanded={notificationsOpen}
             onClick={toggleNotifications}
@@ -277,7 +313,9 @@ export default function Topbar({
 
             {alertCount > 0 && (
               <span>
-                {alertCount > 99 ? '99+' : alertCount}
+                {alertCount > 99
+                  ? '99+'
+                  : alertCount}
               </span>
             )}
           </button>
@@ -291,7 +329,9 @@ export default function Topbar({
                   <small>
                     {alertCount
                       ? `${alertCount} alert${
-                          alertCount === 1 ? '' : 's'
+                          alertCount === 1
+                            ? ''
+                            : 's'
                         } need attention`
                       : 'No active alerts'}
                   </small>
@@ -302,52 +342,81 @@ export default function Topbar({
 
               {alerts.length > 0 ? (
                 <div className="notification-list">
-                  {alerts.slice(0, 5).map((alert, index) => (
-                    <Link
-                      to="/alerts"
-                      className="notification-item"
-                      key={alert._id || alert.id || index}
-                      onClick={() => {
-                        setNotificationsOpen(false);
-                        closeSearch();
-                      }}
-                    >
-                      <div className="notification-icon">
-                        <AlertTriangle size={15} />
-                      </div>
+                  {alerts.slice(0, 5).map(
+                    (alert, index) => (
+                      <Link
+                        to="/alerts"
+                        className="notification-item"
+                        key={
+                          alert._id ||
+                          alert.id ||
+                          index
+                        }
+                        onClick={() => {
+                          setNotificationsOpen(
+                            false
+                          );
+                          closeSearch();
+                        }}
+                      >
+                        <div
+                          className={`notification-icon ${
+                            alert.type ===
+                            'expiration'
+                              ? 'expiration-icon'
+                              : ''
+                          }`}
+                        >
+                          <AlertTriangle
+                            size={15}
+                          />
+                        </div>
 
-                      <div className="notification-content">
-                        <strong>
-                          {getAlertName(alert)}
-                        </strong>
+                        <div className="notification-content">
+                          <strong>
+                            {getAlertName(alert)}
+                          </strong>
 
-                        <small>
-                          {getAlertMessage(alert)}
-                        </small>
-                      </div>
+                          <small>
+                            {getAlertMessage(alert)}
+                          </small>
+                        </div>
 
-                      <ArrowRight size={14} />
-                    </Link>
-                  ))}
+                        <ArrowRight size={14} />
+                      </Link>
+                    )
+                  )}
                 </div>
               ) : (
                 <div className="notification-empty">
                   {alertCount > 0 ? (
                     <>
-                      <AlertTriangle size={25} />
+                      <AlertTriangle
+                        size={25}
+                      />
+
                       <strong>
-                        Low-stock alerts available
+                        Alerts available
                       </strong>
+
                       <span>
-                        Open alerts to view the affected products.
+                        Open alerts to view
+                        affected products.
                       </span>
                     </>
                   ) : (
                     <>
-                      <CheckCircle2 size={25} />
-                      <strong>All clear</strong>
+                      <CheckCircle2
+                        size={25}
+                      />
+
+                      <strong>
+                        All clear
+                      </strong>
+
                       <span>
-                        There are no active inventory alerts.
+                        There are no active
+                        inventory alerts.
                       </span>
                     </>
                   )}
@@ -358,7 +427,9 @@ export default function Topbar({
                 to="/alerts"
                 className="notification-footer"
                 onClick={() => {
-                  setNotificationsOpen(false);
+                  setNotificationsOpen(
+                    false
+                  );
                   closeSearch();
                 }}
               >
@@ -373,7 +444,9 @@ export default function Topbar({
           <UserCircle size={29} />
 
           <div>
-            <strong>{account?.fullName}</strong>
+            <strong>
+              {account?.fullName}
+            </strong>
 
             <small className="role-text">
               {account?.role}

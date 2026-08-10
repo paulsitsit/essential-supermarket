@@ -143,7 +143,9 @@ function applyLocalProduct(product, currentForm, code) {
       currentForm.costPrice,
 
     expirationDate:
-      formatDateInput(product.expirationDate) ||
+      formatDateInput(
+        product.expirationDate
+      ) ||
       currentForm.expirationDate
   };
 }
@@ -183,8 +185,8 @@ function applyExternalProduct(
       '',
 
     /*
-     * These fields belong to your supermarket,
-     * so they remain unchanged.
+     * These fields belong to your supermarket
+     * and remain available for manual entry.
      */
     sku: currentForm.sku,
     category: currentForm.category,
@@ -248,9 +250,6 @@ export default function ProductForm({
       let product;
       let source = 'local';
 
-      /*
-       * First search your own database.
-       */
       try {
         const localResponse = await client.get(
           `/products/scan/${encodeURIComponent(cleanCode)}`
@@ -260,10 +259,6 @@ export default function ProductForm({
           localResponse.data?.product ||
           localResponse.data;
       } catch (localError) {
-        /*
-         * Only use Open Food Facts when
-         * the local product was not found.
-         */
         if (localError.response?.status !== 404) {
           throw localError;
         }
@@ -349,12 +344,13 @@ export default function ProductForm({
     setError('');
     clearScanMessage();
 
-    if (
-      !form.name.trim() ||
-      !form.sku.trim()
-    ) {
+    /*
+     * SKU is intentionally not required.
+     * The backend generates it when blank.
+     */
+    if (!form.name.trim()) {
       setError(
-        'Product name and SKU are required.'
+        'Product name is required.'
       );
       return;
     }
@@ -374,14 +370,20 @@ export default function ProductForm({
 
     try {
       const payload = {
-        name: form.name.trim(),
+        name:
+          form.name.trim(),
 
         barcode:
           form.barcode.trim() ||
           undefined,
 
+        /*
+         * Empty SKU becomes undefined.
+         * The backend generates a unique SKU.
+         */
         sku:
-          form.sku.trim().toUpperCase(),
+          form.sku.trim().toUpperCase() ||
+          undefined,
 
         qrCode:
           form.qrCode.trim() ||
@@ -559,8 +561,11 @@ export default function ProductForm({
           <label>
             SKU
 
+            <span className="field-hint">
+              Optional — generated automatically if blank
+            </span>
+
             <input
-              required
               value={form.sku}
               onChange={event =>
                 change(
@@ -568,7 +573,7 @@ export default function ProductForm({
                   event.target.value.toUpperCase()
                 )
               }
-              placeholder="BW-500"
+              placeholder="Leave blank to generate automatically"
             />
           </label>
 

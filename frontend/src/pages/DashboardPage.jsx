@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   ArrowDownToLine,
   Boxes,
+  CalendarClock,
   Package,
   ScanLine,
   TrendingDown
@@ -22,6 +23,7 @@ import {
   XAxis,
   YAxis
 } from 'recharts';
+
 import client from '../api/client';
 import GlassCard from '../components/common/GlassCard';
 import StatusBadge from '../components/common/StatusBadge';
@@ -85,7 +87,7 @@ export default function DashboardPage() {
   if (error) {
     return (
       <div className="page-error">
-        {error}
+        <p>{error}</p>
 
         <button
           type="button"
@@ -106,9 +108,8 @@ export default function DashboardPage() {
     );
   }
 
-  const totals = data.totals;
+  const totals = data.totals || {};
   const currentHour = new Date().getHours();
-
   const greeting = getGreeting(currentHour);
 
   const firstName = account?.fullName
@@ -118,20 +119,22 @@ export default function DashboardPage() {
   const statusData = [
     {
       name: 'Normal',
-      value:
-        totals.products -
-        totals.lowStock -
-        totals.outOfStock,
+      value: Math.max(
+        0,
+        (totals.products || 0) -
+          (totals.lowStock || 0) -
+          (totals.outOfStock || 0)
+      ),
       color: '#16a34a'
     },
     {
       name: 'Low Stock',
-      value: totals.lowStock,
+      value: totals.lowStock || 0,
       color: '#d97706'
     },
     {
       name: 'Out of Stock',
-      value: totals.outOfStock,
+      value: totals.outOfStock || 0,
       color: '#dc2626'
     }
   ].filter(item => item.value > 0);
@@ -151,10 +154,12 @@ export default function DashboardPage() {
     { label: 'Jul', value: 24 }
   ];
 
+  const categoryData = data.categoryData || [];
+
   const cards = [
     {
       label: 'Total Products',
-      value: totals.products,
+      value: totals.products || 0,
       detail: 'Active registered products',
       icon: Package,
       tone: 'green',
@@ -162,7 +167,9 @@ export default function DashboardPage() {
     },
     {
       label: 'Total Stock Quantity',
-      value: totals.totalStockQuantity.toLocaleString(),
+      value: Number(
+        totals.totalStockQuantity || 0
+      ).toLocaleString(),
       detail: 'Units currently available',
       icon: Boxes,
       tone: 'blue',
@@ -178,15 +185,23 @@ export default function DashboardPage() {
     },
     {
       label: 'Low-Stock Products',
-      value: totals.lowStock,
+      value: totals.lowStock || 0,
       detail: 'Need replenishment review',
       icon: AlertTriangle,
       tone: 'amber',
       link: '/alerts'
     },
     {
+      label: 'Expiration Alerts',
+      value: totals.expirationAlerts || 0,
+      detail: 'Products expiring soon',
+      icon: CalendarClock,
+      tone: 'red',
+      link: '/alerts'
+    },
+    {
       label: 'Out-of-Stock',
-      value: totals.outOfStock,
+      value: totals.outOfStock || 0,
       detail: 'Currently unavailable',
       icon: AlertTriangle,
       tone: 'red',
@@ -194,7 +209,7 @@ export default function DashboardPage() {
     },
     {
       label: 'Movements Today',
-      value: totals.movementsToday,
+      value: totals.movementsToday || 0,
       detail: 'Inventory activity recorded',
       icon: ArrowDownToLine,
       tone: 'green',
@@ -253,7 +268,9 @@ export default function DashboardPage() {
               key={card.label}
             >
               <GlassCard className="summary-card">
-                <div className={`summary-icon tone-${card.tone}`}>
+                <div
+                  className={`summary-icon tone-${card.tone}`}
+                >
                   <Icon size={21} />
                 </div>
 
@@ -393,14 +410,14 @@ export default function DashboardPage() {
           >
             <PieChart>
               <Pie
-                data={data.categoryData}
+                data={categoryData}
                 dataKey="quantity"
                 nameKey="_id"
                 innerRadius={65}
                 outerRadius={95}
                 paddingAngle={3}
               >
-                {data.categoryData.map((entry, index) => (
+                {categoryData.map((entry, index) => (
                   <Cell
                     key={entry._id}
                     fill={

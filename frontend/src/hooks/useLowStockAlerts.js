@@ -4,26 +4,44 @@ import {
   useMemo,
   useState
 } from 'react';
+
 import client from '../api/client';
 import { useSocket } from '../context/SocketContext';
 import { getErrorMessage } from '../utils/errors';
 
 const socketEvents = [
   'lowStockAlertCreated',
+  'lowStockAlertUpdated',
   'lowStockAlertResolved',
+  'expirationAlertCreated',
+  'expirationAlertUpdated',
+  'expirationAlertResolved',
   'stockUpdated',
   'productUpdated',
   'notificationCreated'
 ];
 
-function isExpirationAlert(alert) {
-  return alert.type === 'expiration';
+function getRows(data) {
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  return data?.alerts || [];
 }
 
 export default function useLowStockAlerts() {
   const { lastEvent } = useSocket();
 
-  const [alerts, setAlerts] = useState([]);
+  const [
+    lowStockAlerts,
+    setLowStockAlerts
+  ] = useState([]);
+
+  const [
+    expirationAlerts,
+    setExpirationAlerts
+  ] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -31,13 +49,22 @@ export default function useLowStockAlerts() {
     setLoading(true);
 
     try {
-      const { data } = await client.get('/low-stock-alerts');
+      const [
+        lowStockResponse,
+        expirationResponse
+      ] = await Promise.all([
+        client.get('/low-stock-alerts'),
+        client.get('/expiration-alerts')
+      ]);
 
-      const alertList = Array.isArray(data)
-        ? data
-        : data.alerts || [];
+      setLowStockAlerts(
+        getRows(lowStockResponse.data)
+      );
 
-      setAlerts(alertList);
+      setExpirationAlerts(
+        getRows(expirationResponse.data)
+      );
+
       setError('');
     } catch (err) {
       setError(
@@ -64,6 +91,20 @@ export default function useLowStockAlerts() {
     }
   }, [lastEvent, load]);
 
+  const alerts = useMemo(() => {
+    return [
+      ...lowStockAlerts.map(alert => ({
+        ...alert,
+        alertType: 'low_stock'
+      })),
+
+      ...expirationAlerts.map(alert => ({
+        ...alert,
+        alertType: 'expiration'
+      }))
+    ];
+  }, [lowStockAlerts, expirationAlerts]);
+
   const unreadCount = useMemo(() => {
     return alerts.filter(
       alert => alert.status === 'unread'
@@ -76,88 +117,83 @@ export default function useLowStockAlerts() {
     ).length;
   }, [alerts]);
 
-  async function markRead(id) {
-    const alert = alerts.find(
-      item => item._id === id || item.id === id
-    );
+  const expirationUnreadCount = useMemo(() => {
+    return expirationAlerts.filter(
+      alert => alert.status === 'unread'
+    ).length;
+  }, [expirationAlerts]);
 
-    if (!alert) return;
+  const expirationActiveCount = useMemo(() => {
+    return expirationAlerts.filter(
+      alert => alert.status !== 'resolved'
+    ).length;
+  }, [expirationAlerts]);
 
-    // Expiration alerts are generated dynamically
-    // and do not exist in the LowStockAlert collection.
-    if (isExpirationAlert(alert)) {
-      setAlerts(current =>
-        current.map(item =>
-          item._id === id || item.id === id
-            ? { ...item, status: 'read' }
-            : item
-        )
-      );
-
-      return;
-    }
+  async function markRead(id, alertType) {
+    const endpoint =
+      alertType === 'expiration'
+        ? '/expiration-alerts'
+        : '/low-stock-alerts';
 
     await client.put(
-      `/low-stock-alerts/${id}/read`
+      `${endpoint}/${id}/read`
     );
 
-    setAlerts(current =>
-      current.map(item =>
-        item._id === id
-          ? { ...item, status: 'read' }
-          : item
-      )
-    );
+    const updateRows = rows =>
+      rows.map(alert =>
+        alert._id === id
+          ? {
+              ...alert,
+              status: 'read'
+            }
+          : alert
+      );
+
+    if (alertType === 'expiration') {
+      setExpirationAlerts(updateRows);
+    } else {
+      setLowStockAlerts(updateRows);
+    }
   }
 
-  async function resolve(id) {
-    const alert = alerts.find(
-      item => item._id === id || item.id === id
-    );
-
-    if (!alert) return;
-
-    // Expiration alerts are dynamic and cannot be
-    // resolved in the LowStockAlert database.
-    if (isExpirationAlert(alert)) {
-      setAlerts(current =>
-        current.map(item =>
-          item._id === id || item.id === id
-            ? {
-                ...item,
-                status: 'resolved',
-                resolvedAt: new Date().toISOString()
-              }
-            : item
-        )
-      );
-
-      return;
-    }
+  async function resolve(id, alertType) {
+    const endpoint =
+      alertType === 'expiration'
+        ? '/expiration-alerts'
+        : '/low-stock-alerts';
 
     await client.put(
-      `/low-stock-alerts/${id}/resolve`
+      `${endpoint}/${id}/resolve`
     );
 
-    setAlerts(current =>
-      current.map(item =>
-        item._id === id
+    const updateRows = rows =>
+      rows.map(alert =>
+        alert._id === id
           ? {
-              ...item,
+              ...alert,
               status: 'resolved',
               resolvedAt: new Date().toISOString()
             }
-          : item
-      )
-    );
+          : alert
+      );
+
+    if (alertType === 'expiration') {
+      setExpirationAlerts(updateRows);
+    } else {
+      setLowStockAlerts(updateRows);
+    }
   }
 
   return {
     alerts,
+    lowStockAlerts,
+    expirationAlerts,
     loading,
     error,
     unreadCount,
     activeCount,
+    expirationUnreadCount,
+    expirationActiveCount,
     load,
     markRead,
     resolve

@@ -2,26 +2,26 @@ import { Router } from 'express';
 import { protect } from '../middleware/auth.js';
 import { allowRoles } from '../middleware/roles.js';
 import {
-  listLowStockAlerts,
-  markLowStockRead,
-  resolveLowStock
+  listExpirationAlerts,
+  markExpirationRead,
+  resolveExpiration
 } from '../controllers/alert.controller.js';
 
 const router = Router();
 
 router.use(protect);
 
-router.get('/', listLowStockAlerts);
+router.get('/', listExpirationAlerts);
 
 router.put(
   '/:id/read',
-  markLowStockRead
+  markExpirationRead
 );
 
 router.put(
   '/:id/resolve',
   allowRoles('admin', 'manager'),
-  resolveLowStock
+  resolveExpiration
 );
 
 export default router;

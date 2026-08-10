@@ -1,92 +1,47 @@
 import LowStockAlert from '../models/LowStockAlert.js';
-import Product from '../models/Product.js';
+import ExpirationAlert from '../models/ExpirationAlert.js';
 import { writeAudit } from '../utils/audit.js';
 
-export async function listAlerts(req, res) {
+const productFields = [
+  'name',
+  'barcode',
+  'sku',
+  'currentStock',
+  'reorderLevel',
+  'status',
+  'expirationDate'
+].join(' ');
+
+export async function listLowStockAlerts(req, res) {
   const filter = req.query.status
     ? { status: req.query.status }
     : {};
 
-  const lowStockAlerts = await LowStockAlert.find(filter)
-    .populate(
-      'product',
-      'name barcode sku currentStock reorderLevel status expirationDate'
-    )
+  const alerts = await LowStockAlert.find(filter)
+    .populate('product', productFields)
     .populate('resolvedBy', 'fullName')
     .sort({
       severity: -1,
       createdAt: -1
-    })
-    .lean();
+    });
 
-  const now = new Date();
-
-  const fourteenDaysFromNow = new Date(
-    now.getTime() + 14 * 24 * 60 * 60 * 1000
-  );
-
-  const expiringProducts = await Product.find({
-    expirationDate: {
-      $gte: now,
-      $lte: fourteenDaysFromNow
-    },
-    isArchived: false
-  })
-    .select(
-      'name barcode sku currentStock reorderLevel status expirationDate'
-    )
-    .sort({ expirationDate: 1 })
-    .lean();
-
-  const expirationAlerts = expiringProducts.map(product => {
-    const expirationDate = new Date(product.expirationDate);
-
-    const daysUntilExpiration = Math.ceil(
-      (expirationDate.getTime() - now.getTime()) /
-        (1000 * 60 * 60 * 24)
-    );
-
-    const message =
-      daysUntilExpiration <= 0
-        ? 'Product expires today'
-        : `Product expires in ${daysUntilExpiration} day${
-            daysUntilExpiration === 1 ? '' : 's'
-          }`;
-
-    return {
-      _id: `expiration-${product._id}`,
-      id: `expiration-${product._id}`,
-      type: 'expiration',
-      status: 'unread',
-      severity: 'high',
-      message,
-      daysUntilExpiration,
-      expirationDate: product.expirationDate,
-      product
-    };
-  });
-
-  const allAlerts = [
-    ...expirationAlerts,
-    ...lowStockAlerts
-  ];
-
-  res.json(allAlerts);
+  res.json(alerts);
 }
 
-export async function markRead(req, res) {
+export async function markLowStockRead(req, res) {
   const alert = await LowStockAlert.findByIdAndUpdate(
     req.params.id,
-    { status: 'read' },
-    { new: true }
-  ).populate(
-    'product',
-    'name barcode sku'
-  );
+    {
+      status: 'read'
+    },
+    {
+      new: true
+    }
+  ).populate('product', productFields);
 
   if (!alert) {
     return res.status(404).json({
-      message: 'Alert not found'
+      message: 'Low-stock alert not found'
     });
   }
 
@@ -98,7 +53,7 @@ export async function markRead(req, res) {
   res.json(alert);
 }
 
-export async function resolve(req, res) {
+export async function resolveLowStock(req, res) {
   const alert = await LowStockAlert.findByIdAndUpdate(
     req.params.id,
     {
@@ -106,15 +61,14 @@ export async function resolve(req, res) {
       resolvedAt: new Date(),
       resolvedBy: req.account._id
     },
-    { new: true }
-  ).populate(
-    'product',
-    'name barcode sku'
-  );
+    {
+      new: true
+    }
+  ).populate('product', productFields);
 
   if (!alert) {
     return res.status(404).json({
-      message: 'Alert not found'
+      message: 'Low-stock alert not found'
     });
   }
 
@@ -127,6 +81,82 @@ export async function resolve(req, res) {
 
   req.app.get('io')?.emit(
     'lowStockAlertResolved',
+    alert
+  );
+
+  res.json(alert);
+}
+
+export async function listExpirationAlerts(req, res) {
+  const filter = req.query.status
+    ? { status: req.query.status }
+    : {};
+
+  const alerts = await ExpirationAlert.find(filter)
+    .populate('product', productFields)
+    .populate('resolvedBy', 'fullName')
+    .sort({
+      severity: -1,
+      expirationDate: 1,
+      createdAt: -1
+    });
+
+  res.json(alerts);
+}
+
+export async function markExpirationRead(req, res) {
+  const alert = await ExpirationAlert.findByIdAndUpdate(
+    req.params.id,
+    {
+      status: 'read'
+    },
+    {
+      new: true
+    }
+  ).populate('product', productFields);
+
+  if (!alert) {
+    return res.status(404).json({
+      message: 'Expiration alert not found'
+    });
+  }
+
+  req.app.get('io')?.emit(
+    'expirationAlertRead',
+    alert
+  );
+
+  res.json(alert);
+}
+
+export async function resolveExpiration(req, res) {
+  const alert = await ExpirationAlert.findByIdAndUpdate(
+    req.params.id,
+    {
+      status: 'resolved',
+      resolvedAt: new Date(),
+      resolvedBy: req.account._id
+    },
+    {
+      new: true
+    }
+  ).populate('product', productFields);
+
+  if (!alert) {
+    return res.status(404).json({
+      message: 'Expiration alert not found'
+    });
+  }
+
+  await writeAudit({
+    req,
+    account: req.account,
+    action: 'expiration_alert_resolved',
+    affectedRecord: alert._id.toString()
+  });
+
+  req.app.get('io')?.emit(
+    'expirationAlertResolved',
     alert
   );
 

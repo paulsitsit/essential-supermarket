@@ -1,22 +1,47 @@
 import Product from '../models/Product.js';
 import { writeAudit } from '../utils/audit.js';
-import { createOrUpdateAlert } from '../services/inventory.service.js';
+import {
+  createOrUpdateAlert
+} from '../services/inventory.service.js';
+import {
+  createOrUpdateExpirationAlert,
+  resolveExpirationAlert
+} from '../services/expirationAlert.service.js';
 import { generateInternalBarcode } from '../utils/barcode.js';
 
 export async function listProducts(req, res) {
-  const { search, status, category, supplier, includeArchived = 'false' } = req.query;
+  const {
+    search,
+    status,
+    category,
+    supplier,
+    includeArchived = 'false'
+  } = req.query;
 
-  const filter = includeArchived === 'true' ? {} : { isArchived: false };
+  const filter =
+    includeArchived === 'true'
+      ? {}
+      : { isArchived: false };
 
   if (status) filter.status = status;
   if (category) filter.category = category;
   if (supplier) filter.supplier = supplier;
 
   if (search) {
+    const escapedSearch = search.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      '\\$&'
+    );
+
+    const searchRegex = new RegExp(
+      escapedSearch,
+      'i'
+    );
+
     filter.$or = [
-      { name: new RegExp(search, 'i') },
-      { barcode: new RegExp(search, 'i') },
-      { sku: new RegExp(search, 'i') }
+      { name: searchRegex },
+      { barcode: searchRegex },
+      { sku: searchRegex }
     ];
   }
 
@@ -32,7 +57,9 @@ export async function getProduct(req, res) {
     .populate('category supplier', 'name');
 
   if (!product) {
-    return res.status(404).json({ message: 'Product not found' });
+    return res.status(404).json({
+      message: 'Product not found'
+    });
   }
 
   res.json(product);
@@ -61,33 +88,40 @@ export async function scanProduct(req, res) {
 }
 
 export async function createProduct(req, res) {
+  const generatedBarcode =
+    req.body.barcode?.trim().toUpperCase() ||
+    await generateInternalBarcode();
+
   const data = {
     ...req.body,
-    barcode:
-      req.body.barcode?.trim().toUpperCase() ||
-      (await generateInternalBarcode()),
+    barcode: generatedBarcode,
     sku: req.body.sku?.trim().toUpperCase(),
-    qrCode: req.body.qrCode || req.body.barcode,
+    qrCode: req.body.qrCode || generatedBarcode,
     createdBy: req.account._id
   };
 
   if (!data.name || !data.sku) {
-    return res.status(400).json({ message: 'Name and SKU are required' });
+    return res.status(400).json({
+      message: 'Name and SKU are required'
+    });
   }
 
   if (
-    Number(data.currentStock) < 0 ||
-    Number(data.reorderLevel) < 0 ||
-    Number(data.costPrice) < 0
+    Number(data.currentStock || 0) < 0 ||
+    Number(data.reorderLevel || 0) < 0 ||
+    Number(data.costPrice || 0) < 0
   ) {
-    return res
-      .status(400)
-      .json({ message: 'Inventory values cannot be negative' });
+    return res.status(400).json({
+      message: 'Inventory values cannot be negative'
+    });
   }
 
   const product = await Product.create(data);
 
-  if (product.currentStock <= product.reorderLevel) {
+  if (
+    Number(product.currentStock) <=
+    Number(product.reorderLevel)
+  ) {
     await createOrUpdateAlert(
       product,
       req.account,
@@ -96,13 +130,22 @@ export async function createProduct(req, res) {
     );
   }
 
+  await createOrUpdateExpirationAlert(
+    product,
+    req.account,
+    req,
+    req.app.get('io')
+  );
+
   if (product.currentStock > 0) {
     await writeAudit({
       req,
       account: req.account,
       action: 'product_created_with_initial_stock',
       affectedRecord: product._id.toString(),
-      metadata: { quantity: product.currentStock }
+      metadata: {
+        quantity: product.currentStock
+      }
     });
   }
 
@@ -113,7 +156,10 @@ export async function createProduct(req, res) {
     affectedRecord: product._id.toString()
   });
 
-  req.app.get('io')?.emit('productUpdated', product);
+  req.app.get('io')?.emit(
+    'productUpdated',
+    product
+  );
 
   res.status(201).json(product);
 }
@@ -137,27 +183,77 @@ export async function updateProduct(req, res) {
   ];
 
   const updates = Object.fromEntries(
-    Object.entries(req.body).filter(([key]) => allowed.includes(key))
+    Object.entries(req.body).filter(([key]) =>
+      allowed.includes(key)
+    )
   );
+
+  if (updates.barcode) {
+    updates.barcode = updates.barcode
+      .trim()
+      .toUpperCase();
+  }
+
+  if (updates.sku) {
+    updates.sku = updates.sku
+      .trim()
+      .toUpperCase();
+  }
+
+  if (
+    updates.reorderLevel !== undefined &&
+    Number(updates.reorderLevel) < 0
+  ) {
+    return res.status(400).json({
+      message: 'Reorder level cannot be negative'
+    });
+  }
+
+  if (
+    updates.costPrice !== undefined &&
+    Number(updates.costPrice) < 0
+  ) {
+    return res.status(400).json({
+      message: 'Cost price cannot be negative'
+    });
+  }
 
   const product = await Product.findByIdAndUpdate(
     req.params.id,
     updates,
-    { new: true, runValidators: true }
+    {
+      new: true,
+      runValidators: true
+    }
   );
 
   if (!product) {
-    return res.status(404).json({ message: 'Product not found' });
+    return res.status(404).json({
+      message: 'Product not found'
+    });
   }
+
+  await createOrUpdateExpirationAlert(
+    product,
+    req.account,
+    req,
+    req.app.get('io')
+  );
 
   await writeAudit({
     req,
     account: req.account,
     action: 'product_updated',
-    affectedRecord: product._id.toString()
+    affectedRecord: product._id.toString(),
+    metadata: {
+      changedFields: Object.keys(updates)
+    }
   });
 
-  req.app.get('io')?.emit('productUpdated', product);
+  req.app.get('io')?.emit(
+    'productUpdated',
+    product
+  );
 
   res.json(product);
 }
@@ -165,13 +261,26 @@ export async function updateProduct(req, res) {
 export async function archiveProduct(req, res) {
   const product = await Product.findByIdAndUpdate(
     req.params.id,
-    { isArchived: true },
-    { new: true }
+    {
+      isArchived: true
+    },
+    {
+      new: true
+    }
   );
 
   if (!product) {
-    return res.status(404).json({ message: 'Product not found' });
+    return res.status(404).json({
+      message: 'Product not found'
+    });
   }
+
+  await resolveExpirationAlert(
+    product._id,
+    req.account,
+    req,
+    req.app.get('io')
+  );
 
   await writeAudit({
     req,
@@ -180,15 +289,38 @@ export async function archiveProduct(req, res) {
     affectedRecord: product._id.toString()
   });
 
-  res.json({ message: 'Product archived' });
+  req.app.get('io')?.emit(
+    'productUpdated',
+    product
+  );
+
+  res.json({
+    message: 'Product archived',
+    product
+  });
 }
 
 export async function deleteProduct(req, res) {
-  const product = await Product.findByIdAndDelete(req.params.id);
+  const product = await Product.findById(
+    req.params.id
+  );
 
   if (!product) {
-    return res.status(404).json({ message: 'Product not found' });
+    return res.status(404).json({
+      message: 'Product not found'
+    });
   }
+
+  await resolveExpirationAlert(
+    product._id,
+    req.account,
+    req,
+    req.app.get('io')
+  );
+
+  await Product.findByIdAndDelete(
+    req.params.id
+  );
 
   await writeAudit({
     req,
@@ -197,5 +329,15 @@ export async function deleteProduct(req, res) {
     affectedRecord: req.params.id
   });
 
-  res.json({ message: 'Product deleted' });
+  req.app.get('io')?.emit(
+    'productUpdated',
+    {
+      _id: product._id,
+      deleted: true
+    }
+  );
+
+  res.json({
+    message: 'Product deleted'
+  });
 }

@@ -298,15 +298,15 @@ a { color: inherit; text-decoration: none; }
 }
 
 .notification-footer:hover {
-  background: #dcfce7;
+background: #dcfce7;
 }
 
 @media (max-width: 520px) {
-  .notification-dropdown {
-    position: fixed;
-    top: 66px;
-    right: 15px;
-    width: calc(100vw - 30px);
+.notification-dropdown {
+  position: fixed;
+  top: 66px;
+  right: 15px;
+  width: calc(100vw - 30px);
   }
 }
 .topbar {
@@ -321,13 +321,19 @@ a { color: inherit; text-decoration: none; }
 
 .notification-wrapper {
   position: static;
-}
+  }
 
 .notification-dropdown {
   position: fixed;
+  top: 72px;
   left: 8px;
   right: 8px;
   width: auto;
+  max-width: none;
+  max-height: calc(100dvh - 88px);
+  overflow-y: auto;
+  z-index: 9999;
+  border-radius: 18px;
 }
 .stock-price-section {
   margin-top: 18px;

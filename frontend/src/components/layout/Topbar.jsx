@@ -8,7 +8,7 @@ import {
   AlertTriangle,
   ArrowRight
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 export default function Topbar({
@@ -17,10 +17,26 @@ export default function Topbar({
   alerts = []
 }) {
   const { account } = useAuth();
+  const navigate = useNavigate();
+
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   function toggleNotifications() {
     setNotificationsOpen(value => !value);
+  }
+
+  function submitSearch(event) {
+    event.preventDefault();
+
+    const term = searchTerm.trim();
+
+    if (!term) {
+      navigate('/products');
+      return;
+    }
+
+    navigate(`/products?search=${encodeURIComponent(term)}`);
   }
 
   function getAlertName(alert) {
@@ -55,10 +71,21 @@ export default function Topbar({
         <Menu size={23} />
       </button>
 
-      <div className="global-search">
-        <Search size={18} />
-        <input placeholder="Search products, SKU, or barcode..." />
-      </div>
+      <form
+        className="global-search"
+        onSubmit={submitSearch}
+        role="search"
+      >
+        <Search size={18} aria-hidden="true" />
+
+        <input
+          type="search"
+          value={searchTerm}
+          onChange={event => setSearchTerm(event.target.value)}
+          placeholder="Search products, SKU, or barcode..."
+          aria-label="Search products, SKU, or barcode"
+        />
+      </form>
 
       <div className="topbar-actions">
         <div className="notification-wrapper">
@@ -71,8 +98,11 @@ export default function Topbar({
             onClick={toggleNotifications}
           >
             <Bell size={21} />
+
             {alertCount > 0 && (
-              <span>{alertCount > 99 ? '99+' : alertCount}</span>
+              <span>
+                {alertCount > 99 ? '99+' : alertCount}
+              </span>
             )}
           </button>
 
@@ -81,12 +111,16 @@ export default function Topbar({
               <div className="notification-header">
                 <div>
                   <strong>Notifications</strong>
+
                   <small>
                     {alertCount
-                      ? `${alertCount} alert${alertCount === 1 ? '' : 's'} need attention`
+                      ? `${alertCount} alert${
+                          alertCount === 1 ? '' : 's'
+                        } need attention`
                       : 'No active alerts'}
                   </small>
                 </div>
+
                 <Bell size={17} />
               </div>
 
@@ -118,13 +152,17 @@ export default function Topbar({
                     <>
                       <AlertTriangle size={25} />
                       <strong>Low-stock alerts available</strong>
-                      <span>Open alerts to view the affected products.</span>
+                      <span>
+                        Open alerts to view the affected products.
+                      </span>
                     </>
                   ) : (
                     <>
                       <CheckCircle2 size={25} />
                       <strong>All clear</strong>
-                      <span>There are no active inventory alerts.</span>
+                      <span>
+                        There are no active inventory alerts.
+                      </span>
                     </>
                   )}
                 </div>
@@ -144,6 +182,7 @@ export default function Topbar({
 
         <div className="topbar-account">
           <UserCircle size={29} />
+
           <div>
             <strong>{account?.fullName}</strong>
             <small className="role-text">{account?.role}</small>

@@ -184,10 +184,6 @@ function applyExternalProduct(
       currentForm.imageUrl ||
       '',
 
-    /*
-     * These fields belong to your supermarket
-     * and remain available for manual entry.
-     */
     sku: currentForm.sku,
     category: currentForm.category,
     supplier: currentForm.supplier,
@@ -214,6 +210,9 @@ export default function ProductForm({
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const [recognizing, setRecognizing] = useState(false);
+  const [recognitionError, setRecognitionError] = useState('');
 
   useEffect(() => {
     setForm(getInitialForm(initialProduct));
@@ -329,6 +328,56 @@ export default function ProductForm({
     }
   }
 
+  async function recognizeFromPhoto(file) {
+    setRecognizing(true);
+    setRecognitionError('');
+    clearScanMessage();
+
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const res = await client.post('/products/recognize', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      const { product, detectedBarcode, labels, source } = res.data;
+
+      if (source === 'db' || source === 'openfoodfacts') {
+        setForm(current =>
+          source === 'openfoodfacts'
+            ? applyExternalProduct(product, current, detectedBarcode || current.barcode)
+            : applyLocalProduct(product, current, detectedBarcode || current.barcode)
+        );
+
+        setScanMessage(
+          source === 'openfoodfacts'
+            ? 'Product information was found online from the photo. Review the fields before saving.'
+            : 'Registered product found from the photo. The form was filled automatically.'
+        );
+      } else {
+        const suggestedName = labels.slice(0, 3).join(', ');
+        setForm(current => ({
+          ...current,
+          name: suggestedName || current.name,
+          barcode: detectedBarcode || current.barcode
+        }));
+
+        setScanMessage(
+          'No exact product found. AI suggestions were added to the form. Please review and correct before saving.'
+        );
+      }
+    } catch (err) {
+      setRecognitionError(
+        getErrorMessage(err, 'Failed to recognize product from photo')
+      );
+    } finally {
+      setRecognizing(false);
+    }
+  }
+
   function handleScannerDetected(code) {
     lookupScannedCode(code);
   }
@@ -344,10 +393,6 @@ export default function ProductForm({
     setError('');
     clearScanMessage();
 
-    /*
-     * SKU is intentionally not required.
-     * The backend generates it when blank.
-     */
     if (!form.name.trim()) {
       setError(
         'Product name is required.'
@@ -377,10 +422,6 @@ export default function ProductForm({
           form.barcode.trim() ||
           undefined,
 
-        /*
-         * Empty SKU becomes undefined.
-         * The backend generates a unique SKU.
-         */
         sku:
           form.sku.trim().toUpperCase() ||
           undefined,
@@ -535,6 +576,45 @@ export default function ProductForm({
               </button>
             </div>
           )}
+
+          <div style={{ marginTop: 16 }}>
+            <div className="product-scan-heading">
+              <div className="product-scan-icon">
+                <ScanLine size={20} />
+              </div>
+
+              <div>
+                <h3>Picture product (optional)</h3>
+                <p>
+                  Take a photo of the item. We’ll try to read the barcode and suggest product details.
+                </p>
+              </div>
+            </div>
+
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={event => {
+                const file = event.target.files?.[0];
+                if (file) recognizeFromPhoto(file);
+              }}
+              disabled={recognizing || scanning}
+              style={{ marginTop: 8 }}
+            />
+
+            {recognizing && (
+              <div className="scanner-status" style={{ marginTop: 8 }}>
+                Analyzing photo…
+              </div>
+            )}
+
+            {recognitionError && (
+              <div className="form-error" style={{ marginTop: 8 }}>
+                {recognitionError}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

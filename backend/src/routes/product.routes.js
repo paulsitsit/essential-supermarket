@@ -8,7 +8,8 @@ import {
   deleteProduct,
   archiveProduct,
   scanProduct,
-  lookupExternalProduct
+  lookupExternalProduct,
+  recognizeProduct
 } from '../controllers/product.controller.js';
 
 import { protect } from '../middleware/auth.js';
@@ -21,14 +22,15 @@ import {
 
 import { validateRequest } from '../middleware/validation.js';
 
+import multer from 'multer';
+
+const upload = multer({ storage: multer.memoryStorage() });
+
 const router = Router();
 
 router.use(protect);
 
-router.get(
-  '/',
-  listProducts
-);
+router.get('/', listProducts);
 
 router.get(
   '/scan/:barcode',
@@ -40,6 +42,14 @@ router.get(
   '/lookup/:barcode',
   allowRoles('admin', 'manager', 'staff'),
   lookupExternalProduct
+);
+
+// New: recognize product from photo
+router.post(
+  '/recognize',
+  allowRoles('admin', 'manager', 'staff'),
+  upload.single('image'),
+  recognizeProduct
 );
 
 router.get(

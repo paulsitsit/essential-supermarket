@@ -13,6 +13,78 @@ import {
 import { generateInternalBarcode } from '../utils/barcode.js';
 import { generateUniqueSku } from '../utils/sku.js';
 
+import client from '../utils/visionClient.js';
+import multer from 'multer';
+
+const upload = multer({ storage: multer.memoryStorage() });
+
+function extractBarcodeFromText(text) {
+  if (!text) return null;
+  const match = text.match(/\b\d{12,13}\b/);
+  return match ? match[0] : null;
+}
+
+async function fetchOpenFoodFactsProduct(barcode) {
+  const fields = [
+    'code',
+    'product_name',
+    'product_name_en',
+    'generic_name',
+    'brands',
+    'categories',
+    'quantity',
+    'ingredients_text',
+    'image_url',
+    'packaging',
+    'countries',
+    'stores'
+  ].join(',');
+
+  const lookupUrl =
+    `https://world.openfoodfacts.org/api/v2/product/${barcode}` +
+    `?fields=${fields}`;
+
+  const response = await fetch(lookupUrl, {
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': 'EssentialSupermarket/1.0'
+    }
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const result = await response.json();
+
+  if (result.status !== 1 || !result.product) {
+    return null;
+  }
+
+  const external = result.product;
+
+  return {
+    source: 'openfoodfacts',
+    found: true,
+    product: {
+      barcode: external.code || barcode,
+      name:
+        external.product_name_en ||
+        external.product_name ||
+        external.generic_name ||
+        '',
+      brand: external.brands || '',
+      description: external.ingredients_text || '',
+      quantity: external.quantity || '',
+      categoryText: external.categories || '',
+      imageUrl: external.image_url || '',
+      packaging: external.packaging || '',
+      countries: external.countries || '',
+      stores: external.stores || ''
+    }
+  };
+}
+
 export async function listProducts(req, res) {
   const {
     search,
@@ -254,6 +326,70 @@ export async function lookupExternalProduct(
   }
 }
 
+export async function recognizeProduct(req, res) {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        message: 'No image provided'
+      });
+    }
+
+    const imageBuffer = req.file.buffer;
+
+    const [textResult] = await client.textDetection(imageBuffer);
+    const [labelResult] = await client.labelDetection(imageBuffer);
+
+    const detectedTexts = (textResult.textAnnotations || [])
+      .slice(1)
+      .map(a => a.description);
+
+    const fullText = detectedTexts.join(' ');
+
+    const barcode = extractBarcodeFromText(fullText);
+
+    let product = null;
+    let source = 'ai';
+
+    if (barcode) {
+      const existing = await Product.findOne({
+        $or: [
+          { barcode },
+          { sku: barcode },
+          { qrCode: barcode }
+        ]
+      }).populate('category supplier', 'name');
+
+      if (existing && !existing.isArchived) {
+        product = existing.toObject();
+        source = 'db';
+      } else {
+        const off = await fetchOpenFoodFactsProduct(barcode);
+        if (off && off.product) {
+          product = off.product;
+          source = 'openfoodfacts';
+        }
+      }
+    }
+
+    const labels = (labelResult.labelAnnotations || [])
+      .slice(0, 10)
+      .map(l => l.description);
+
+    res.json({
+      source,
+      detectedBarcode: barcode,
+      detectedText: fullText.slice(0, 1000),
+      labels,
+      product: product || null
+    });
+  } catch (error) {
+    console.error('Vision recognition error:', error);
+    res.status(502).json({
+      message: 'Unable to analyze the image'
+    });
+  }
+}
+
 export async function createProduct(req, res) {
   const requestedBarcode = String(
     req.body.barcode || ''
@@ -437,11 +573,6 @@ export async function updateProduct(req, res) {
       .trim()
       .toUpperCase();
 
-    /*
-     * If the edit form sends an empty SKU,
-     * keep the existing SKU instead of replacing
-     * it with an empty value.
-     */
     if (sku) {
       updates.sku = sku;
     } else {

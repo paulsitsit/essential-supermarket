@@ -10,11 +10,12 @@
     "seed:atlas": "node src/seed.js atlas"
   },
   "dependencies": {
+    "@google-cloud/vision": "^5.3.7",
     "bcryptjs": "^2.4.3",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
-    "exceljs": "^4.4.0",
+    "exceljs": "^3.4.0",
     "express": "^4.19.2",
     "express-async-errors": "^3.1.1",
     "express-rate-limit": "^7.5.1",
@@ -26,6 +27,7 @@
     "mongodb": "^7.5.0",
     "mongoose": "^8.24.2",
     "morgan": "^1.10.0",
+    "multer": "^2.2.0",
     "pdfkit": "^0.15.2",
     "socket.io": "^4.7.5"
   },

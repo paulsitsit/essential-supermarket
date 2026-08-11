@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../../context/AuthContext';
+import Logo from '../../assets/logo.png';
 
 const items = [
   {
@@ -101,7 +102,11 @@ export default function Sidebar({ open, onClose }) {
     >
       <div className="sidebar-brand">
         <div className="brand-mark">
-          ES
+          <img
+            src={Logo}
+            alt="Essential Supermarket"
+            className="brand-logo-img"
+          />
         </div>
 
         <div>

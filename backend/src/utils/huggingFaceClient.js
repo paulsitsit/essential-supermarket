@@ -2,11 +2,7 @@
 import fetch from 'node-fetch';
 
 const HF_API_TOKEN = process.env.HUGGING_FACE_API_TOKEN;
-
-// Use a supported model - try these alternatives:
-const HF_MODEL_ID = process.env.HUGGING_FACE_MODEL_ID || 'facebook/detr-resnet-50'; // Object detection
-// OR: 'google/siglip-base-patch16-224' // Image classification (newer than vit-base)
-// OR: 'microsoft/beit-base-patch16-224' // Image classification
+const HF_MODEL_ID = process.env.HUGGING_FACE_MODEL_ID || 'facebook/detr-resnet-50';
 
 if (!HF_API_TOKEN) {
   console.warn(
@@ -14,18 +10,41 @@ if (!HF_API_TOKEN) {
   );
 }
 
+// Helper to detect image MIME type from buffer
+function getImageMimeType(buffer) {
+  // Check JPEG magic numbers
+  if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) {
+    return 'image/jpeg';
+  }
+  // Check PNG magic numbers
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
+    return 'image/png';
+  }
+  // Check GIF
+  if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
+    return 'image/gif';
+  }
+  // Check WebP
+  if (buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) {
+    return 'image/webp';
+  }
+  // Default to JPEG
+  return 'image/jpeg';
+}
+
 export async function classifyImage(imageBuffer) {
   if (!HF_API_TOKEN) {
     throw new Error('Hugging Face API token is not configured');
   }
 
-  const apiUrl = `https://router.huggingface.co/models/${HF_MODEL_ID}`;
+  const apiUrl = `https://router.huggingface.co/hf-inference/models/${HF_MODEL_ID}`;
+  const contentType = getImageMimeType(imageBuffer);
 
   const response = await fetch(apiUrl, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${HF_API_TOKEN}`,
-      'Content-Type': 'application/octet-stream'
+      'Content-Type': contentType
     },
     body: imageBuffer
   });
@@ -39,7 +58,6 @@ export async function classifyImage(imageBuffer) {
 
   const result = await response.json();
 
-  // Handle different result formats based on model type
   if (!Array.isArray(result)) {
     return [];
   }

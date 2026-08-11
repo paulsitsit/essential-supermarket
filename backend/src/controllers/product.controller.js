@@ -15,10 +15,8 @@ import { generateInternalBarcode } from '../utils/barcode.js';
 import { generateUniqueSku } from '../utils/sku.js';
 
 import multer from 'multer';
-import {
-  classifyImage,
-  zeroShotClassifyImage
-} from '../utils/huggingFaceClient.js';
+import { classifyImage } from '../utils/huggingFaceClient.js';
+import { deepinfraZeroShotImage } from '../utils/deepinfraClient.js';
 import { buildProductLabel } from '../utils/productLabels.js';
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -238,9 +236,9 @@ export async function lookupExternalProduct(req, res) {
 }
 
 /**
- * recognizeProduct using zero-shot image classification
+ * recognizeProduct using DeepInfra zero-shot image classification
  * - Returns best matching products from your inventory, not just generic labels.
- * - Uses a Hugging Face zero-shot model to compare the image against product labels.
+ * - Uses a CLIP model to compare the image against product labels.
  */
 export async function recognizeProduct(req, res) {
   try {
@@ -253,7 +251,6 @@ export async function recognizeProduct(req, res) {
     const imageBuffer = req.file.buffer;
 
     // 1. Pull candidate products from DB
-    // Strategy: most recently updated, non-archived products.
     const candidateProducts = await Product.find({ isArchived: false })
       .sort({ updatedAt: -1 })
       .limit(150)
@@ -276,25 +273,25 @@ export async function recognizeProduct(req, res) {
       labelToProduct.set(label, p);
     }
 
-    if (labels.length === 0) {
+    if (labels.length < 2) {
       return res.status(400).json({
-        message: 'No valid product labels to match against'
+        message: 'Not enough product labels to match against'
       });
     }
 
-    // 3. Call Hugging Face zero-shot model
-    const zsResults = await zeroShotClassifyImage(imageBuffer, labels);
+    // 3. Call DeepInfra zero-shot model
+    const zsResults = await deepinfraZeroShotImage(imageBuffer, labels);
 
     if (!zsResults.length) {
       return res.status(200).json({
-        source: 'huggingface-zero-shot',
+        source: 'deepinfra-zero-shot',
         matched: false,
         message: 'No confident match found',
         labels: []
       });
     }
 
-    // 4. Map HF labels back to actual Product docs
+    // 4. Map results back to actual Product docs
     const enriched = zsResults
       .map(r => {
         const product = labelToProduct.get(r.label);
@@ -308,7 +305,7 @@ export async function recognizeProduct(req, res) {
 
     if (!enriched.length) {
       return res.status(200).json({
-        source: 'huggingface-zero-shot',
+        source: 'deepinfra-zero-shot',
         matched: false,
         message: 'No products matched returned labels',
         labels: zsResults
@@ -319,7 +316,7 @@ export async function recognizeProduct(req, res) {
     const candidates = enriched.slice(1, 5); // top 5 alternatives
 
     return res.status(200).json({
-      source: 'huggingface-zero-shot',
+      source: 'deepinfra-zero-shot',
       matched: true,
       bestMatch: {
         ...best.product,
@@ -331,7 +328,7 @@ export async function recognizeProduct(req, res) {
       }))
     });
   } catch (error) {
-    console.error('Hugging Face zero-shot recognition error:', error);
+    console.error('DeepInfra zero-shot recognition error:', error);
     res.status(502).json({
       message: 'Unable to analyze the image',
       error: error.message || 'Unknown error'

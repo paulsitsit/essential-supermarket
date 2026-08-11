@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import {
   CheckCircle2,
   ScanLine,
-  X
+  X,
+  Camera
 } from 'lucide-react';
 
 import client from '../../api/client';
@@ -211,9 +212,10 @@ export default function ProductForm({
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  // NEW: state for AI photo recognition (Hugging Face)
+  // AI photo recognition (Hugging Face)
   const [recognizing, setRecognizing] = useState(false);
   const [recognitionError, setRecognitionError] = useState('');
+  const [selectedPhotoName, setSelectedPhotoName] = useState('');
 
   useEffect(() => {
     setForm(getInitialForm(initialProduct));
@@ -338,11 +340,8 @@ export default function ProductForm({
       const formData = new FormData();
       formData.append('image', file);
 
-      const res = await client.post('/products/recognize', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      // Let axios set correct multipart headers
+      const res = await client.post('/products/recognize', formData);
 
       const { labels, source } = res.data;
 
@@ -357,11 +356,16 @@ export default function ProductForm({
       }));
 
       setScanMessage(
-        source === 'huggingface'
-          ? 'AI suggestions from the photo were added to the Product name. Please review and correct before saving.'
+        source === 'huggingface' ||
+        source === 'huggingface-image-classification'
+          ? 'AI suggestions were added to the form. Please review and correct before saving.'
           : 'AI suggestions were added to the form. Please review and correct before saving.'
       );
     } catch (err) {
+      if (err.code === 'ERR_CANCELED') {
+        return;
+      }
+
       setRecognitionError(
         getErrorMessage(err, 'Failed to recognize product from photo')
       );
@@ -517,96 +521,125 @@ export default function ProductForm({
       )}
 
       {!initialProduct && (
-        <div className="product-scan-box">
-          <div className="product-scan-heading">
-            <div className="product-scan-icon">
-              <ScanLine size={20} />
+        <div className="product-intro-panel">
+          <div className="product-intro-cards">
+            {/* Scan product code card */}
+            <div className="product-intro-card">
+              <div className="product-intro-card-header">
+                <div className="product-intro-icon">
+                  <ScanLine size={20} />
+                </div>
+                <div>
+                  <h3>Scan product code</h3>
+                  <p>
+                    Scan a QR code or barcode to search your inventory and Open Food Facts.
+                  </p>
+                </div>
+              </div>
+
+              {!scannerOpen ? (
+                <button
+                  type="button"
+                  className="scan-product-input"
+                  onClick={() => {
+                    setScannerOpen(true);
+                    setScanError('');
+                    setScanMessage('');
+                  }}
+                >
+                  <ScanLine size={18} />
+                  <span>Scan QR or Barcode</span>
+                </button>
+              ) : (
+                <div className="product-scanner-wrapper">
+                  <CameraScanner
+                    onDetected={handleScannerDetected}
+                  />
+
+                  {scanning && (
+                    <div className="scanner-status">
+                      Searching your inventory and Open Food Facts...
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    className="secondary-btn close-scanner-btn"
+                    onClick={() => setScannerOpen(false)}
+                    disabled={scanning}
+                  >
+                    <X size={16} />
+                    Close Scanner
+                  </button>
+                </div>
+              )}
             </div>
 
-            <div>
-              <h3>Scan product code</h3>
+            {/* Picture product card */}
+            <div className="product-intro-card">
+              <div className="product-intro-card-header">
+                <div className="product-intro-icon">
+                  <Camera size={20} />
+                </div>
+                <div>
+                  <h3>Picture product (optional)</h3>
+                  <p>
+                    Take a photo of the item. AI will suggest labels to help you fill in the Product name.
+                  </p>
+                </div>
+              </div>
 
-              <p>
-                Scan a QR code or barcode to search your inventory and Open Food Facts.
-              </p>
-            </div>
-          </div>
+              <div className="photo-input-row">
+                <label className="photo-choose-btn">
+                  <span>Choose File</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={event => {
+                      const file = event.target.files?.[0];
+                      if (file) {
+                        setSelectedPhotoName(file.name);
+                        recognizeFromPhoto(file);
+                      }
+                    }}
+                    disabled={recognizing || scanning}
+                  />
+                </label>
 
-          {!scannerOpen ? (
-            <button
-              type="button"
-              className="secondary-btn scan-product-btn"
-              onClick={() => {
-                setScannerOpen(true);
-                setScanError('');
-                setScanMessage('');
-              }}
-            >
-              <ScanLine size={17} />
-              Scan QR or Barcode
-            </button>
-          ) : (
-            <div className="product-scanner-wrapper">
-              <CameraScanner
-                onDetected={handleScannerDetected}
-              />
+                <div className="photo-file-name">
+                  {selectedPhotoName || 'No file chosen'}
+                </div>
+              </div>
 
-              {scanning && (
-                <div className="scanner-status">
-                  Searching your inventory and Open Food Facts...
+              {/* Hidden mobile camera capture (uses same recognizer) */}
+              <label className="photo-hidden-camera">
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={event => {
+                    const file = event.target.files?.[0];
+                    if (file) {
+                      setSelectedPhotoName(file.name);
+                      recognizeFromPhoto(file);
+                    }
+                  }}
+                  disabled={recognizing || scanning}
+                />
+              </label>
+
+              {recognizing && (
+                <div className="scanner-status" style={{ marginTop: 8 }}>
+                  Analyzing photo…
                 </div>
               )}
 
-              <button
-                type="button"
-                className="secondary-btn close-scanner-btn"
-                onClick={() => setScannerOpen(false)}
-                disabled={scanning}
-              >
-                <X size={16} />
-                Close Scanner
-              </button>
+              {recognitionError && (
+                <div className="form-error" style={{ marginTop: 8 }}>
+                  {recognitionError}
+                </div>
+              )}
             </div>
-          )}
-
-          {/* NEW: Picture product using Hugging Face */}
-          <div style={{ marginTop: 16 }}>
-            <div className="product-scan-heading">
-              <div className="product-scan-icon">
-                <ScanLine size={20} />
-              </div>
-
-              <div>
-                <h3>Picture product (optional)</h3>
-                <p>
-                  Take a photo of the item. AI will suggest labels to help you fill in the Product name.
-                </p>
-              </div>
-            </div>
-
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={event => {
-                const file = event.target.files?.[0];
-                if (file) recognizeFromPhoto(file);
-              }}
-              disabled={recognizing || scanning}
-              style={{ marginTop: 8 }}
-            />
-
-            {recognizing && (
-              <div className="scanner-status" style={{ marginTop: 8 }}>
-                Analyzing photo…
-              </div>
-            )}
-
-            {recognitionError && (
-              <div className="form-error" style={{ marginTop: 8 }}>
-                {recognitionError}
-              </div>
-            )}
           </div>
         </div>
       )}

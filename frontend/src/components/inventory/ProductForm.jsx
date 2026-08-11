@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   CheckCircle2,
   ScanLine,
-  X,
-  Camera
+  X
 } from 'lucide-react';
 
 import client from '../../api/client';
@@ -215,7 +214,6 @@ export default function ProductForm({
   // AI photo recognition (Hugging Face)
   const [recognizing, setRecognizing] = useState(false);
   const [recognitionError, setRecognitionError] = useState('');
-  const [selectedPhotoName, setSelectedPhotoName] = useState('');
 
   useEffect(() => {
     setForm(getInitialForm(initialProduct));
@@ -340,7 +338,7 @@ export default function ProductForm({
       const formData = new FormData();
       formData.append('image', file);
 
-      // Let axios set correct multipart headers
+      // Let axios set the correct multipart headers
       const res = await client.post('/products/recognize', formData);
 
       const { labels, source } = res.data;
@@ -358,10 +356,11 @@ export default function ProductForm({
       setScanMessage(
         source === 'huggingface' ||
         source === 'huggingface-image-classification'
-          ? 'AI suggestions were added to the form. Please review and correct before saving.'
+          ? 'AI suggestions from the photo were added to the Product name. Please review and correct before saving.'
           : 'AI suggestions were added to the form. Please review and correct before saving.'
       );
     } catch (err) {
+      // Ignore canceled uploads if you later add cancel tokens
       if (err.code === 'ERR_CANCELED') {
         return;
       }
@@ -450,13 +449,13 @@ export default function ProductForm({
           form.branch.trim(),
 
         currentStock:
-          Number(form.currentStock || 0),
+            Number(form.currentStock || 0),
 
         reorderLevel:
-          Number(form.reorderLevel || 0),
+            Number(form.reorderLevel || 0),
 
         costPrice:
-          Number(form.costPrice || 0),
+            Number(form.costPrice || 0),
 
         expirationDate:
           form.expirationDate || undefined
@@ -521,125 +520,117 @@ export default function ProductForm({
       )}
 
       {!initialProduct && (
-        <div className="product-intro-panel">
-          <div className="product-intro-cards">
-            {/* Scan product code card */}
-            <div className="product-intro-card">
-              <div className="product-intro-card-header">
-                <div className="product-intro-icon">
-                  <ScanLine size={20} />
-                </div>
-                <div>
-                  <h3>Scan product code</h3>
-                  <p>
-                    Scan a QR code or barcode to search your inventory and Open Food Facts.
-                  </p>
-                </div>
-              </div>
-
-              {!scannerOpen ? (
-                <button
-                  type="button"
-                  className="scan-product-input"
-                  onClick={() => {
-                    setScannerOpen(true);
-                    setScanError('');
-                    setScanMessage('');
-                  }}
-                >
-                  <ScanLine size={18} />
-                  <span>Scan QR or Barcode</span>
-                </button>
-              ) : (
-                <div className="product-scanner-wrapper">
-                  <CameraScanner
-                    onDetected={handleScannerDetected}
-                  />
-
-                  {scanning && (
-                    <div className="scanner-status">
-                      Searching your inventory and Open Food Facts...
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    className="secondary-btn close-scanner-btn"
-                    onClick={() => setScannerOpen(false)}
-                    disabled={scanning}
-                  >
-                    <X size={16} />
-                    Close Scanner
-                  </button>
-                </div>
-              )}
+        <div className="product-scan-box">
+          <div className="product-scan-heading">
+            <div className="product-scan-icon">
+              <ScanLine size={20} />
             </div>
 
-            {/* Picture product card */}
-            <div className="product-intro-card">
-              <div className="product-intro-card-header">
-                <div className="product-intro-icon">
-                  <Camera size={20} />
+            <div>
+              <h3>Scan product code</h3>
+
+              <p>
+                Scan a QR code or barcode to search your inventory and Open Food Facts.
+              </p>
+            </div>
+          </div>
+
+          {!scannerOpen ? (
+            <button
+              type="button"
+              className="secondary-btn scan-product-btn"
+              onClick={() => {
+                setScannerOpen(true);
+                setScanError('');
+                setScanMessage('');
+              }}
+            >
+              <ScanLine size={17} />
+              Scan QR or Barcode
+            </button>
+          ) : (
+            <div className="product-scanner-wrapper">
+              <CameraScanner
+                onDetected={handleScannerDetected}
+              />
+
+              {scanning && (
+                <div className="scanner-status">
+                  Searching your inventory and Open Food Facts...
                 </div>
-                <div>
-                  <h3>Picture product (optional)</h3>
-                  <p>
-                    Take a photo of the item. AI will suggest labels to help you fill in the Product name.
-                  </p>
-                </div>
+              )}
+
+              <button
+                type="button"
+                className="secondary-btn close-scanner-btn"
+                onClick={() => setScannerOpen(false)}
+                disabled={scanning}
+              >
+                <X size={16} />
+                Close Scanner
+              </button>
+            </div>
+          )}
+
+          {/* Picture product using Hugging Face */}
+          <div style={{ marginTop: 16 }}>
+            <div className="product-scan-heading">
+              <div className="product-scan-icon">
+                <ScanLine size={20} />
               </div>
 
-              <div className="photo-input-row">
-                <label className="photo-choose-btn">
-                  <span>Choose File</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={event => {
-                      const file = event.target.files?.[0];
-                      if (file) {
-                        setSelectedPhotoName(file.name);
-                        recognizeFromPhoto(file);
-                      }
-                    }}
-                    disabled={recognizing || scanning}
-                  />
-                </label>
-
-                <div className="photo-file-name">
-                  {selectedPhotoName || 'No file chosen'}
-                </div>
+              <div>
+                <h3>Picture product (optional)</h3>
+                <p>
+                  Take a photo or choose an existing image. AI will suggest labels to help you fill in the Product name.
+                </p>
               </div>
+            </div>
 
-              {/* Hidden mobile camera capture (uses same recognizer) */}
-              <label className="photo-hidden-camera">
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+              {/* Take photo with camera (mobile will open camera) */}
+              <label className="secondary-btn">
+                Take photo
                 <input
                   type="file"
                   accept="image/*"
                   capture="environment"
                   onChange={event => {
                     const file = event.target.files?.[0];
-                    if (file) {
-                      setSelectedPhotoName(file.name);
-                      recognizeFromPhoto(file);
-                    }
+                    if (file) recognizeFromPhoto(file);
                   }}
                   disabled={recognizing || scanning}
+                  style={{ display: 'none' }}
                 />
               </label>
 
-              {recognizing && (
-                <div className="scanner-status" style={{ marginTop: 8 }}>
-                  Analyzing photo…
-                </div>
-              )}
-
-              {recognitionError && (
-                <div className="form-error" style={{ marginTop: 8 }}>
-                  {recognitionError}
-                </div>
-              )}
+              {/* Choose existing image (gallery / file picker) */}
+              <label className="secondary-btn">
+                Choose from gallery
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={event => {
+                    const file = event.target.files?.[0];
+                    if (file) recognizeFromPhoto(file);
+                  }}
+                  disabled={recognizing || scanning}
+                  style={{ display: 'none' }}
+                />
+              </label>
             </div>
+
+            {recognizing && (
+              <div className="scanner-status" style={{ marginTop: 8 }}>
+                Analyzing photo…
+              </div>
+            )}
+
+            {recognitionError && (
+              <div className="form-error" style={{ marginTop: 8 }}>
+                {recognitionError}
+              </div>
+            )}
           </div>
         </div>
       )}

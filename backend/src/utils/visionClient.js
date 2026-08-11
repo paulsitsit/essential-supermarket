@@ -1,15 +1,22 @@
-// server/utils/visionClient.js
 import vision from '@google-cloud/vision';
 
 let client;
 
+console.log('GOOGLE_APPLICATION_CREDENTIALS_JSON present?', !!process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON);
+
 if (process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON) {
-  const credentials = JSON.parse(
-    process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON
-  );
-  client = new vision.ImageAnnotatorClient({ credentials });
+  try {
+    const credentials = JSON.parse(
+      process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON
+    );
+    console.log('Parsed Google credentials successfully');
+    client = new vision.ImageAnnotatorClient({ credentials });
+  } catch (err) {
+    console.error('Failed to parse GOOGLE_APPLICATION_CREDENTIALS_JSON:', err.message);
+    client = new vision.ImageAnnotatorClient();
+  }
 } else {
-  // Falls back to GOOGLE_APPLICATION_CREDENTIALS env var pointing to a JSON file
+  console.log('No GOOGLE_APPLICATION_CREDENTIALS_JSON, using default credentials');
   client = new vision.ImageAnnotatorClient();
 }
 

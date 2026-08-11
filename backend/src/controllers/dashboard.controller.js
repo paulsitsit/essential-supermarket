@@ -5,7 +5,6 @@ import ExpirationAlert from '../models/ExpirationAlert.js';
 
 export async function summary(req, res) {
   const start = new Date();
-
   start.setHours(0, 0, 0, 0);
 
   const [
@@ -17,7 +16,8 @@ export async function summary(req, res) {
     movementTypes,
     categoryData,
     lowStockAlerts,
-    expirationAlerts
+    expirationAlerts,
+    defectiveProducts
   ] = await Promise.all([
     Product.countDocuments({
       isArchived: false
@@ -137,7 +137,16 @@ export async function summary(req, res) {
       status: {
         $ne: 'resolved'
       }
-    })
+    }),
+
+    /*
+     * Count products that had at least one "damaged"
+     * movement today. This gives a daily defect count.
+     */
+    StockMovement.distinct('product', {
+      movementType: 'damaged',
+      createdAt: { $gte: start }
+    }).then(ids => ids.length)
   ]);
 
   res.json({
@@ -151,7 +160,8 @@ export async function summary(req, res) {
       outOfStock,
       movementsToday: movementToday,
       activeAlerts: lowStockAlerts,
-      expirationAlerts
+      expirationAlerts,
+      defectiveProducts
     },
     movementTypes,
     categoryData

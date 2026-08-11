@@ -208,6 +208,14 @@ export default function DashboardPage() {
       link: '/alerts'
     },
     {
+      label: 'Defective Products',
+      value: totals.defectiveProducts || 0,
+      detail: 'Reported as damaged or defective',
+      icon: AlertTriangle,
+      tone: 'red',
+      link: '/stock-movements?movementType=damaged'
+    },
+    {
       label: 'Movements Today',
       value: totals.movementsToday || 0,
       detail: 'Inventory activity recorded',
@@ -346,7 +354,8 @@ export default function DashboardPage() {
                   fontSize: 10
                 }}
                 axisLine={{
-                  stroke: 'rgba(22, 101, 52, 0.12)'
+                  stroke:
+                    'rgba(22, 101, 52, 0.12)'
                 }}
                 tickLine={false}
               />
@@ -362,7 +371,8 @@ export default function DashboardPage() {
 
               <Tooltip
                 contentStyle={{
-                  border: '1px solid rgba(22, 101, 52, 0.12)',
+                  border:
+                    '1px solid rgba(22, 101, 52, 0.12)',
                   borderRadius: '10px',
                   background: '#ffffff',
                   color: '#285737',
@@ -417,20 +427,22 @@ export default function DashboardPage() {
                 outerRadius={95}
                 paddingAngle={3}
               >
-                {categoryData.map((entry, index) => (
-                  <Cell
-                    key={entry._id}
-                    fill={
-                      [
-                        '#16a34a',
-                        '#22c55e',
-                        '#86efac',
-                        '#166534',
-                        '#4ade80'
-                      ][index % 5]
-                    }
-                  />
-                ))}
+                {categoryData.map(
+                  (entry, index) => (
+                    <Cell
+                      key={entry._id}
+                      fill={
+                        [
+                          '#16a34a',
+                          '#22c55e',
+                          '#86efac',
+                          '#166534',
+                          '#4ade80'
+                        ][index % 5]
+                      }
+                    />
+                  )
+                )}
               </Pie>
 
               <Tooltip />
@@ -443,6 +455,7 @@ export default function DashboardPage() {
           <div className="section-heading">
             <div>
               <h3>Current Stock Status</h3>
+
               <p>
                 Normal, low-stock, and unavailable products
               </p>
@@ -502,10 +515,13 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="mini-info">
-                    <strong>{product.name}</strong>
+                    <strong>
+                      {product.name}
+                    </strong>
 
                     <small>
-                      {product.barcode} · {product.currentStock}{' '}
+                      {product.barcode} ·{' '}
+                      {product.currentStock}{' '}
                       {product.unitType}
                     </small>
                   </div>
@@ -549,11 +565,14 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="mini-info">
-                    <strong>{product.name}</strong>
+                    <strong>
+                      {product.name}
+                    </strong>
 
                     <small>
-                      {product.currentStock} remaining ·
-                      Reorder at {product.reorderLevel}
+                      {product.currentStock}{' '}
+                      remaining · Reorder at{' '}
+                      {product.reorderLevel}
                     </small>
                   </div>
 

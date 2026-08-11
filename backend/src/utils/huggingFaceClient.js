@@ -27,7 +27,8 @@ export async function classifyImage(imageBuffer) {
     throw new Error('Hugging Face API token is not configured');
   }
 
-  const apiUrl = `https://api-inference.huggingface.co/models/${HF_MODEL_ID}`;
+  // Updated to use the new Hugging Face router endpoint
+  const apiUrl = `https://router.huggingface.co/hf-inference/models/${HF_MODEL_ID}`;
 
   const response = await fetch(apiUrl, {
     method: 'POST',

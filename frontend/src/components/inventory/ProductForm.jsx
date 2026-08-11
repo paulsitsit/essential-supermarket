@@ -211,6 +211,7 @@ export default function ProductForm({
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  // NEW: state for AI photo recognition (Hugging Face)
   const [recognizing, setRecognizing] = useState(false);
   const [recognitionError, setRecognitionError] = useState('');
 
@@ -343,32 +344,23 @@ export default function ProductForm({
         }
       });
 
-      const { product, detectedBarcode, labels, source } = res.data;
+      const { labels, source } = res.data;
 
-      if (source === 'db' || source === 'openfoodfacts') {
-        setForm(current =>
-          source === 'openfoodfacts'
-            ? applyExternalProduct(product, current, detectedBarcode || current.barcode)
-            : applyLocalProduct(product, current, detectedBarcode || current.barcode)
-        );
+      const suggestedName = (labels || [])
+        .slice(0, 3)
+        .map(l => l.label)
+        .join(', ');
 
-        setScanMessage(
-          source === 'openfoodfacts'
-            ? 'Product information was found online from the photo. Review the fields before saving.'
-            : 'Registered product found from the photo. The form was filled automatically.'
-        );
-      } else {
-        const suggestedName = labels.slice(0, 3).join(', ');
-        setForm(current => ({
-          ...current,
-          name: suggestedName || current.name,
-          barcode: detectedBarcode || current.barcode
-        }));
+      setForm(current => ({
+        ...current,
+        name: suggestedName || current.name
+      }));
 
-        setScanMessage(
-          'No exact product found. AI suggestions were added to the form. Please review and correct before saving.'
-        );
-      }
+      setScanMessage(
+        source === 'huggingface'
+          ? 'AI suggestions from the photo were added to the Product name. Please review and correct before saving.'
+          : 'AI suggestions were added to the form. Please review and correct before saving.'
+      );
     } catch (err) {
       setRecognitionError(
         getErrorMessage(err, 'Failed to recognize product from photo')
@@ -577,6 +569,7 @@ export default function ProductForm({
             </div>
           )}
 
+          {/* NEW: Picture product using Hugging Face */}
           <div style={{ marginTop: 16 }}>
             <div className="product-scan-heading">
               <div className="product-scan-icon">
@@ -586,7 +579,7 @@ export default function ProductForm({
               <div>
                 <h3>Picture product (optional)</h3>
                 <p>
-                  Take a photo of the item. We’ll try to read the barcode and suggest product details.
+                  Take a photo of the item. AI will suggest labels to help you fill in the Product name.
                 </p>
               </div>
             </div>

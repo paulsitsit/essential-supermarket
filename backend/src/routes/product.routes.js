@@ -9,7 +9,8 @@ import {
   archiveProduct,
   scanProduct,
   lookupExternalProduct,
-  recognizeProduct
+  recognizeProduct,
+  uploadProductImage
 } from '../controllers/product.controller.js';
 
 import { protect } from '../middleware/auth.js';
@@ -21,10 +22,6 @@ import {
 } from '../validators/product.validators.js';
 
 import { validateRequest } from '../middleware/validation.js';
-
-import multer from 'multer';
-
-const upload = multer({ storage: multer.memoryStorage() });
 
 const router = Router();
 
@@ -44,11 +41,11 @@ router.get(
   lookupExternalProduct
 );
 
-// New: recognize product from photo
+// NEW: recognize product from photo using Hugging Face (labels only)
 router.post(
   '/recognize',
   allowRoles('admin', 'manager', 'staff'),
-  upload.single('image'),
+  uploadProductImage,
   recognizeProduct
 );
 

@@ -1,16 +1,12 @@
 // backend/utils/huggingFaceClient.js
 import fetch from 'node-fetch';
 
-/**
- * Simple helper to call Hugging Face Inference API
- * for image classification.
- *
- * You must set HUGGING_FACE_API_TOKEN in your environment.
- */
 const HF_API_TOKEN = process.env.HUGGING_FACE_API_TOKEN;
 
-// A good general image classification model
-const HF_MODEL_ID = process.env.HUGGING_FACE_MODEL_ID || 'google/vit-base-patch16-224';
+// Use a supported model - try these alternatives:
+const HF_MODEL_ID = process.env.HUGGING_FACE_MODEL_ID || 'facebook/detr-resnet-50'; // Object detection
+// OR: 'google/siglip-base-patch16-224' // Image classification (newer than vit-base)
+// OR: 'microsoft/beit-base-patch16-224' // Image classification
 
 if (!HF_API_TOKEN) {
   console.warn(
@@ -18,16 +14,11 @@ if (!HF_API_TOKEN) {
   );
 }
 
-/**
- * @param {Buffer} imageBuffer
- * @returns {Promise<Array<{label: string, score: number}>>}
- */
 export async function classifyImage(imageBuffer) {
   if (!HF_API_TOKEN) {
     throw new Error('Hugging Face API token is not configured');
   }
 
-  // Updated to use the new Hugging Face router endpoint
   const apiUrl = `https://router.huggingface.co/hf-inference/models/${HF_MODEL_ID}`;
 
   const response = await fetch(apiUrl, {
@@ -48,13 +39,13 @@ export async function classifyImage(imageBuffer) {
 
   const result = await response.json();
 
-  // Typical result: [ { label: 'milk', score: 0.98 }, ... ]
+  // Handle different result formats based on model type
   if (!Array.isArray(result)) {
     return [];
   }
 
   return result.map(item => ({
-    label: String(item.label || '').trim(),
+    label: String(item.label || item.category || '').trim(),
     score: Number(item.score || 0)
   }));
 }

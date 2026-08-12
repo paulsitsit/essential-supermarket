@@ -1,189 +1,69 @@
 import { useEffect, useState } from 'react';
-import {
-  CheckCircle2,
-  ScanLine,
-  X
-} from 'lucide-react';
+import { CheckCircle2, ScanLine, X } from 'lucide-react';
 
 import client from '../../api/client';
 import { getErrorMessage } from '../../utils/errors';
 import CameraScanner from '../scanner/CameraScanner';
 
 const emptyForm = {
-  name: '',
-  barcode: '',
-  sku: '',
-  qrCode: '',
-  category: '',
-  supplier: '',
-  brand: '',
-  description: '',
-  unitType: 'piece',
-  branch: 'Main Branch',
-  currentStock: 0,
-  reorderLevel: 10,
-  costPrice: 0,
-  expirationDate: '',
-  imageUrl: ''
+  name: '', barcode: '', sku: '', qrCode: '', category: '', supplier: '',
+  brand: '', description: '', unitType: 'piece', branch: 'Main Branch',
+  currentStock: 0, reorderLevel: 10, costPrice: 0, expirationDate: '', imageUrl: ''
 };
 
 function formatDateInput(value) {
-  if (!value) {
-    return '';
-  }
-
+  if (!value) return '';
   const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
-
-  return date.toISOString().slice(0, 10);
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10);
 }
 
 function getInitialForm(initialProduct) {
-  if (!initialProduct) {
-    return {
-      ...emptyForm
-    };
-  }
-
+  if (!initialProduct) return { ...emptyForm };
   return {
     ...emptyForm,
     ...initialProduct,
-
-    category:
-      initialProduct.category?._id ||
-      initialProduct.category ||
-      '',
-
-    supplier:
-      initialProduct.supplier?._id ||
-      initialProduct.supplier ||
-      '',
-
-    expirationDate: formatDateInput(
-      initialProduct.expirationDate
-    )
+    category: initialProduct.category?._id || initialProduct.category || '',
+    supplier: initialProduct.supplier?._id || initialProduct.supplier || '',
+    expirationDate: formatDateInput(initialProduct.expirationDate)
   };
 }
 
 function getProductId(value) {
-  if (!value) {
-    return '';
-  }
-
-  if (typeof value === 'object') {
-    return value._id || '';
-  }
-
-  return value;
+  if (!value) return '';
+  return typeof value === 'object' ? value._id || '' : value;
 }
 
 function applyLocalProduct(product, currentForm, code) {
   return {
     ...currentForm,
-
-    name:
-      product.name ||
-      currentForm.name,
-
-    barcode:
-      product.barcode ||
-      code,
-
-    sku:
-      product.sku ||
-      currentForm.sku,
-
-    qrCode:
-      product.qrCode ||
-      product.barcode ||
-      code,
-
-    category:
-      getProductId(product.category) ||
-      currentForm.category,
-
-    supplier:
-      getProductId(product.supplier) ||
-      currentForm.supplier,
-
-    brand:
-      product.brand ||
-      currentForm.brand,
-
-    description:
-      product.description ||
-      currentForm.description,
-
-    imageUrl:
-      product.imageUrl ||
-      currentForm.imageUrl ||
-      '',
-
-    unitType:
-      product.unitType ||
-      currentForm.unitType,
-
-    branch:
-      product.branch ||
-      currentForm.branch,
-
-    currentStock:
-      product.currentStock ??
-      currentForm.currentStock,
-
-    reorderLevel:
-      product.reorderLevel ??
-      currentForm.reorderLevel,
-
-    costPrice:
-      product.costPrice ??
-      currentForm.costPrice,
-
-    expirationDate:
-      formatDateInput(
-        product.expirationDate
-      ) ||
-      currentForm.expirationDate
+    name: product.name || currentForm.name,
+    barcode: product.barcode || code,
+    sku: product.sku || currentForm.sku,
+    qrCode: product.qrCode || product.barcode || code,
+    category: getProductId(product.category) || currentForm.category,
+    supplier: getProductId(product.supplier) || currentForm.supplier,
+    brand: product.brand || currentForm.brand,
+    description: product.description || currentForm.description,
+    imageUrl: product.imageUrl || currentForm.imageUrl || '',
+    unitType: product.unitType || currentForm.unitType,
+    branch: product.branch || currentForm.branch,
+    currentStock: product.currentStock ?? currentForm.currentStock,
+    reorderLevel: product.reorderLevel ?? currentForm.reorderLevel,
+    costPrice: product.costPrice ?? currentForm.costPrice,
+    expirationDate: formatDateInput(product.expirationDate) || currentForm.expirationDate
   };
 }
 
-function applyExternalProduct(
-  product,
-  currentForm,
-  code
-) {
+function applyExternalProduct(product, currentForm, code) {
   return {
     ...currentForm,
-
-    name:
-      product.name ||
-      currentForm.name,
-
-    barcode:
-      product.barcode ||
-      code,
-
-    qrCode:
-      product.qrCode ||
-      product.barcode ||
-      code,
-
-    brand:
-      product.brand ||
-      currentForm.brand,
-
-    description:
-      product.description ||
-      currentForm.description,
-
-    imageUrl:
-      product.imageUrl ||
-      currentForm.imageUrl ||
-      '',
-
+    // Open Food Facts/external lookup should provide the actual product title.
+    name: product.productName || product.name || product.product_name || currentForm.name,
+    barcode: product.barcode || product.code || code,
+    qrCode: product.qrCode || product.barcode || product.code || code,
+    brand: product.brand || product.brands || currentForm.brand,
+    description: product.description || product.genericName || currentForm.description,
+    imageUrl: product.imageUrl || product.image_front_url || currentForm.imageUrl || '',
     sku: currentForm.sku,
     category: currentForm.category,
     supplier: currentForm.supplier,
@@ -194,24 +74,29 @@ function applyExternalProduct(
   };
 }
 
-export default function ProductForm({
-  initialProduct,
-  categories = [],
-  suppliers = [],
-  onSuccess
-}) {
-  const [form, setForm] = useState(
-    getInitialForm(initialProduct)
-  );
+function getRecognizedProduct(data) {
+  const product = data?.product || data?.result || data?.data || data;
+  if (!product || typeof product !== 'object') return {};
 
+  return {
+    // Prefer exact commercial names. Do not use image-classification labels here.
+    name: product.productName || product.name || product.product_name || '',
+    brand: product.brand || product.brandName || '',
+    category: product.category || product.productType || '',
+    description: product.description || product.genericName || '',
+    imageUrl: product.imageUrl || product.image_url || '',
+    size: product.size || product.quantity || ''
+  };
+}
+
+export default function ProductForm({ initialProduct, categories = [], suppliers = [], onSuccess }) {
+  const [form, setForm] = useState(getInitialForm(initialProduct));
   const [error, setError] = useState('');
   const [scanMessage, setScanMessage] = useState('');
   const [scanError, setScanError] = useState('');
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState(false);
-
-  // AI photo recognition (Hugging Face)
   const [recognizing, setRecognizing] = useState(false);
   const [recognitionError, setRecognitionError] = useState('');
 
@@ -221,108 +106,57 @@ export default function ProductForm({
 
   useEffect(() => {
     if (!form.qrCode && form.barcode) {
-      setForm(current => ({
-        ...current,
-        qrCode: current.barcode
-      }));
+      setForm(current => ({ ...current, qrCode: current.barcode }));
     }
   }, [form.barcode, form.qrCode]);
 
   function change(key, value) {
-    setForm(current => ({
-      ...current,
-      [key]: value
-    }));
+    setForm(current => ({ ...current, [key]: value }));
+  }
+
+  function clearScanMessage() {
+    setScanMessage('');
+    setScanError('');
   }
 
   async function lookupScannedCode(code) {
     const cleanCode = String(code || '').trim();
-
-    if (!cleanCode || scanning) {
-      return;
-    }
+    if (!cleanCode || scanning) return;
 
     setScanning(true);
-    setScanError('');
-    setScanMessage('');
+    clearScanMessage();
 
     try {
       let product;
       let source = 'local';
 
       try {
-        const localResponse = await client.get(
-          `/products/scan/${encodeURIComponent(cleanCode)}`
-        );
-
-        product =
-          localResponse.data?.product ||
-          localResponse.data;
+        const response = await client.get(`/products/scan/${encodeURIComponent(cleanCode)}`);
+        product = response.data?.product || response.data;
       } catch (localError) {
-        if (localError.response?.status !== 404) {
-          throw localError;
-        }
-
-        const externalResponse = await client.get(
-          `/products/lookup/${encodeURIComponent(cleanCode)}`
-        );
-
-        product =
-          externalResponse.data?.product ||
-          externalResponse.data;
-
+        if (localError.response?.status !== 404) throw localError;
+        const response = await client.get(`/products/lookup/${encodeURIComponent(cleanCode)}`);
+        product = response.data?.product || response.data;
         source = 'openfoodfacts';
       }
 
-      if (!product) {
-        throw new Error(
-          'No product information was returned.'
-        );
-      }
+      if (!product) throw new Error('No product information was returned.');
 
-      setForm(current =>
-        source === 'openfoodfacts'
-          ? applyExternalProduct(
-              product,
-              current,
-              cleanCode
-            )
-          : applyLocalProduct(
-              product,
-              current,
-              cleanCode
-            )
-      );
+      setForm(current => source === 'openfoodfacts'
+        ? applyExternalProduct(product, current, cleanCode)
+        : applyLocalProduct(product, current, cleanCode));
 
-      setScanMessage(
-        source === 'openfoodfacts'
-          ? 'Product information was found online. Review the fields before saving.'
-          : 'Registered product found. The form was filled automatically.'
-      );
-
+      setScanMessage(source === 'openfoodfacts'
+        ? 'Exact product information was found online. Review the fields before saving.'
+        : 'Registered product found. The form was filled automatically.');
       setScannerOpen(false);
     } catch (err) {
       if (err.response?.status === 404) {
-        setForm(current => ({
-          ...current,
-          barcode: cleanCode,
-          qrCode:
-            current.qrCode ||
-            cleanCode
-        }));
-
-        setScanMessage(
-          'Product was not found online. The scanned code was added to the form. Complete the remaining fields manually.'
-        );
-
+        setForm(current => ({ ...current, barcode: cleanCode, qrCode: current.qrCode || cleanCode }));
+        setScanMessage('Product was not found online. The scanned code was added to the form. Complete the remaining fields manually.');
         setScannerOpen(false);
       } else {
-        setScanError(
-          getErrorMessage(
-            err,
-            'Unable to look up this product'
-          )
-        );
+        setScanError(getErrorMessage(err, 'Unable to look up this product'));
       }
     } finally {
       setScanning(false);
@@ -338,37 +172,34 @@ export default function ProductForm({
       const formData = new FormData();
       formData.append('image', file);
 
-      // Let axios set the correct multipart headers
-      const res = await client.post('/products/recognize', formData);
+      const response = await client.post('/products/recognize', formData);
+      const recognized = getRecognizedProduct(response.data);
 
-      const { labels, source } = res.data;
-
-      const suggestedName = (labels || [])
-        .slice(0, 3)
-        .map(l => l.label)
-        .join(', ');
-
-      setForm(current => ({
-        ...current,
-        name: suggestedName || current.name
-      }));
-
-      setScanMessage(
-        source === 'huggingface' ||
-        source === 'huggingface-image-classification'
-          ? 'AI suggestions from the photo were added to the Product name. Please review and correct before saving.'
-          : 'AI suggestions were added to the form. Please review and correct before saving.'
-      );
-    } catch (err) {
-      // Ignore canceled uploads if you later add cancel tokens
-      if (err.code === 'ERR_CANCELED') {
+      // Important: labels such as "lotion" are image categories, not product names.
+      if (!recognized.name.trim()) {
+        setRecognitionError(
+          'The exact product name could not be read. Please take a clear photo of the front label, including the brand and product name.'
+        );
         return;
       }
 
-      const serverMessage = err.response?.data?.message;
+      setForm(current => ({
+        ...current,
+        name: recognized.name.trim(),
+        brand: recognized.brand || current.brand,
+        description: [recognized.description, recognized.size]
+          .filter(Boolean)
+          .join(' — ') || current.description,
+        imageUrl: recognized.imageUrl || current.imageUrl
+      }));
 
+      setScanMessage(
+        `Product identified as “${recognized.name.trim()}”. Review the fields before saving.`
+      );
+    } catch (err) {
+      if (err.code === 'ERR_CANCELED') return;
       setRecognitionError(
-        serverMessage ||
+        err.response?.data?.message ||
         getErrorMessage(err, 'Failed to recognize product from photo')
       );
     } finally {
@@ -376,600 +207,215 @@ export default function ProductForm({
     }
   }
 
-  function handleScannerDetected(code) {
-    lookupScannedCode(code);
-  }
-
-  function clearScanMessage() {
-    setScanMessage('');
-    setScanError('');
-  }
-
   async function submit(event) {
     event.preventDefault();
-
     setError('');
     clearScanMessage();
 
     if (!form.name.trim()) {
-      setError(
-        'Product name is required.'
-      );
+      setError('Product name is required.');
       return;
     }
 
-    if (
-      Number(form.currentStock) < 0 ||
-      Number(form.reorderLevel) < 0 ||
-      Number(form.costPrice) < 0
-    ) {
-      setError(
-        'Quantity, reorder level, and cost price cannot be negative.'
-      );
+    if (Number(form.currentStock) < 0 || Number(form.reorderLevel) < 0 || Number(form.costPrice) < 0) {
+      setError('Quantity, reorder level, and cost price cannot be negative.');
       return;
     }
 
     setBusy(true);
-
     try {
       const payload = {
-        name:
-          form.name.trim(),
-
-        barcode:
-          form.barcode.trim() ||
-          undefined,
-
-        sku:
-          form.sku.trim().toUpperCase() ||
-          undefined,
-
-        qrCode:
-          form.qrCode.trim() ||
-          form.barcode.trim() ||
-          undefined,
-
-        category:
-          form.category || undefined,
-
-        supplier:
-          form.supplier || undefined,
-
-        brand:
-          form.brand.trim(),
-
-        description:
-          form.description.trim(),
-
-        imageUrl:
-          form.imageUrl?.trim() ||
-          undefined,
-
-        unitType:
-          form.unitType,
-
-        branch:
-          form.branch.trim(),
-
-        currentStock:
-            Number(form.currentStock || 0),
-
-        reorderLevel:
-            Number(form.reorderLevel || 0),
-
-        costPrice:
-            Number(form.costPrice || 0),
-
-        expirationDate:
-          form.expirationDate || undefined
+        name: form.name.trim(),
+        barcode: form.barcode.trim() || undefined,
+        sku: form.sku.trim().toUpperCase() || undefined,
+        qrCode: form.qrCode.trim() || form.barcode.trim() || undefined,
+        category: form.category || undefined,
+        supplier: form.supplier || undefined,
+        brand: form.brand.trim(),
+        description: form.description.trim(),
+        imageUrl: form.imageUrl?.trim() || undefined,
+        unitType: form.unitType,
+        branch: form.branch.trim(),
+        currentStock: Number(form.currentStock || 0),
+        reorderLevel: Number(form.reorderLevel || 0),
+        costPrice: Number(form.costPrice || 0),
+        expirationDate: form.expirationDate || undefined
       };
 
       if (initialProduct?._id) {
-        await client.put(
-          `/products/${initialProduct._id}`,
-          payload
-        );
+        await client.put(`/products/${initialProduct._id}`, payload);
       } else {
-        await client.post(
-          '/products',
-          payload
-        );
+        await client.post('/products', payload);
       }
-
       onSuccess?.();
     } catch (err) {
-      setError(
-        getErrorMessage(
-          err,
-          'Unable to save product'
-        )
-      );
+      setError(getErrorMessage(err, 'Unable to save product'));
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <form
-      className="product-form"
-      onSubmit={submit}
-    >
-      {error && (
-        <div className="form-error">
-          {error}
-        </div>
-      )}
+    <form className="product-form" onSubmit={submit}>
+      {error && <div className="form-error">{error}</div>}
 
       {scanMessage && (
         <div className="scan-success-message">
           <CheckCircle2 size={17} />
-
           <span>{scanMessage}</span>
-
-          <button
-            type="button"
-            onClick={clearScanMessage}
-            aria-label="Close scan message"
-          >
+          <button type="button" onClick={clearScanMessage} aria-label="Close scan message">
             <X size={15} />
           </button>
         </div>
       )}
 
-      {scanError && (
-        <div className="form-error">
-          {scanError}
-        </div>
-      )}
+      {scanError && <div className="form-error">{scanError}</div>}
 
       {!initialProduct && (
         <div className="product-scan-box">
           <div className="product-scan-heading">
-            <div className="product-scan-icon">
-              <ScanLine size={20} />
-            </div>
-
+            <div className="product-scan-icon"><ScanLine size={20} /></div>
             <div>
               <h3>Scan product code</h3>
-
-              <p>
-                Scan a QR code or barcode to search your inventory and Open Food Facts.
-              </p>
+              <p>Scan a QR code or barcode to search your inventory and Open Food Facts.</p>
             </div>
           </div>
 
           {!scannerOpen ? (
-            <button
-              type="button"
-              className="secondary-btn scan-product-btn"
-              onClick={() => {
-                setScannerOpen(true);
-                setScanError('');
-                setScanMessage('');
-              }}
-            >
-              <ScanLine size={17} />
-              Scan QR or Barcode
+            <button type="button" className="secondary-btn scan-product-btn" onClick={() => {
+              setScannerOpen(true);
+              clearScanMessage();
+            }}>
+              <ScanLine size={17} /> Scan QR or Barcode
             </button>
           ) : (
             <div className="product-scanner-wrapper">
-              <CameraScanner
-                onDetected={handleScannerDetected}
-              />
-
-              {scanning && (
-                <div className="scanner-status">
-                  Searching your inventory and Open Food Facts...
-                </div>
-              )}
-
-              <button
-                type="button"
-                className="secondary-btn close-scanner-btn"
-                onClick={() => setScannerOpen(false)}
-                disabled={scanning}
-              >
-                <X size={16} />
-                Close Scanner
+              <CameraScanner onDetected={lookupScannedCode} />
+              {scanning && <div className="scanner-status">Searching your inventory and Open Food Facts...</div>}
+              <button type="button" className="secondary-btn close-scanner-btn" onClick={() => setScannerOpen(false)} disabled={scanning}>
+                <X size={16} /> Close Scanner
               </button>
             </div>
           )}
 
-          {/* Picture product using Hugging Face */}
           <div style={{ marginTop: 16 }}>
             <div className="product-scan-heading">
-              <div className="product-scan-icon">
-                <ScanLine size={20} />
-              </div>
-
+              <div className="product-scan-icon"><ScanLine size={20} /></div>
               <div>
-                <h3>Picture product (optional)</h3>
-                <p>
-                  Take a photo or choose an existing image. AI will suggest labels to help you fill in the Product name.
-                </p>
+                <h3>Picture product</h3>
+                <p>Take a clear photo of the front label. The exact brand and product name will be extracted.</p>
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-              {/* Take photo with camera (mobile will open camera) */}
               <label className="secondary-btn">
                 Take photo
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={event => {
-                    const file = event.target.files?.[0];
-                    if (file) recognizeFromPhoto(file);
-                  }}
-                  disabled={recognizing || scanning}
-                  style={{ display: 'none' }}
-                />
+                <input type="file" accept="image/*" capture="environment" disabled={recognizing || scanning} style={{ display: 'none' }} onChange={event => {
+                  const file = event.target.files?.[0];
+                  if (file) recognizeFromPhoto(file);
+                  event.target.value = '';
+                }} />
               </label>
-
-              {/* Choose existing image (gallery / file picker) */}
               <label className="secondary-btn">
                 Choose from gallery
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={event => {
-                    const file = event.target.files?.[0];
-                    if (file) recognizeFromPhoto(file);
-                  }}
-                  disabled={recognizing || scanning}
-                  style={{ display: 'none' }}
-                />
+                <input type="file" accept="image/*" disabled={recognizing || scanning} style={{ display: 'none' }} onChange={event => {
+                  const file = event.target.files?.[0];
+                  if (file) recognizeFromPhoto(file);
+                  event.target.value = '';
+                }} />
               </label>
             </div>
 
-            {recognizing && (
-              <div className="scanner-status" style={{ marginTop: 8 }}>
-                Analyzing photo…
-              </div>
-            )}
-
-            {recognitionError && (
-              <div className="form-error" style={{ marginTop: 8 }}>
-                {recognitionError}
-              </div>
-            )}
+            {recognizing && <div className="scanner-status" style={{ marginTop: 8 }}>Reading the product label...</div>}
+            {recognitionError && <div className="form-error" style={{ marginTop: 8 }}>{recognitionError}</div>}
           </div>
         </div>
       )}
 
       <div className="form-section">
         <h3>Basic information</h3>
-
         <div className="form-grid">
-          <label className="span-two">
-            Product name
-
-            <input
-              required
-              value={form.name}
-              onChange={event =>
-                change(
-                  'name',
-                  event.target.value
-                )
-              }
-              placeholder="e.g. Bottled Water 500ml"
-            />
+          <label className="span-two">Product name
+            <input required value={form.name} onChange={event => change('name', event.target.value)} placeholder="e.g. Alcoplus Ethyl Alcohol" />
           </label>
-
-          <label>
-            SKU
-
-            <span className="field-hint">
-              Optional — generated automatically if blank
-            </span>
-
-            <input
-              value={form.sku}
-              onChange={event =>
-                change(
-                  'sku',
-                  event.target.value.toUpperCase()
-                )
-              }
-              placeholder="Leave blank to generate automatically"
-            />
+          <label>SKU
+            <span className="field-hint">Optional — generated automatically if blank</span>
+            <input value={form.sku} onChange={event => change('sku', event.target.value.toUpperCase())} placeholder="Leave blank to generate automatically" />
           </label>
-
-          <label>
-            Barcode
-
-            <span className="field-hint">
-              Leave blank to generate
-            </span>
-
-            <input
-              value={form.barcode}
-              onChange={event =>
-                change(
-                  'barcode',
-                  event.target.value.toUpperCase()
-                )
-              }
-              placeholder="ES-000001 or manufacturer code"
-              disabled={Boolean(initialProduct)}
-            />
+          <label>Barcode
+            <span className="field-hint">Leave blank to generate</span>
+            <input value={form.barcode} onChange={event => change('barcode', event.target.value.toUpperCase())} placeholder="ES-000001 or manufacturer code" disabled={Boolean(initialProduct)} />
           </label>
-
-          <label>
-            QR code
-
-            <input
-              value={form.qrCode}
-              onChange={event =>
-                change(
-                  'qrCode',
-                  event.target.value
-                )
-              }
-              placeholder="Defaults to barcode"
-            />
+          <label>QR code
+            <input value={form.qrCode} onChange={event => change('qrCode', event.target.value)} placeholder="Defaults to barcode" />
           </label>
-
-          <label>
-            Brand
-
-            <input
-              value={form.brand}
-              onChange={event =>
-                change(
-                  'brand',
-                  event.target.value
-                )
-              }
-              placeholder="Brand name"
-            />
+          <label>Brand
+            <input value={form.brand} onChange={event => change('brand', event.target.value)} placeholder="Brand name" />
           </label>
-
-          <label className="span-two">
-            Product image URL
-
-            <input
-              value={form.imageUrl || ''}
-              onChange={event =>
-                change(
-                  'imageUrl',
-                  event.target.value
-                )
-              }
-              placeholder="Automatically filled when available"
-            />
+          <label className="span-two">Product image URL
+            <input value={form.imageUrl || ''} onChange={event => change('imageUrl', event.target.value)} placeholder="Automatically filled when available" />
           </label>
-
-          <label className="span-two">
-            Description
-
-            <textarea
-              value={form.description}
-              onChange={event =>
-                change(
-                  'description',
-                  event.target.value
-                )
-              }
-              rows="3"
-              placeholder="Product description or ingredients"
-            />
+          <label className="span-two">Description
+            <textarea value={form.description} onChange={event => change('description', event.target.value)} rows="3" placeholder="Product description or ingredients" />
           </label>
         </div>
       </div>
 
       <div className="form-section">
         <h3>Inventory information</h3>
-
         <div className="form-grid">
-          <label>
-            Category
-
-            <select
-              value={form.category}
-              onChange={event =>
-                change(
-                  'category',
-                  event.target.value
-                )
-              }
-            >
-              <option value="">
-                Select category
-              </option>
-
-              {categories.map(category => (
-                <option
-                  key={category._id}
-                  value={category._id}
-                >
-                  {category.name}
-                </option>
-              ))}
+          <label>Category
+            <select value={form.category} onChange={event => change('category', event.target.value)}>
+              <option value="">Select category</option>
+              {categories.map(category => <option key={category._id} value={category._id}>{category.name}</option>)}
             </select>
           </label>
-
-          <label>
-            Supplier
-
-            <select
-              value={form.supplier}
-              onChange={event =>
-                change(
-                  'supplier',
-                  event.target.value
-                )
-              }
-            >
-              <option value="">
-                Select supplier
-              </option>
-
-              {suppliers.map(supplier => (
-                <option
-                  key={supplier._id}
-                  value={supplier._id}
-                >
-                  {supplier.name}
-                </option>
-              ))}
+          <label>Supplier
+            <select value={form.supplier} onChange={event => change('supplier', event.target.value)}>
+              <option value="">Select supplier</option>
+              {suppliers.map(supplier => <option key={supplier._id} value={supplier._id}>{supplier.name}</option>)}
             </select>
           </label>
-
-          <label>
-            Unit type
-
-            <select
-              value={form.unitType}
-              onChange={event =>
-                change(
-                  'unitType',
-                  event.target.value
-                )
-              }
-            >
-              <option value="piece">piece</option>
-              <option value="case">case</option>
-              <option value="box">box</option>
-              <option value="pack">pack</option>
-              <option value="kg">kg</option>
-              <option value="liter">liter</option>
-              <option value="sack">sack</option>
+          <label>Unit type
+            <select value={form.unitType} onChange={event => change('unitType', event.target.value)}>
+              {['piece', 'case', 'box', 'pack', 'kg', 'liter', 'sack'].map(value => <option key={value} value={value}>{value}</option>)}
             </select>
           </label>
-
-          <label>
-            Branch / warehouse
-
-            <input
-              value={form.branch}
-              onChange={event =>
-                change(
-                  'branch',
-                  event.target.value
-                )
-              }
-            />
+          <label>Branch / warehouse
+            <input value={form.branch} onChange={event => change('branch', event.target.value)} />
           </label>
-
-          <label>
-            Initial quantity
-
-            <input
-              type="number"
-              min="0"
-              step="1"
-              value={form.currentStock}
-              onChange={event =>
-                change(
-                  'currentStock',
-                  event.target.value
-                )
-              }
-            />
+          <label>Initial quantity
+            <input type="number" min="0" step="1" value={form.currentStock} onChange={event => change('currentStock', event.target.value)} />
           </label>
-
-          <label>
-            Reorder level
-
-            <input
-              type="number"
-              min="0"
-              step="1"
-              value={form.reorderLevel}
-              onChange={event =>
-                change(
-                  'reorderLevel',
-                  event.target.value
-                )
-              }
-            />
+          <label>Reorder level
+            <input type="number" min="0" step="1" value={form.reorderLevel} onChange={event => change('reorderLevel', event.target.value)} />
           </label>
-
-          <label>
-            Expiration date
-
-            <span className="field-hint">
-              Optional
-            </span>
-
-            <input
-              type="date"
-              value={form.expirationDate}
-              onChange={event =>
-                change(
-                  'expirationDate',
-                  event.target.value
-                )
-              }
-            />
+          <label>Expiration date
+            <span className="field-hint">Optional</span>
+            <input type="date" value={form.expirationDate} onChange={event => change('expirationDate', event.target.value)} />
           </label>
         </div>
       </div>
 
       <div className="form-section">
         <h3>Inventory valuation</h3>
-
         <div className="form-grid">
-          <label>
-            Cost price
-
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.costPrice}
-              onChange={event =>
-                change(
-                  'costPrice',
-                  event.target.value
-                )
-              }
-            />
+          <label>Cost price
+            <input type="number" min="0" step="0.01" value={form.costPrice} onChange={event => change('costPrice', event.target.value)} />
           </label>
-
           <div className="valuation-preview">
-            <span>
-              Calculated inventory value
-            </span>
-
-            <strong>
-              ₱
-              {(
-                Number(form.currentStock || 0) *
-                Number(form.costPrice || 0)
-              ).toLocaleString('en-PH', {
-                minimumFractionDigits: 2
-              })}
-            </strong>
+            <span>Calculated inventory value</span>
+            <strong>₱{(Number(form.currentStock || 0) * Number(form.costPrice || 0)).toLocaleString('en-PH', { minimumFractionDigits: 2 })}</strong>
           </div>
         </div>
       </div>
 
       <div className="form-actions">
-        <button
-          type="button"
-          className="secondary-btn"
-          onClick={() => window.history.back()}
-        >
-          Cancel
-        </button>
-
-        <button
-          type="submit"
-          className="primary-btn"
-          disabled={busy || scanning}
-        >
-          {busy
-            ? 'Saving...'
-            : initialProduct
-              ? 'Update Product'
-              : 'Register Product'}
+        <button type="button" className="secondary-btn" onClick={() => window.history.back()}>Cancel</button>
+        <button type="submit" className="primary-btn" disabled={busy || scanning}>
+          {busy ? 'Saving...' : initialProduct ? 'Update Product' : 'Register Product'}
         </button>
       </div>
     </form>
   );
-} 
-// force redeploy 08/12/2026 03:46:13
+}

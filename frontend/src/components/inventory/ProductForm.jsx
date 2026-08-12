@@ -365,7 +365,10 @@ export default function ProductForm({
         return;
       }
 
+      const serverMessage = err.response?.data?.message;
+
       setRecognitionError(
+        serverMessage ||
         getErrorMessage(err, 'Failed to recognize product from photo')
       );
     } finally {

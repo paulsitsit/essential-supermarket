@@ -239,18 +239,30 @@ export async function lookupExternalProduct(req, res) {
  */
 export async function recognizeProduct(req, res) {
   try {
+    // Simple debug logging to diagnose "No image provided" on Render
+    console.log('recognizeProduct: content-type =', req.headers['content-type']);
+    console.log('recognizeProduct: has file =', !!req.file);
+
     if (!req.file) {
       return res.status(400).json({
-        message: 'No image provided'
+        message:
+          'No image file received. Please choose a JPG/PNG under a few MB and try again.'
       });
     }
 
     const imageBuffer = req.file.buffer;
 
+    if (!imageBuffer || !imageBuffer.length) {
+      return res.status(400).json({
+        message:
+          'Uploaded image is empty. Please try again with a different file.'
+      });
+    }
+
     const labels = await classifyImage(imageBuffer);
 
-    const topLabels = labels
-      .sort((a, b) => b.score - a.score)
+    const topLabels = (labels || [])
+      .sort((a, b) => (b.score || 0) - (a.score || 0))
       .slice(0, 5);
 
     return res.status(200).json({

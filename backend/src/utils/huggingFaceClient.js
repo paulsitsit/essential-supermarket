@@ -1,6 +1,8 @@
 import fetch from 'node-fetch';
 
-const HF_API_TOKEN = process.env.HUGGING_FACE_API_TOKEN;
+const HF_API_TOKEN =
+  process.env.HUGGING_FACE_API_TOKEN;
+
 const HF_MODEL_ID =
   process.env.HUGGING_FACE_VISION_MODEL_ID ||
   process.env.HUGGING_FACE_MODEL_ID ||
@@ -13,63 +15,160 @@ if (!HF_API_TOKEN) {
 }
 
 function getImageMimeType(buffer) {
-  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return 'image/jpeg';
+  if (
+    buffer[0] === 0xff &&
+    buffer[1] === 0xd8 &&
+    buffer[2] === 0xff
+  ) {
+    return 'image/jpeg';
+  }
+
   if (
     buffer[0] === 0x89 &&
     buffer[1] === 0x50 &&
     buffer[2] === 0x4e &&
     buffer[3] === 0x47
-  ) return 'image/png';
-  if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) return 'image/gif';
-  if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) return 'image/webp';
+  ) {
+    return 'image/png';
+  }
+
+  if (
+    buffer[0] === 0x47 &&
+    buffer[1] === 0x49 &&
+    buffer[2] === 0x46
+  ) {
+    return 'image/gif';
+  }
+
+  if (
+    buffer[0] === 0x52 &&
+    buffer[1] === 0x49 &&
+    buffer[2] === 0x46 &&
+    buffer[3] === 0x46
+  ) {
+    return 'image/webp';
+  }
+
   return 'image/jpeg';
 }
 
+function cleanText(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  return value.trim();
+}
+
 function extractJson(text) {
-  const cleaned = String(text || '')
+  if (!text) {
+    return {};
+  }
+
+  const cleanedText = String(text)
     .replace(/^```json\s*/i, '')
     .replace(/^```\s*/i, '')
     .replace(/\s*```$/i, '')
     .trim();
 
   try {
-    return JSON.parse(cleaned);
+    return JSON.parse(cleanedText);
   } catch {
-    const match = cleaned.match(/\{[\s\S]*\}/);
-    if (!match) return {};
+    const jsonMatch = cleanedText.match(
+      /\{[\s\S]*\}/
+    );
+
+    if (!jsonMatch) {
+      return {};
+    }
+
     try {
-      return JSON.parse(match[0]);
+      return JSON.parse(jsonMatch);[0]
     } catch {
       return {};
     }
   }
 }
 
-function clean(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-export async function recognizeProductImage(imageBuffer) {
+/**
+ * Reads the visible product label and extracts
+ * the exact product details.
+ */
+export async function recognizeProductImage(
+  imageBuffer
+) {
   if (!HF_API_TOKEN) {
-    throw new Error('Hugging Face API token is not configured');
+    throw new Error(
+      'Hugging Face API token is not configured'
+    );
+  }
+
+  if (!imageBuffer || imageBuffer.length === 0) {
+    throw new Error(
+      'The uploaded image is empty'
+    );
   }
 
   const mimeType = getImageMimeType(imageBuffer);
-  const imageDataUrl = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
-  const apiUrl = 'https://router.huggingface.co/v1/chat/completions';
 
-  const prompt = `Read the product label in this image and extract the exact commercial product details. Return JSON only, with no markdown and no explanation.
+  const base64Image = imageBuffer.toString(
+    'base64'
+  );
+
+  const imageDataUrl =
+    `data:${mimeType};base64,${base64Image}`;
+
+  const apiUrl =
+    'https://router.huggingface.co/v1/chat/completions';
+
+  const prompt = `
+Read the product label in this image and extract
+the exact commercial product details.
+
+Return JSON only.
+Do not return markdown.
+Do not return an explanation.
 
 Use these rules:
-- productName: the complete visible product name, including the brand, product line, and specific type. Do not return a generic word such as lotion, alcohol, soap, or bottle.
-- brand: the first word on the label when it is the brand, or a clearly recognized brand.
-- category: the main product type, such as Ethyl Alcohol, Lotion, Shampoo, Soap, or Beverage.
-- variant: the flavor, scent, color, strength, or other specific variant when visible.
-- description: remaining useful visible details such as percentage, size, ingredients, or claims.
-- Never invent text that is not visible. If a field cannot be read, use an empty string.
 
-Required JSON shape:
-{"productName":"","brand":"","category":"","variant":"","description":""}`;
+1. productName:
+   Return the complete visible product name.
+   Include the brand, product line, and specific product type.
+   Do not return only a generic word such as:
+   lotion, alcohol, soap, shampoo, bottle, or cream.
+
+2. brand:
+   Return the brand name.
+   Usually this is the first prominent word on the label.
+
+3. category:
+   Return the main product type.
+   Examples:
+   Ethyl Alcohol, Lotion, Shampoo, Soap,
+   Beverage, Detergent, Snack, or Medicine.
+
+4. variant:
+   Return the flavor, scent, color, strength,
+   or specific version when visible.
+
+5. description:
+   Return remaining useful visible details,
+   such as percentage, quantity, size, ingredients,
+   or product claims.
+
+Do not invent information.
+If a value cannot be read, return an empty string.
+
+Required JSON format:
+
+{
+  "productName": "",
+  "brand": "",
+  "category": "",
+  "variant": "",
+  "description": ""
+}
+`;
 
   const response = await fetch(apiUrl, {
     method: 'POST',
@@ -85,8 +184,16 @@ Required JSON shape:
         {
           role: 'user',
           content: [
-            { type: 'text', text: prompt },
-            { type: 'image_url', image_url: { url: imageDataUrl } }
+            {
+              type: 'text',
+              text: prompt
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: imageDataUrl
+              }
+            }
           ]
         }
       ]
@@ -94,27 +201,65 @@ Required JSON shape:
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Hugging Face API error (${response.status}): ${text || response.statusText}`);
+    const errorText = await response.text();
+
+    throw new Error(
+      `Hugging Face API error (${response.status}): ${
+        errorText || response.statusText
+      }`
+    );
   }
 
   const result = await response.json();
-  const content = result?.choices?.[0]?.message?.content;
+
+  const content =
+    result?.choices?.[0]?.message?.content || '';
+
   const parsed = extractJson(content);
 
   return {
-    productName: clean(parsed.productName || parsed.name),
-    brand: clean(parsed.brand),
-    category: clean(parsed.category),
-    variant: clean(parsed.variant),
-    description: clean(parsed.description)
+    productName: cleanText(
+      parsed.productName || parsed.name
+    ),
+
+    brand: cleanText(
+      parsed.brand || parsed.brandName
+    ),
+
+    category: cleanText(
+      parsed.category || parsed.productType
+    ),
+
+    variant: cleanText(
+      parsed.variant
+    ),
+
+    description: cleanText(
+      parsed.description || parsed.details
+    )
   };
 }
 
-// Kept for compatibility with any other imports in the project.
-export async function classifyImage(imageBuffer) {
-  const product = await recognizeProductImage(imageBuffer);
-  return product.productName
-    ? [{ label: product.productName, score: 1 }]
-    : [];
+/**
+ * Compatibility function.
+ *
+ * Keep this if another file still imports
+ * classifyImage().
+ */
+export async function classifyImage(
+  imageBuffer
+) {
+  const product =
+    await recognizeProductImage(imageBuffer);
+
+  if (!product.productName) {
+    return [];
+  }
+
+  return [
+    {
+      label: product.productName,
+      score: 1
+    }
+  ];
 }

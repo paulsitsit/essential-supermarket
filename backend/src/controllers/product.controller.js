@@ -1,4 +1,3 @@
-// backend/src/controllers/product.controller.js
 import Product from '../models/Product.js';
 import { writeAudit } from '../utils/audit.js';
 
@@ -15,9 +14,11 @@ import { generateInternalBarcode } from '../utils/barcode.js';
 import { generateUniqueSku } from '../utils/sku.js';
 
 import multer from 'multer';
-import { classifyImage } from '../utils/huggingFaceClient.js';
+import { recognizeProductImage } from '../utils/huggingFaceClient.js';
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage()
+});
 
 async function fetchOpenFoodFactsProduct(barcode) {
   const fields = [
@@ -35,20 +36,18 @@ async function fetchOpenFoodFactsProduct(barcode) {
     'stores'
   ].join(',');
 
-  const lookupUrl =
+  const url =
     `https://world.openfoodfacts.org/api/v2/product/${barcode}` +
     `?fields=${fields}`;
 
-  const response = await fetch(lookupUrl, {
+  const response = await fetch(url, {
     headers: {
       Accept: 'application/json',
       'User-Agent': 'EssentialSupermarket/1.0'
     }
   });
 
-  if (!response.ok) {
-    return null;
-  }
+  if (!response.ok) return null;
 
   const result = await response.json();
 
@@ -56,26 +55,26 @@ async function fetchOpenFoodFactsProduct(barcode) {
     return null;
   }
 
-  const external = result.product;
+  const product = result.product;
 
   return {
     source: 'openfoodfacts',
     found: true,
     product: {
-      barcode: external.code || barcode,
+      barcode: product.code || barcode,
       name:
-        external.product_name_en ||
-        external.product_name ||
-        external.generic_name ||
+        product.product_name_en ||
+        product.product_name ||
+        product.generic_name ||
         '',
-      brand: external.brands || '',
-      description: external.ingredients_text || '',
-      quantity: external.quantity || '',
-      categoryText: external.categories || '',
-      imageUrl: external.image_url || '',
-      packaging: external.packaging || '',
-      countries: external.countries || '',
-      stores: external.stores || ''
+      brand: product.brands || '',
+      description: product.ingredients_text || '',
+      quantity: product.quantity || '',
+      categoryText: product.categories || '',
+      imageUrl: product.image_url || '',
+      packaging: product.packaging || '',
+      countries: product.countries || '',
+      stores: product.stores || ''
     }
   };
 }
@@ -92,21 +91,11 @@ export async function listProducts(req, res) {
   const filter =
     includeArchived === 'true'
       ? {}
-      : {
-          isArchived: false
-        };
+      : { isArchived: false };
 
-  if (status) {
-    filter.status = status;
-  }
-
-  if (category) {
-    filter.category = category;
-  }
-
-  if (supplier) {
-    filter.supplier = supplier;
-  }
+  if (status) filter.status = status;
+  if (category) filter.category = category;
+  if (supplier) filter.supplier = supplier;
 
   if (search) {
     const escapedSearch = search.replace(
@@ -114,26 +103,21 @@ export async function listProducts(req, res) {
       '\\$&'
     );
 
-    const searchRegex = new RegExp(escapedSearch, 'i');
+    const searchRegex = new RegExp(
+      escapedSearch,
+      'i'
+    );
 
     filter.$or = [
-      {
-        name: searchRegex
-      },
-      {
-        barcode: searchRegex
-      },
-      {
-        sku: searchRegex
-      }
+      { name: searchRegex },
+      { barcode: searchRegex },
+      { sku: searchRegex }
     ];
   }
 
   const products = await Product.find(filter)
     .populate('category supplier', 'name')
-    .sort({
-      updatedAt: -1
-    });
+    .sort({ updatedAt: -1 });
 
   res.json(products);
 }
@@ -159,8 +143,7 @@ export async function scanProduct(req, res) {
 
   if (!rawCode) {
     return res.status(400).json({
-      message:
-        'A barcode or QR code is required'
+      message: 'A barcode or QR code is required'
     });
   }
 
@@ -168,18 +151,10 @@ export async function scanProduct(req, res) {
 
   const product = await Product.findOne({
     $or: [
-      {
-        barcode: upperCode
-      },
-      {
-        sku: upperCode
-      },
-      {
-        qrCode: rawCode
-      },
-      {
-        qrCode: upperCode
-      }
+      { barcode: upperCode },
+      { sku: upperCode },
+      { qrCode: rawCode },
+      { qrCode: upperCode }
     ]
   }).populate('category supplier', 'name');
 
@@ -210,16 +185,17 @@ export async function lookupExternalProduct(req, res) {
   }
 
   try {
-    const off = await fetchOpenFoodFactsProduct(barcode);
+    const result =
+      await fetchOpenFoodFactsProduct(barcode);
 
-    if (!off || !off.product) {
+    if (!result || !result.product) {
       return res.status(404).json({
         message:
           'Product was not found in Open Food Facts'
       });
     }
 
-    res.json(off);
+    res.json(result);
   } catch (error) {
     console.error(
       'Open Food Facts lookup failed:',
@@ -233,46 +209,53 @@ export async function lookupExternalProduct(req, res) {
   }
 }
 
-/**
- * recognizeProduct using Hugging Face image classification
- * - Returns top labels (AI suggestions), not authoritative data.
- */
 export async function recognizeProduct(req, res) {
   try {
-    // Simple debug logging to diagnose "No image provided" on Render
-    console.log('recognizeProduct: content-type =', req.headers['content-type']);
-    console.log('recognizeProduct: has file =', !!req.file);
+    console.log(
+      'recognizeProduct content type:',
+      req.headers['content-type']
+    );
+
+    console.log(
+      'recognizeProduct has file:',
+      Boolean(req.file)
+    );
 
     if (!req.file) {
       return res.status(400).json({
         message:
-          'No image file received. Please choose a JPG/PNG under a few MB and try again.'
+          'No image file received. Please choose a JPG or PNG image under a few MB and try again.'
       });
     }
 
     const imageBuffer = req.file.buffer;
 
-    if (!imageBuffer || !imageBuffer.length) {
+    if (!imageBuffer || imageBuffer.length === 0) {
       return res.status(400).json({
         message:
           'Uploaded image is empty. Please try again with a different file.'
       });
     }
 
-    const labels = await classifyImage(imageBuffer);
-
-    const topLabels = (labels || [])
-      .sort((a, b) => (b.score || 0) - (a.score || 0))
-      .slice(0, 5);
+    const product =
+      await recognizeProductImage(imageBuffer);
 
     return res.status(200).json({
-      source: 'huggingface-image-classification',
-      matched: topLabels.length > 0,
-      labels: topLabels
+      source: 'huggingface-vision',
+      matched: Boolean(product.productName),
+      productName: product.productName || '',
+      brand: product.brand || '',
+      category: product.category || '',
+      variant: product.variant || '',
+      description: product.description || ''
     });
   } catch (error) {
-    console.error('Hugging Face recognition error:', error);
-    res.status(502).json({
+    console.error(
+      'Hugging Face recognition error:',
+      error
+    );
+
+    return res.status(502).json({
       message: 'Unable to analyze the image',
       error: error.message || 'Unknown error'
     });
@@ -442,43 +425,34 @@ export async function updateProduct(req, res) {
   }
 
   if (updates.barcode !== undefined) {
-    const barcode = String(
+    const value = String(
       updates.barcode || ''
     )
       .trim()
       .toUpperCase();
 
-    if (barcode) {
-      updates.barcode = barcode;
-    } else {
-      delete updates.barcode;
-    }
+    if (value) updates.barcode = value;
+    else delete updates.barcode;
   }
 
   if (updates.sku !== undefined) {
-    const sku = String(
+    const value = String(
       updates.sku || ''
     )
       .trim()
       .toUpperCase();
 
-    if (sku) {
-      updates.sku = sku;
-    } else {
-      delete updates.sku;
-    }
+    if (value) updates.sku = value;
+    else delete updates.sku;
   }
 
   if (updates.qrCode !== undefined) {
-    const qrCode = String(
+    const value = String(
       updates.qrCode || ''
     ).trim();
 
-    if (qrCode) {
-      updates.qrCode = qrCode;
-    } else {
-      delete updates.qrCode;
-    }
+    if (value) updates.qrCode = value;
+    else delete updates.qrCode;
   }
 
   if (
@@ -563,12 +537,8 @@ export async function updateProduct(req, res) {
 export async function archiveProduct(req, res) {
   const product = await Product.findByIdAndUpdate(
     req.params.id,
-    {
-      isArchived: true
-    },
-    {
-      new: true
-    }
+    { isArchived: true },
+    { new: true }
   );
 
   if (!product) {
@@ -644,7 +614,5 @@ export async function deleteProduct(req, res) {
   });
 }
 
-/**
- * Multer upload middleware export for routes
- */
-export const uploadProductImage = upload.single('image');
+export const uploadProductImage =
+  upload.single('image');

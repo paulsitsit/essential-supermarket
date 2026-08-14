@@ -275,107 +275,13 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="summary-grid">
-        {cards.map(card => {
-          const Icon = card.icon;
-
-          return (
-            <Link
-              to={card.link}
-              className="summary-link"
-              key={card.label}
-            >
-              <GlassCard className="summary-card">
-                <div
-                  className={`summary-icon tone-${card.tone}`}
-                >
-                  <Icon size={21} />
-                </div>
-
-                <div>
-                  <p>{card.label}</p>
-                  <h2>{card.value}</h2>
-                  <small>{card.detail}</small>
-                </div>
-              </GlassCard>
-            </Link>
-          );
-        })}
-      </div>
-
-      {/* Best Seller Card */}
-      <div className="stock-price-section">
-        <GlassCard className="stock-line-card">
-          <div className="section-heading">
-            <div>
-              <h3>Best Seller (This Week)</h3>
-              <p>Top product by quantity sold</p>
-            </div>
-
-            <span className="analytics-badge">
-              Last 7 days
-            </span>
-          </div>
-
-          {bestSeller ? (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '16px',
-                padding: '12px 0'
-              }}
-            >
-              <div
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 10,
-                  background:
-                    'linear-gradient(135deg, #fbbf24, #d97706)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#fff',
-                  fontSize: 20
-                }}
-              >
-                <Trophy size={24} />
-              </div>
-
-              <div style={{ flex: 1 }}>
-                <strong style={{ fontSize: 16 }}>
-                  {bestSeller.name}
-                </strong>
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: '#6b7280',
-                    marginTop: 4
-                  }}
-                >
-                  {bestSeller.barcode} ·{' '}
-                  {bestSeller.quantitySold} sold ·{' '}
-                  {peso(bestSeller.revenue)}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="empty-state">
-              No sales data yet for best seller.
-            </div>
-          )}
-        </GlassCard>
-      </div>
-
-      {/* Sales Activity (left) and Weekly Activity (right) side-by-side */}
+      {/* TOP: Two main analytics charts (Sales Activity left, Weekly Activity right) */}
       <div
-        className="chart-grid"
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
           gap: '16px',
-          marginTop: '16px'
+          marginBottom: '16px'
         }}
       >
         {/* Sales Activity - Blue Line Chart (LEFT) */}
@@ -573,7 +479,122 @@ export default function DashboardPage() {
         </GlassCard>
       </div>
 
-      <div className="chart-grid">
+      {/* Best Seller Card */}
+      <div
+        style={{
+          marginBottom: '16px'
+        }}
+      >
+        <GlassCard className="stock-line-card">
+          <div className="section-heading">
+            <div>
+              <h3>Best Seller (This Week)</h3>
+              <p>Top product by quantity sold</p>
+            </div>
+
+            <span className="analytics-badge">
+              Last 7 days
+            </span>
+          </div>
+
+          {bestSeller ? (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                padding: '12px 0'
+              }}
+            >
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 10,
+                  background:
+                    'linear-gradient(135deg, #fbbf24, #d97706)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fff',
+                  fontSize: 20
+                }}
+              >
+                <Trophy size={24} />
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <strong style={{ fontSize: 16 }}>
+                  {bestSeller.name}
+                </strong>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: '#6b7280',
+                    marginTop: 4
+                  }}
+                >
+                  {bestSeller.barcode} ·{' '}
+                  {bestSeller.quantitySold} sold ·{' '}
+                  {peso(bestSeller.revenue)}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="empty-state">
+              No sales data yet for best seller.
+            </div>
+          )}
+        </GlassCard>
+      </div>
+
+      {/* Summary count cards */}
+      <div
+        className="summary-grid"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: '16px',
+          marginBottom: '16px'
+        }}
+      >
+        {cards.map(card => {
+          const Icon = card.icon;
+
+          return (
+            <Link
+              to={card.link}
+              className="summary-link"
+              key={card.label}
+            >
+              <GlassCard className="summary-card">
+                <div
+                  className={`summary-icon tone-${card.tone}`}
+                >
+                  <Icon size={21} />
+                </div>
+
+                <div>
+                  <p>{card.label}</p>
+                  <h2>{card.value}</h2>
+                  <small>{card.detail}</small>
+                </div>
+              </GlassCard>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Category & Stock Status pies */}
+      <div
+        className="chart-grid"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gap: '16px',
+          marginBottom: '16px'
+        }}
+      >
         <GlassCard className="chart-card">
           <div className="section-heading">
             <div>
@@ -658,7 +679,15 @@ export default function DashboardPage() {
         </GlassCard>
       </div>
 
-      <div className="dashboard-grid">
+      {/* Lists: Recently updated & Low-stock */}
+      <div
+        className="dashboard-grid"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gap: '16px'
+        }}
+      >
         <GlassCard>
           <div className="section-heading">
             <div>

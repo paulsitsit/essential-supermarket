@@ -43,7 +43,7 @@ const allowedOrigins = (
   .map(origin => origin.trim())
   .filter(Boolean);
 
-app.use(helmet);
+app.use(helmet());
 
 // CORS configuration
 app.use(

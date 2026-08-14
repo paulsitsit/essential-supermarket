@@ -6,15 +6,11 @@ import {
   CalendarClock,
   Package,
   ScanLine,
-  TrendingDown,
-  ShoppingCart,
-  Trophy,
-  Bell
+  TrendingDown
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
-  Bar,
-  BarChart,
+  Area,
   CartesianGrid,
   Cell,
   Legend,
@@ -25,8 +21,7 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
-  YAxis,
-  Area
+  YAxis
 } from 'recharts';
 
 import client from '../api/client';
@@ -144,10 +139,22 @@ export default function DashboardPage() {
     }
   ].filter(item => item.value > 0);
 
-  const weeklyActivity = data.weeklyActivity || [];
-  const salesActivity = data.salesActivity || [];
+  const weeklyLineData = [
+    { label: 'Aug', value: 38 },
+    { label: 'Sep', value: 45 },
+    { label: 'Oct', value: 42 },
+    { label: 'Nov', value: 31 },
+    { label: 'Dec', value: 34 },
+    { label: 'Jan', value: 22 },
+    { label: 'Feb', value: 18 },
+    { label: 'Mar', value: 26 },
+    { label: 'Apr', value: 20 },
+    { label: 'May', value: 28 },
+    { label: 'Jun', value: 21 },
+    { label: 'Jul', value: 24 }
+  ];
+
   const categoryData = data.categoryData || [];
-  const bestSeller = data.bestSeller;
 
   const cards = [
     {
@@ -215,24 +222,6 @@ export default function DashboardPage() {
       icon: ArrowDownToLine,
       tone: 'green',
       link: '/stock-movements'
-    },
-    {
-      label: 'Products Sold (All-time)',
-      value: Number(
-        totals.allTimeItemsSold || 0
-      ).toLocaleString(),
-      detail: 'Total items sold via POS',
-      icon: ShoppingCart,
-      tone: 'blue',
-      link: '/sales'
-    },
-    {
-      label: 'Revenue Today',
-      value: peso(totals.todayRevenue),
-      detail: 'Completed sales today',
-      icon: TrendingDown,
-      tone: 'green',
-      link: '/sales'
     }
   ];
 
@@ -247,11 +236,11 @@ export default function DashboardPage() {
           </h1>
 
           <p>
-            EssentialSupermarket Inventory & POS Dashboard
+            EssentialSupermarket Inventory Dashboard
           </p>
 
           <p>
-            Monitor stock levels, sales, and inventory activity in real time.
+            Monitor stock levels and inventory activity in real time.
           </p>
         </div>
 
@@ -276,25 +265,44 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* TOP: Two main analytics charts (Sales Activity left, Weekly Activity right) */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '16px',
-          marginBottom: '16px'
-        }}
-      >
-        {/* Sales Activity - Blue Line Chart (LEFT) */}
-        <GlassCard className="chart-card">
+      <div className="summary-grid">
+        {cards.map(card => {
+          const Icon = card.icon;
+
+          return (
+            <Link
+              to={card.link}
+              className="summary-link"
+              key={card.label}
+            >
+              <GlassCard className="summary-card">
+                <div
+                  className={`summary-icon tone-${card.tone}`}
+                >
+                  <Icon size={21} />
+                </div>
+
+                <div>
+                  <p>{card.label}</p>
+                  <h2>{card.value}</h2>
+                  <small>{card.detail}</small>
+                </div>
+              </GlassCard>
+            </Link>
+          );
+        })}
+      </div>
+
+      <div className="stock-price-section">
+        <GlassCard className="stock-line-card">
           <div className="section-heading">
             <div>
-              <h3>Sales Activity</h3>
-              <p>Revenue trend (last 7 days)</p>
+              <h3>Weekly Activity</h3>
+              <p>Inventory movement trend</p>
             </div>
 
             <span className="analytics-badge">
-              Last 7 days
+              This year
             </span>
           </div>
 
@@ -303,7 +311,7 @@ export default function DashboardPage() {
             height={260}
           >
             <LineChart
-              data={salesActivity}
+              data={weeklyLineData}
               margin={{
                 top: 10,
                 right: 10,
@@ -313,7 +321,7 @@ export default function DashboardPage() {
             >
               <defs>
                 <linearGradient
-                  id="salesLineFill"
+                  id="greenLineFill"
                   x1="0"
                   y1="0"
                   x2="0"
@@ -321,116 +329,18 @@ export default function DashboardPage() {
                 >
                   <stop
                     offset="0%"
-                    stopColor="#3b82f6"
+                    stopColor="#22c55e"
                     stopOpacity={0.36}
                   />
 
                   <stop
                     offset="100%"
-                    stopColor="#3b82f6"
+                    stopColor="#22c55e"
                     stopOpacity={0.03}
                   />
                 </linearGradient>
               </defs>
 
-              <CartesianGrid
-                strokeDasharray="4 4"
-                stroke="rgba(59, 130, 246, 0.12)"
-                vertical={false}
-              />
-
-              <XAxis
-                dataKey="label"
-                tick={{
-                  fill: '#64748b',
-                  fontSize: 10
-                }}
-                axisLine={{
-                  stroke:
-                    'rgba(59, 130, 246, 0.12)'
-                }}
-                tickLine={false}
-              />
-
-              <YAxis
-                tick={{
-                  fill: '#64748b',
-                  fontSize: 10
-                }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={v =>
-                  v >= 1000
-                    ? `${(v / 1000).toFixed(0)}k`
-                    : v
-                }
-              />
-
-              <Tooltip
-                contentStyle={{
-                  border:
-                    '1px solid rgba(59, 130, 246, 0.12)',
-                  borderRadius: '10px',
-                  background: '#ffffff',
-                  color: '#1e3a8a',
-                  fontSize: '11px'
-                }}
-                formatter={(value, name) => [
-                  peso(value),
-                  'Revenue'
-                ]}
-              />
-
-              <Area
-                type="monotone"
-                dataKey="revenue"
-                stroke="none"
-                fill="url(#salesLineFill)"
-              />
-
-              <Line
-                type="monotone"
-                dataKey="revenue"
-                stroke="#2563eb"
-                strokeWidth={2.5}
-                dot={false}
-                activeDot={{
-                  r: 5,
-                  fill: '#3b82f6',
-                  stroke: '#ffffff',
-                  strokeWidth: 2
-                }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </GlassCard>
-
-        {/* Weekly Activity - Green Bar Chart (RIGHT) */}
-        <GlassCard className="chart-card">
-          <div className="section-heading">
-            <div>
-              <h3>Weekly Activity</h3>
-              <p>Inventory movement trend (last 7 days)</p>
-            </div>
-
-            <span className="analytics-badge">
-              Last 7 days
-            </span>
-          </div>
-
-          <ResponsiveContainer
-            width="100%"
-            height={260}
-          >
-            <BarChart
-              data={weeklyActivity}
-              margin={{
-                top: 10,
-                right: 10,
-                left: 0,
-                bottom: 0
-              }}
-            >
               <CartesianGrid
                 strokeDasharray="4 4"
                 stroke="rgba(22, 101, 52, 0.12)"
@@ -470,132 +380,32 @@ export default function DashboardPage() {
                 }}
               />
 
-              <Bar
+              <Area
+                type="monotone"
                 dataKey="value"
-                fill="#22c55e"
-                radius={[6, 6, 0, 0]}
+                stroke="none"
+                fill="url(#greenLineFill)"
               />
-            </BarChart>
+
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke="#166534"
+                strokeWidth={2.5}
+                dot={false}
+                activeDot={{
+                  r: 5,
+                  fill: '#22c55e',
+                  stroke: '#ffffff',
+                  strokeWidth: 2
+                }}
+              />
+            </LineChart>
           </ResponsiveContainer>
         </GlassCard>
       </div>
 
-      {/* Summary count cards */}
-      <div
-        className="summary-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: '16px',
-          marginBottom: '16px'
-        }}
-      >
-        {cards.map(card => {
-          const Icon = card.icon;
-
-          return (
-            <Link
-              to={card.link}
-              className="summary-link"
-              key={card.label}
-            >
-              <GlassCard className="summary-card">
-                <div
-                  className={`summary-icon tone-${card.tone}`}
-                >
-                  <Icon size={21} />
-                </div>
-
-                <div>
-                  <p>{card.label}</p>
-                  <h2>{card.value}</h2>
-                  <small>{card.detail}</small>
-                </div>
-              </GlassCard>
-            </Link>
-          );
-        })}
-      </div>
-
-      {/* Best Seller Card - NOW BELOW THE COUNT CARDS */}
-      <div
-        style={{
-          marginBottom: '16px'
-        }}
-      >
-        <GlassCard className="stock-line-card">
-          <div className="section-heading">
-            <div>
-              <h3>Best Seller (This Week)</h3>
-              <p>Top product by quantity sold</p>
-            </div>
-
-            <span className="analytics-badge">
-              Last 7 days
-            </span>
-          </div>
-
-          {bestSeller ? (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '16px',
-                padding: '12px 0'
-              }}
-            >
-              <div
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 10,
-                  background:
-                    'linear-gradient(135deg, #fbbf24, #d97706)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#fff',
-                  fontSize: 20
-                }}
-              >
-                <Trophy size={24} />
-              </div>
-
-              <div style={{ flex: 1 }}>
-                <strong style={{ fontSize: 16 }}>
-                  {bestSeller.name}
-                </strong>
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: '#6b7280',
-                    marginTop: 4
-                  }}
-                >
-                  {bestSeller.barcode} ·{' '}
-                  {bestSeller.quantitySold} sold ·{' '}
-                  {peso(bestSeller.revenue)}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="empty-state">
-              No sales data yet for best seller.
-            </div>
-          )}
-        </GlassCard>
-      </div>
-
-      {/* Category & Stock Status pies */}
-      <div
-        className="chart-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '16px',
-          marginBottom: '16px'
-        }}
-      >
+      <div className="chart-grid">
         <GlassCard className="chart-card">
           <div className="section-heading">
             <div>
@@ -680,71 +490,7 @@ export default function DashboardPage() {
         </GlassCard>
       </div>
 
-      {/* Notifications / Alerts section */}
-      <div
-        style={{
-          marginBottom: '16px'
-        }}
-      >
-        <GlassCard>
-          <div className="section-heading">
-            <div>
-              <h3>Notifications</h3>
-              <p>
-                {totals.lowStock || 0} low-stock ·{' '}
-                {totals.expirationAlerts || 0} expiring soon
-              </p>
-            </div>
-
-            <Link
-              to="/alerts"
-              className="secondary-btn"
-              style={{ fontSize: 12, padding: '6px 10px' }}
-            >
-              View all
-            </Link>
-          </div>
-
-          <div className="mini-list">
-            {stock?.lowStock?.slice(0, 5).map(product => (
-              <div
-                className="mini-row"
-                key={product._id}
-              >
-                <div className="product-avatar warning-avatar">
-                  !
-                </div>
-
-                <div className="mini-info">
-                  <strong>{product.name}</strong>
-
-                  <small>
-                    {product.currentStock} remaining · Reorder at {product.reorderLevel}
-                  </small>
-                </div>
-
-                <StatusBadge status={product.status} />
-              </div>
-            ))}
-
-            {!stock?.lowStock?.length && (
-              <div className="empty-state success-empty">
-                No active alerts.
-              </div>
-            )}
-          </div>
-        </GlassCard>
-      </div>
-
-      {/* Lists: Recently updated & Low-stock attention */}
-      <div
-        className="dashboard-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '16px'
-        }}
-      >
+      <div className="dashboard-grid">
         <GlassCard>
           <div className="section-heading">
             <div>
@@ -769,14 +515,20 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="mini-info">
-                    <strong>{product.name}</strong>
+                    <strong>
+                      {product.name}
+                    </strong>
 
                     <small>
-                      {product.barcode} · {product.currentStock} {product.unitType}
+                      {product.barcode} ·{' '}
+                      {product.currentStock}{' '}
+                      {product.unitType}
                     </small>
                   </div>
 
-                  <StatusBadge status={product.status} />
+                  <StatusBadge
+                    status={product.status}
+                  />
                 </div>
               ))
             ) : (
@@ -791,7 +543,9 @@ export default function DashboardPage() {
           <div className="section-heading">
             <div>
               <h3>Low-stock attention</h3>
-              <p>Products at or below reorder level</p>
+              <p>
+                Products at or below reorder level
+              </p>
             </div>
 
             <Link to="/alerts">
@@ -811,14 +565,20 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="mini-info">
-                    <strong>{product.name}</strong>
+                    <strong>
+                      {product.name}
+                    </strong>
 
                     <small>
-                      {product.currentStock} remaining · Reorder at {product.reorderLevel}
+                      {product.currentStock}{' '}
+                      remaining · Reorder at{' '}
+                      {product.reorderLevel}
                     </small>
                   </div>
 
-                  <StatusBadge status={product.status} />
+                  <StatusBadge
+                    status={product.status}
+                  />
                 </div>
               ))
             ) : (

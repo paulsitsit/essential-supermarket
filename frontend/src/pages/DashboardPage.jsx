@@ -368,85 +368,18 @@ export default function DashboardPage() {
         </GlassCard>
       </div>
 
-      {/* Weekly Activity as Bar Chart */}
-      <div className="stock-price-section">
-        <GlassCard className="stock-line-card">
-          <div className="section-heading">
-            <div>
-              <h3>Weekly Activity</h3>
-              <p>Inventory movement trend (last 7 days)</p>
-            </div>
-
-            <span className="analytics-badge">
-              Last 7 days
-            </span>
-          </div>
-
-          <ResponsiveContainer
-            width="100%"
-            height={260}
-          >
-            <BarChart
-              data={weeklyActivity}
-              margin={{
-                top: 10,
-                right: 10,
-                left: 0,
-                bottom: 0
-              }}
-            >
-              <CartesianGrid
-                strokeDasharray="4 4"
-                stroke="rgba(22, 101, 52, 0.12)"
-                vertical={false}
-              />
-
-              <XAxis
-                dataKey="label"
-                tick={{
-                  fill: '#86a18c',
-                  fontSize: 10
-                }}
-                axisLine={{
-                  stroke:
-                    'rgba(22, 101, 52, 0.12)'
-                }}
-                tickLine={false}
-              />
-
-              <YAxis
-                tick={{
-                  fill: '#86a18c',
-                  fontSize: 10
-                }}
-                axisLine={false}
-                tickLine={false}
-              />
-
-              <Tooltip
-                contentStyle={{
-                  border:
-                    '1px solid rgba(22, 101, 52, 0.12)',
-                  borderRadius: '10px',
-                  background: '#ffffff',
-                  color: '#285737',
-                  fontSize: '11px'
-                }}
-              />
-
-              <Bar
-                dataKey="value"
-                fill="#22c55e"
-                radius={[6, 6, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </GlassCard>
-      </div>
-
-      {/* Sales Activity as Line Chart */}
-      <div className="stock-price-section">
-        <GlassCard className="stock-line-card">
+      {/* Sales Activity (left) and Weekly Activity (right) side-by-side */}
+      <div
+        className="chart-grid"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gap: '16px',
+          marginTop: '16px'
+        }}
+      >
+        {/* Sales Activity - Blue Line Chart (LEFT) */}
+        <GlassCard className="chart-card">
           <div className="section-heading">
             <div>
               <h3>Sales Activity</h3>
@@ -562,6 +495,80 @@ export default function DashboardPage() {
                 }}
               />
             </LineChart>
+          </ResponsiveContainer>
+        </GlassCard>
+
+        {/* Weekly Activity - Green Bar Chart (RIGHT) */}
+        <GlassCard className="chart-card">
+          <div className="section-heading">
+            <div>
+              <h3>Weekly Activity</h3>
+              <p>Inventory movement trend (last 7 days)</p>
+            </div>
+
+            <span className="analytics-badge">
+              Last 7 days
+            </span>
+          </div>
+
+          <ResponsiveContainer
+            width="100%"
+            height={260}
+          >
+            <BarChart
+              data={weeklyActivity}
+              margin={{
+                top: 10,
+                right: 10,
+                left: 0,
+                bottom: 0
+              }}
+            >
+              <CartesianGrid
+                strokeDasharray="4 4"
+                stroke="rgba(22, 101, 52, 0.12)"
+                vertical={false}
+              />
+
+              <XAxis
+                dataKey="label"
+                tick={{
+                  fill: '#86a18c',
+                  fontSize: 10
+                }}
+                axisLine={{
+                  stroke:
+                    'rgba(22, 101, 52, 0.12)'
+                }}
+                tickLine={false}
+              />
+
+              <YAxis
+                tick={{
+                  fill: '#86a18c',
+                  fontSize: 10
+                }}
+                axisLine={false}
+                tickLine={false}
+              />
+
+              <Tooltip
+                contentStyle={{
+                  border:
+                    '1px solid rgba(22, 101, 52, 0.12)',
+                  borderRadius: '10px',
+                  background: '#ffffff',
+                  color: '#285737',
+                  fontSize: '11px'
+                }}
+              />
+
+              <Bar
+                dataKey="value"
+                fill="#22c55e"
+                radius={[6, 6, 0, 0]}
+              />
+            </BarChart>
           </ResponsiveContainer>
         </GlassCard>
       </div>

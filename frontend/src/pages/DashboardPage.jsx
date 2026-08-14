@@ -7,11 +7,11 @@ import {
   Package,
   ScanLine,
   TrendingDown,
+  ShoppingCart,
   Trophy
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
-  Area,
   Bar,
   BarChart,
   CartesianGrid,
@@ -24,7 +24,8 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
-  YAxis
+  YAxis,
+  Area
 } from 'recharts';
 
 import client from '../api/client';
@@ -213,6 +214,24 @@ export default function DashboardPage() {
       icon: ArrowDownToLine,
       tone: 'green',
       link: '/stock-movements'
+    },
+    {
+      label: 'Products Sold (All-time)',
+      value: Number(
+        totals.allTimeItemsSold || 0
+      ).toLocaleString(),
+      detail: 'Total items sold via POS',
+      icon: ShoppingCart,
+      tone: 'blue',
+      link: '/sales'
+    },
+    {
+      label: 'Revenue Today',
+      value: peso(totals.todayRevenue),
+      detail: 'Completed sales today',
+      icon: TrendingDown,
+      tone: 'green',
+      link: '/sales'
     }
   ];
 
@@ -227,11 +246,11 @@ export default function DashboardPage() {
           </h1>
 
           <p>
-            EssentialSupermarket Inventory Dashboard
+            EssentialSupermarket Inventory & POS Dashboard
           </p>
 
           <p>
-            Monitor stock levels and inventory activity in real time.
+            Monitor stock levels, sales, and inventory activity in real time.
           </p>
         </div>
 
@@ -284,23 +303,148 @@ export default function DashboardPage() {
         })}
       </div>
 
-      {/* Two charts side-by-side: Sales Activity (blue line) left, Weekly Activity (green bar) right */}
+      {/* Best Seller Card */}
+      <div className="stock-price-section">
+        <GlassCard className="stock-line-card">
+          <div className="section-heading">
+            <div>
+              <h3>Best Seller (This Week)</h3>
+              <p>Top product by quantity sold</p>
+            </div>
+
+            <span className="analytics-badge">
+              Last 7 days
+            </span>
+          </div>
+
+          {bestSeller ? (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                padding: '12px 0'
+              }}
+            >
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 10,
+                  background:
+                    'linear-gradient(135deg, #fbbf24, #d97706)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fff',
+                  fontSize: 20
+                }}
+              >
+                <Trophy size={24} />
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <strong style={{ fontSize: 16 }}>
+                  {bestSeller.name}
+                </strong>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: '#6b7280',
+                    marginTop: 4
+                  }}
+                >
+                  {bestSeller.barcode} ·{' '}
+                  {bestSeller.quantitySold} sold ·{' '}
+                  {peso(bestSeller.revenue)}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="empty-state">
+              No sales data yet for best seller.
+            </div>
+          )}
+        </GlassCard>
+      </div>
+
+      {/* Weekly Activity (bar) and Sales Activity (line) side-by-side */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
           gap: '16px',
           marginTop: '16px',
           marginBottom: '16px'
         }}
       >
-        {/* Sales Activity - Blue Line Chart (LEFT) */}
-        <GlassCard className="chart-card">
+        {/* Weekly Activity - Green Bar Chart */}
+        <GlassCard className="stock-line-card">
+          <div className="section-heading">
+            <div>
+              <h3>Weekly Activity</h3>
+              <p>Inventory movement trend (last 7 days)</p>
+            </div>
+
+            <span className="analytics-badge">
+              Last 7 days
+            </span>
+          </div>
+
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart
+              data={weeklyActivity}
+              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+            >
+              <CartesianGrid
+                strokeDasharray="4 4"
+                stroke="rgba(22, 101, 52, 0.12)"
+                vertical={false}
+              />
+
+              <XAxis
+                dataKey="label"
+                tick={{ fill: '#86a18c', fontSize: 10 }}
+                axisLine={{ stroke: 'rgba(22, 101, 52, 0.12)' }}
+                tickLine={false}
+              />
+
+              <YAxis
+                tick={{ fill: '#86a18c', fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+              />
+
+              <Tooltip
+                contentStyle={{
+                  border: '1px solid rgba(22, 101, 52, 0.12)',
+                  borderRadius: '10px',
+                  background: '#ffffff',
+                  color: '#285737',
+                  fontSize: '11px'
+                }}
+              />
+
+              <Bar
+                dataKey="value"
+                fill="#22c55e"
+                radius={[6, 6, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </GlassCard>
+
+        {/* Sales Activity - Blue Line Chart */}
+        <GlassCard className="stock-line-card">
           <div className="section-heading">
             <div>
               <h3>Sales Activity</h3>
               <p>Revenue trend (last 7 days)</p>
             </div>
+
+            <span className="analytics-badge">
+              Last 7 days
+            </span>
           </div>
 
           <ResponsiveContainer width="100%" height={260}>
@@ -375,58 +519,6 @@ export default function DashboardPage() {
                 }}
               />
             </LineChart>
-          </ResponsiveContainer>
-        </GlassCard>
-
-        {/* Weekly Activity - Green Bar Chart (RIGHT) */}
-        <GlassCard className="chart-card">
-          <div className="section-heading">
-            <div>
-              <h3>Weekly Activity</h3>
-              <p>Inventory movement (last 7 days)</p>
-            </div>
-          </div>
-
-          <ResponsiveContainer width="100%" height={260}>
-            <BarChart
-              data={weeklyActivity}
-              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-            >
-              <CartesianGrid
-                strokeDasharray="4 4"
-                stroke="rgba(22, 101, 52, 0.12)"
-                vertical={false}
-              />
-
-              <XAxis
-                dataKey="label"
-                tick={{ fill: '#86a18c', fontSize: 10 }}
-                axisLine={{ stroke: 'rgba(22, 101, 52, 0.12)' }}
-                tickLine={false}
-              />
-
-              <YAxis
-                tick={{ fill: '#86a18c', fontSize: 10 }}
-                axisLine={false}
-                tickLine={false}
-              />
-
-              <Tooltip
-                contentStyle={{
-                  border: '1px solid rgba(22, 101, 52, 0.12)',
-                  borderRadius: '10px',
-                  background: '#ffffff',
-                  color: '#285737',
-                  fontSize: '11px'
-                }}
-              />
-
-              <Bar
-                dataKey="value"
-                fill="#22c55e"
-                radius={[6, 6, 0, 0]}
-              />
-            </BarChart>
           </ResponsiveContainer>
         </GlassCard>
       </div>
@@ -505,66 +597,6 @@ export default function DashboardPage() {
               <Legend />
             </PieChart>
           </ResponsiveContainer>
-        </GlassCard>
-      </div>
-
-      {/* Best Seller - BELOW PIE CHARTS */}
-      <div style={{ marginTop: '16px', marginBottom: '16px' }}>
-        <GlassCard className="stock-line-card">
-          <div className="section-heading">
-            <div>
-              <h3>Best Seller (This Week)</h3>
-              <p>Top product by quantity sold</p>
-            </div>
-
-            <span className="analytics-badge">Last 7 days</span>
-          </div>
-
-          {bestSeller ? (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '16px',
-                padding: '12px 0'
-              }}
-            >
-              <div
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 10,
-                  background:
-                    'linear-gradient(135deg, #fbbf24, #d97706)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#fff',
-                  fontSize: 20
-                }}
-              >
-                <Trophy size={24} />
-              </div>
-
-              <div style={{ flex: 1 }}>
-                <strong style={{ fontSize: 16 }}>
-                  {bestSeller.name}
-                </strong>
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: '#6b7280',
-                    marginTop: 4
-                  }}
-                >
-                  {bestSeller.barcode} · {bestSeller.quantitySold} sold ·{' '}
-                  {peso(bestSeller.revenue)}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="empty-state">No sales data yet for best seller.</div>
-          )}
         </GlassCard>
       </div>
 

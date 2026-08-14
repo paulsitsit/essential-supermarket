@@ -216,13 +216,6 @@ export default function DashboardPage() {
     }
   ];
 
-  // Ensure charts are always side-by-side, even on mobile
-  const chartRowStyle = {
-    display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '12px'
-  };
-
   return (
     <div className="dashboard-page">
       <div className="page-heading">
@@ -263,8 +256,44 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* TOP: Two main analytics charts side-by-side */}
-      <div style={chartRowStyle}>
+      <div className="summary-grid">
+        {cards.map(card => {
+          const Icon = card.icon;
+
+          return (
+            <Link
+              to={card.link}
+              className="summary-link"
+              key={card.label}
+            >
+              <GlassCard className="summary-card">
+                <div
+                  className={`summary-icon tone-${card.tone}`}
+                >
+                  <Icon size={21} />
+                </div>
+
+                <div>
+                  <p>{card.label}</p>
+                  <h2>{card.value}</h2>
+                  <small>{card.detail}</small>
+                </div>
+              </GlassCard>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Two charts side-by-side: Sales Activity (blue line) left, Weekly Activity (green bar) right */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: '16px',
+          marginTop: '16px',
+          marginBottom: '16px'
+        }}
+      >
         {/* Sales Activity - Blue Line Chart (LEFT) */}
         <GlassCard className="chart-card">
           <div className="section-heading">
@@ -274,10 +303,10 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={260}>
             <LineChart
               data={salesActivity}
-              margin={{ top: 10, right: 8, left: 0, bottom: 0 }}
+              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
             >
               <defs>
                 <linearGradient
@@ -287,16 +316,8 @@ export default function DashboardPage() {
                   x2="0"
                   y2="1"
                 >
-                  <stop
-                    offset="0%"
-                    stopColor="#3b82f6"
-                    stopOpacity={0.36}
-                  />
-                  <stop
-                    offset="100%"
-                    stopColor="#3b82f6"
-                    stopOpacity={0.03}
-                  />
+                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.36} />
+                  <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.03} />
                 </linearGradient>
               </defs>
 
@@ -314,7 +335,7 @@ export default function DashboardPage() {
               />
 
               <YAxis
-                tick={{ fill: '#64748b', fontSize: 9 }}
+                tick={{ fill: '#64748b', fontSize: 10 }}
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={v =>
@@ -325,7 +346,7 @@ export default function DashboardPage() {
               <Tooltip
                 contentStyle={{
                   border: '1px solid rgba(59, 130, 246, 0.12)',
-                  borderRadius: '8px',
+                  borderRadius: '10px',
                   background: '#ffffff',
                   color: '#1e3a8a',
                   fontSize: '11px'
@@ -344,10 +365,10 @@ export default function DashboardPage() {
                 type="monotone"
                 dataKey="revenue"
                 stroke="#2563eb"
-                strokeWidth={2}
+                strokeWidth={2.5}
                 dot={false}
                 activeDot={{
-                  r: 4,
+                  r: 5,
                   fill: '#3b82f6',
                   stroke: '#ffffff',
                   strokeWidth: 2
@@ -366,10 +387,10 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={260}>
             <BarChart
               data={weeklyActivity}
-              margin={{ top: 10, right: 8, left: 0, bottom: 0 }}
+              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
             >
               <CartesianGrid
                 strokeDasharray="4 4"
@@ -385,7 +406,7 @@ export default function DashboardPage() {
               />
 
               <YAxis
-                tick={{ fill: '#86a18c', fontSize: 9 }}
+                tick={{ fill: '#86a18c', fontSize: 10 }}
                 axisLine={false}
                 tickLine={false}
               />
@@ -393,7 +414,7 @@ export default function DashboardPage() {
               <Tooltip
                 contentStyle={{
                   border: '1px solid rgba(22, 101, 52, 0.12)',
-                  borderRadius: '8px',
+                  borderRadius: '10px',
                   background: '#ffffff',
                   color: '#285737',
                   fontSize: '11px'
@@ -403,15 +424,92 @@ export default function DashboardPage() {
               <Bar
                 dataKey="value"
                 fill="#22c55e"
-                radius={[4, 4, 0, 0]}
+                radius={[6, 6, 0, 0]}
               />
             </BarChart>
           </ResponsiveContainer>
         </GlassCard>
       </div>
 
-      {/* Best Seller Card */}
-      <div style={{ marginTop: '12px', marginBottom: '12px' }}>
+      <div className="chart-grid">
+        <GlassCard className="chart-card">
+          <div className="section-heading">
+            <div>
+              <h3>Inventory by Category</h3>
+              <p>Current quantity distribution</p>
+            </div>
+          </div>
+
+          <ResponsiveContainer width="100%" height={260}>
+            <PieChart>
+              <Pie
+                data={categoryData}
+                dataKey="quantity"
+                nameKey="_id"
+                innerRadius={65}
+                outerRadius={95}
+                paddingAngle={3}
+              >
+                {categoryData.map((entry, index) => (
+                  <Cell
+                    key={entry._id}
+                    fill={
+                      [
+                        '#16a34a',
+                        '#22c55e',
+                        '#86efac',
+                        '#166534',
+                        '#4ade80'
+                      ][index % 5]
+                    }
+                  />
+                ))}
+              </Pie>
+
+              <Tooltip />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </GlassCard>
+
+        <GlassCard className="chart-card">
+          <div className="section-heading">
+            <div>
+              <h3>Current Stock Status</h3>
+
+              <p>
+                Normal, low-stock, and unavailable products
+              </p>
+            </div>
+          </div>
+
+          <ResponsiveContainer width="100%" height={260}>
+            <PieChart>
+              <Pie
+                data={statusData}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={65}
+                outerRadius={95}
+                paddingAngle={3}
+              >
+                {statusData.map(entry => (
+                  <Cell
+                    key={entry.name}
+                    fill={entry.color}
+                  />
+                ))}
+              </Pie>
+
+              <Tooltip />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        </GlassCard>
+      </div>
+
+      {/* Best Seller - BELOW PIE CHARTS */}
+      <div style={{ marginTop: '16px', marginBottom: '16px' }}>
         <GlassCard className="stock-line-card">
           <div className="section-heading">
             <div>
@@ -470,120 +568,7 @@ export default function DashboardPage() {
         </GlassCard>
       </div>
 
-      {/* Summary count cards */}
-      <div
-        className="summary-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '12px',
-          marginBottom: '12px'
-        }}
-      >
-        {cards.map(card => {
-          const Icon = card.icon;
-
-          return (
-            <Link
-              to={card.link}
-              className="summary-link"
-              key={card.label}
-            >
-              <GlassCard className="summary-card">
-                <div className={`summary-icon tone-${card.tone}`}>
-                  <Icon size={20} />
-                </div>
-
-                <div>
-                  <p>{card.label}</p>
-                  <h2>{card.value}</h2>
-                  <small>{card.detail}</small>
-                </div>
-              </GlassCard>
-            </Link>
-          );
-        })}
-      </div>
-
-      {/* Category & Stock Status pies */}
-      <div
-        className="chart-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-          gap: '12px',
-          marginBottom: '12px'
-        }}
-      >
-        <GlassCard className="chart-card">
-          <div className="section-heading">
-            <div>
-              <h3>Inventory by Category</h3>
-              <p>Current quantity distribution</p>
-            </div>
-          </div>
-
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie
-                data={categoryData}
-                dataKey="quantity"
-                nameKey="_id"
-                innerRadius={55}
-                outerRadius={80}
-                paddingAngle={2}
-              >
-                {categoryData.map((entry, index) => (
-                  <Cell
-                    key={entry._id}
-                    fill={['#16a34a', '#22c55e', '#86efac', '#166534', '#4ade80'][index % 5]}
-                  />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend wrapperStyle={{ fontSize: '11px' }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </GlassCard>
-
-        <GlassCard className="chart-card">
-          <div className="section-heading">
-            <div>
-              <h3>Current Stock Status</h3>
-              <p>Normal, low-stock, and unavailable products</p>
-            </div>
-          </div>
-
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie
-                data={statusData}
-                dataKey="value"
-                nameKey="name"
-                innerRadius={55}
-                outerRadius={80}
-                paddingAngle={2}
-              >
-                {statusData.map(entry => (
-                  <Cell key={entry.name} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend wrapperStyle={{ fontSize: '11px' }} />
-            </PieChart>
-          </ResponsiveContainer>
-        </GlassCard>
-      </div>
-
-      {/* Lists: Recently updated & Low-stock attention */}
-      <div
-        className="dashboard-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-          gap: '12px'
-        }}
-      >
+      <div className="dashboard-grid">
         <GlassCard>
           <div className="section-heading">
             <div>
@@ -597,23 +582,35 @@ export default function DashboardPage() {
           <div className="mini-list">
             {stock?.recent?.length ? (
               stock.recent.map(product => (
-                <div className="mini-row" key={product._id}>
+                <div
+                  className="mini-row"
+                  key={product._id}
+                >
                   <div className="product-avatar">
                     {product.name?.charAt(0)}
                   </div>
 
                   <div className="mini-info">
-                    <strong>{product.name}</strong>
+                    <strong>
+                      {product.name}
+                    </strong>
+
                     <small>
-                      {product.barcode} · {product.currentStock} {product.unitType}
+                      {product.barcode} ·{' '}
+                      {product.currentStock}{' '}
+                      {product.unitType}
                     </small>
                   </div>
 
-                  <StatusBadge status={product.status} />
+                  <StatusBadge
+                    status={product.status}
+                  />
                 </div>
               ))
             ) : (
-              <div className="empty-state">No products found.</div>
+              <div className="empty-state">
+                No products found.
+              </div>
             )}
           </div>
         </GlassCard>
@@ -622,7 +619,9 @@ export default function DashboardPage() {
           <div className="section-heading">
             <div>
               <h3>Low-stock attention</h3>
-              <p>Products at or below reorder level</p>
+              <p>
+                Products at or below reorder level
+              </p>
             </div>
 
             <Link to="/alerts">View alerts</Link>
@@ -631,21 +630,35 @@ export default function DashboardPage() {
           <div className="mini-list">
             {stock?.lowStock?.length ? (
               stock.lowStock.map(product => (
-                <div className="mini-row" key={product._id}>
-                  <div className="product-avatar warning-avatar">!</div>
+                <div
+                  className="mini-row"
+                  key={product._id}
+                >
+                  <div className="product-avatar warning-avatar">
+                    !
+                  </div>
 
                   <div className="mini-info">
-                    <strong>{product.name}</strong>
+                    <strong>
+                      {product.name}
+                    </strong>
+
                     <small>
-                      {product.currentStock} remaining · Reorder at {product.reorderLevel}
+                      {product.currentStock}{' '}
+                      remaining · Reorder at{' '}
+                      {product.reorderLevel}
                     </small>
                   </div>
 
-                  <StatusBadge status={product.status} />
+                  <StatusBadge
+                    status={product.status}
+                  />
                 </div>
               ))
             ) : (
-              <div className="empty-state success-empty">Stock levels look healthy.</div>
+              <div className="empty-state success-empty">
+                Stock levels look healthy.
+              </div>
             )}
           </div>
         </GlassCard>

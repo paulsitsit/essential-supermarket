@@ -6,11 +6,13 @@ import {
   CalendarClock,
   Package,
   ScanLine,
-  TrendingDown
+  TrendingDown,
+  ShoppingCart,
+  Trophy
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
-  Area,
+  Bar,
   CartesianGrid,
   Cell,
   Legend,
@@ -139,22 +141,10 @@ export default function DashboardPage() {
     }
   ].filter(item => item.value > 0);
 
-  const weeklyLineData = [
-    { label: 'Aug', value: 38 },
-    { label: 'Sep', value: 45 },
-    { label: 'Oct', value: 42 },
-    { label: 'Nov', value: 31 },
-    { label: 'Dec', value: 34 },
-    { label: 'Jan', value: 22 },
-    { label: 'Feb', value: 18 },
-    { label: 'Mar', value: 26 },
-    { label: 'Apr', value: 20 },
-    { label: 'May', value: 28 },
-    { label: 'Jun', value: 21 },
-    { label: 'Jul', value: 24 }
-  ];
-
+  const weeklyActivity = data.weeklyActivity || [];
+  const salesActivity = data.salesActivity || [];
   const categoryData = data.categoryData || [];
+  const bestSeller = data.bestSeller;
 
   const cards = [
     {
@@ -222,6 +212,24 @@ export default function DashboardPage() {
       icon: ArrowDownToLine,
       tone: 'green',
       link: '/stock-movements'
+    },
+    {
+      label: 'Products Sold (All-time)',
+      value: Number(
+        totals.allTimeItemsSold || 0
+      ).toLocaleString(),
+      detail: 'Total items sold via POS',
+      icon: ShoppingCart,
+      tone: 'blue',
+      link: '/sales'
+    },
+    {
+      label: 'Revenue Today',
+      value: peso(totals.todayRevenue),
+      detail: 'Completed sales today',
+      icon: TrendingDown,
+      tone: 'green',
+      link: '/sales'
     }
   ];
 
@@ -236,11 +244,11 @@ export default function DashboardPage() {
           </h1>
 
           <p>
-            EssentialSupermarket Inventory Dashboard
+            EssentialSupermarket Inventory & POS Dashboard
           </p>
 
           <p>
-            Monitor stock levels and inventory activity in real time.
+            Monitor stock levels, sales, and inventory activity in real time.
           </p>
         </div>
 
@@ -293,16 +301,82 @@ export default function DashboardPage() {
         })}
       </div>
 
+      {/* Best Seller Card */}
+      <div className="stock-price-section">
+        <GlassCard className="stock-line-card">
+          <div className="section-heading">
+            <div>
+              <h3>Best Seller (This Week)</h3>
+              <p>Top product by quantity sold</p>
+            </div>
+
+            <span className="analytics-badge">
+              Last 7 days
+            </span>
+          </div>
+
+          {bestSeller ? (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                padding: '12px 0'
+              }}
+            >
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 10,
+                  background:
+                    'linear-gradient(135deg, #fbbf24, #d97706)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fff',
+                  fontSize: 20
+                }}
+              >
+                <Trophy size={24} />
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <strong style={{ fontSize: 16 }}>
+                  {bestSeller.name}
+                </strong>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: '#6b7280',
+                    marginTop: 4
+                  }}
+                >
+                  {bestSeller.barcode} ·{' '}
+                  {bestSeller.quantitySold} sold ·{' '}
+                  {peso(bestSeller.revenue)}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="empty-state">
+              No sales data yet for best seller.
+            </div>
+          )}
+        </GlassCard>
+      </div>
+
+      {/* Weekly Activity as Bar Chart */}
       <div className="stock-price-section">
         <GlassCard className="stock-line-card">
           <div className="section-heading">
             <div>
               <h3>Weekly Activity</h3>
-              <p>Inventory movement trend</p>
+              <p>Inventory movement trend (last 7 days)</p>
             </div>
 
             <span className="analytics-badge">
-              This year
+              Last 7 days
             </span>
           </div>
 
@@ -310,8 +384,8 @@ export default function DashboardPage() {
             width="100%"
             height={260}
           >
-            <LineChart
-              data={weeklyLineData}
+            <BarChart
+              data={weeklyActivity}
               margin={{
                 top: 10,
                 right: 10,
@@ -319,28 +393,6 @@ export default function DashboardPage() {
                 bottom: 0
               }}
             >
-              <defs>
-                <linearGradient
-                  id="greenLineFill"
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
-                  <stop
-                    offset="0%"
-                    stopColor="#22c55e"
-                    stopOpacity={0.36}
-                  />
-
-                  <stop
-                    offset="100%"
-                    stopColor="#22c55e"
-                    stopOpacity={0.03}
-                  />
-                </linearGradient>
-              </defs>
-
               <CartesianGrid
                 strokeDasharray="4 4"
                 stroke="rgba(22, 101, 52, 0.12)"
@@ -380,22 +432,129 @@ export default function DashboardPage() {
                 }}
               />
 
+              <Bar
+                dataKey="value"
+                fill="#22c55e"
+                radius={[6, 6, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </GlassCard>
+      </div>
+
+      {/* Sales Activity as Line Chart */}
+      <div className="stock-price-section">
+        <GlassCard className="stock-line-card">
+          <div className="section-heading">
+            <div>
+              <h3>Sales Activity</h3>
+              <p>Revenue trend (last 7 days)</p>
+            </div>
+
+            <span className="analytics-badge">
+              Last 7 days
+            </span>
+          </div>
+
+          <ResponsiveContainer
+            width="100%"
+            height={260}
+          >
+            <LineChart
+              data={salesActivity}
+              margin={{
+                top: 10,
+                right: 10,
+                left: 0,
+                bottom: 0
+              }}
+            >
+              <defs>
+                <linearGradient
+                  id="salesLineFill"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop
+                    offset="0%"
+                    stopColor="#3b82f6"
+                    stopOpacity={0.36}
+                  />
+
+                  <stop
+                    offset="100%"
+                    stopColor="#3b82f6"
+                    stopOpacity={0.03}
+                  />
+                </linearGradient>
+              </defs>
+
+              <CartesianGrid
+                strokeDasharray="4 4"
+                stroke="rgba(59, 130, 246, 0.12)"
+                vertical={false}
+              />
+
+              <XAxis
+                dataKey="label"
+                tick={{
+                  fill: '#64748b',
+                  fontSize: 10
+                }}
+                axisLine={{
+                  stroke:
+                    'rgba(59, 130, 246, 0.12)'
+                }}
+                tickLine={false}
+              />
+
+              <YAxis
+                tick={{
+                  fill: '#64748b',
+                  fontSize: 10
+                }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={v =>
+                  v >= 1000
+                    ? `${(v / 1000).toFixed(0)}k`
+                    : v
+                }
+              />
+
+              <Tooltip
+                contentStyle={{
+                  border:
+                    '1px solid rgba(59, 130, 246, 0.12)',
+                  borderRadius: '10px',
+                  background: '#ffffff',
+                  color: '#1e3a8a',
+                  fontSize: '11px'
+                }}
+                formatter={(value, name) => [
+                  peso(value),
+                  'Revenue'
+                ]}
+              />
+
               <Area
                 type="monotone"
-                dataKey="value"
+                dataKey="revenue"
                 stroke="none"
-                fill="url(#greenLineFill)"
+                fill="url(#salesLineFill)"
               />
 
               <Line
                 type="monotone"
-                dataKey="value"
-                stroke="#166534"
+                dataKey="revenue"
+                stroke="#2563eb"
                 strokeWidth={2.5}
                 dot={false}
                 activeDot={{
                   r: 5,
-                  fill: '#22c55e',
+                  fill: '#3b82f6',
                   stroke: '#ffffff',
                   strokeWidth: 2
                 }}

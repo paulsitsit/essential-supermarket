@@ -235,6 +235,13 @@ export default function DashboardPage() {
     }
   ];
 
+  // Shared style for chart rows: always two columns, even on mobile
+  const chartRowStyle = {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '12px'
+  };
+
   return (
     <div className="dashboard-page">
       <div className="page-heading">
@@ -275,214 +282,10 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* TOP: Two main analytics charts (Sales Activity left, Weekly Activity right) */}
+      {/* 1) Best Seller (This Week) - TOP */}
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '16px',
-          marginBottom: '16px'
-        }}
-      >
-        {/* Sales Activity - Blue Line Chart (LEFT) */}
-        <GlassCard className="chart-card">
-          <div className="section-heading">
-            <div>
-              <h3>Sales Activity</h3>
-              <p>Revenue trend (last 7 days)</p>
-            </div>
-
-            <span className="analytics-badge">
-              Last 7 days
-            </span>
-          </div>
-
-          <ResponsiveContainer
-            width="100%"
-            height={260}
-          >
-            <LineChart
-              data={salesActivity}
-              margin={{
-                top: 10,
-                right: 10,
-                left: 0,
-                bottom: 0
-              }}
-            >
-              <defs>
-                <linearGradient
-                  id="salesLineFill"
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
-                  <stop
-                    offset="0%"
-                    stopColor="#3b82f6"
-                    stopOpacity={0.36}
-                  />
-
-                  <stop
-                    offset="100%"
-                    stopColor="#3b82f6"
-                    stopOpacity={0.03}
-                  />
-                </linearGradient>
-              </defs>
-
-              <CartesianGrid
-                strokeDasharray="4 4"
-                stroke="rgba(59, 130, 246, 0.12)"
-                vertical={false}
-              />
-
-              <XAxis
-                dataKey="label"
-                tick={{
-                  fill: '#64748b',
-                  fontSize: 10
-                }}
-                axisLine={{
-                  stroke:
-                    'rgba(59, 130, 246, 0.12)'
-                }}
-                tickLine={false}
-              />
-
-              <YAxis
-                tick={{
-                  fill: '#64748b',
-                  fontSize: 10
-                }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={v =>
-                  v >= 1000
-                    ? `${(v / 1000).toFixed(0)}k`
-                    : v
-                }
-              />
-
-              <Tooltip
-                contentStyle={{
-                  border:
-                    '1px solid rgba(59, 130, 246, 0.12)',
-                  borderRadius: '10px',
-                  background: '#ffffff',
-                  color: '#1e3a8a',
-                  fontSize: '11px'
-                }}
-                formatter={(value, name) => [
-                  peso(value),
-                  'Revenue'
-                ]}
-              />
-
-              <Area
-                type="monotone"
-                dataKey="revenue"
-                stroke="none"
-                fill="url(#salesLineFill)"
-              />
-
-              <Line
-                type="monotone"
-                dataKey="revenue"
-                stroke="#2563eb"
-                strokeWidth={2.5}
-                dot={false}
-                activeDot={{
-                  r: 5,
-                  fill: '#3b82f6',
-                  stroke: '#ffffff',
-                  strokeWidth: 2
-                }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </GlassCard>
-
-        {/* Weekly Activity - Green Bar Chart (RIGHT) */}
-        <GlassCard className="chart-card">
-          <div className="section-heading">
-            <div>
-              <h3>Weekly Activity</h3>
-              <p>Inventory movement trend (last 7 days)</p>
-            </div>
-
-            <span className="analytics-badge">
-              Last 7 days
-            </span>
-          </div>
-
-          <ResponsiveContainer
-            width="100%"
-            height={260}
-          >
-            <BarChart
-              data={weeklyActivity}
-              margin={{
-                top: 10,
-                right: 10,
-                left: 0,
-                bottom: 0
-              }}
-            >
-              <CartesianGrid
-                strokeDasharray="4 4"
-                stroke="rgba(22, 101, 52, 0.12)"
-                vertical={false}
-              />
-
-              <XAxis
-                dataKey="label"
-                tick={{
-                  fill: '#86a18c',
-                  fontSize: 10
-                }}
-                axisLine={{
-                  stroke:
-                    'rgba(22, 101, 52, 0.12)'
-                }}
-                tickLine={false}
-              />
-
-              <YAxis
-                tick={{
-                  fill: '#86a18c',
-                  fontSize: 10
-                }}
-                axisLine={false}
-                tickLine={false}
-              />
-
-              <Tooltip
-                contentStyle={{
-                  border:
-                    '1px solid rgba(22, 101, 52, 0.12)',
-                  borderRadius: '10px',
-                  background: '#ffffff',
-                  color: '#285737',
-                  fontSize: '11px'
-                }}
-              />
-
-              <Bar
-                dataKey="value"
-                fill="#22c55e"
-                radius={[6, 6, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </GlassCard>
-      </div>
-
-      {/* Best Seller Card */}
-      <div
-        style={{
-          marginBottom: '16px'
+          marginBottom: '12px'
         }}
       >
         <GlassCard className="stock-line-card">
@@ -548,73 +351,227 @@ export default function DashboardPage() {
         </GlassCard>
       </div>
 
-      {/* Summary count cards */}
+      {/* 2) Main analytics charts: Sales Activity (left), Weekly Activity (right) - ALWAYS side-by-side */}
       <div
-        className="summary-grid"
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: '16px',
-          marginBottom: '16px'
+          ...chartRowStyle,
+          marginBottom: '12px'
         }}
       >
-        {cards.map(card => {
-          const Icon = card.icon;
+        {/* Sales Activity - Blue Line Chart (LEFT) */}
+        <GlassCard className="chart-card">
+          <div className="section-heading">
+            <div>
+              <h3>Sales Activity</h3>
+              <p>Revenue trend (last 7 days)</p>
+            </div>
+          </div>
 
-          return (
-            <Link
-              to={card.link}
-              className="summary-link"
-              key={card.label}
+          <ResponsiveContainer
+            width="100%"
+            height={240}
+          >
+            <LineChart
+              data={salesActivity}
+              margin={{
+                top: 10,
+                right: 8,
+                left: 0,
+                bottom: 0
+              }}
             >
-              <GlassCard className="summary-card">
-                <div
-                  className={`summary-icon tone-${card.tone}`}
+              <defs>
+                <linearGradient
+                  id="salesLineFill"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
                 >
-                  <Icon size={21} />
-                </div>
+                  <stop
+                    offset="0%"
+                    stopColor="#3b82f6"
+                    stopOpacity={0.36}
+                  />
 
-                <div>
-                  <p>{card.label}</p>
-                  <h2>{card.value}</h2>
-                  <small>{card.detail}</small>
-                </div>
-              </GlassCard>
-            </Link>
-          );
-        })}
+                  <stop
+                    offset="100%"
+                    stopColor="#3b82f6"
+                    stopOpacity={0.03}
+                  />
+                </linearGradient>
+              </defs>
+
+              <CartesianGrid
+                strokeDasharray="4 4"
+                stroke="rgba(59, 130, 246, 0.12)"
+                vertical={false}
+              />
+
+              <XAxis
+                dataKey="label"
+                tick={{
+                  fill: '#64748b',
+                  fontSize: 10
+                }}
+                axisLine={{
+                  stroke:
+                    'rgba(59, 130, 246, 0.12)'
+                }}
+                tickLine={false}
+              />
+
+              <YAxis
+                tick={{
+                  fill: '#64748b',
+                  fontSize: 9
+                }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={v =>
+                  v >= 1000
+                    ? `${(v / 1000).toFixed(0)}k`
+                    : v
+                }
+              />
+
+              <Tooltip
+                contentStyle={{
+                  border:
+                    '1px solid rgba(59, 130, 246, 0.12)',
+                  borderRadius: '8px',
+                  background: '#ffffff',
+                  color: '#1e3a8a',
+                  fontSize: '11px'
+                }}
+                formatter={(value, name) => [
+                  peso(value),
+                  'Revenue'
+                ]}
+              />
+
+              <Area
+                type="monotone"
+                dataKey="revenue"
+                stroke="none"
+                fill="url(#salesLineFill)"
+              />
+
+              <Line
+                type="monotone"
+                dataKey="revenue"
+                stroke="#2563eb"
+                strokeWidth={2}
+                dot={false}
+                activeDot={{
+                  r: 4,
+                  fill: '#3b82f6',
+                  stroke: '#ffffff',
+                  strokeWidth: 2
+                }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </GlassCard>
+
+        {/* Weekly Activity - Green Bar Chart (RIGHT) */}
+        <GlassCard className="chart-card">
+          <div className="section-heading">
+            <div>
+              <h3>Weekly Activity</h3>
+              <p>Inventory movement (last 7 days)</p>
+            </div>
+          </div>
+
+          <ResponsiveContainer
+            width="100%"
+            height={240}
+          >
+            <BarChart
+              data={weeklyActivity}
+              margin={{
+                top: 10,
+                right: 8,
+                left: 0,
+                bottom: 0
+              }}
+            >
+              <CartesianGrid
+                strokeDasharray="4 4"
+                stroke="rgba(22, 101, 52, 0.12)"
+                vertical={false}
+              />
+
+              <XAxis
+                dataKey="label"
+                tick={{
+                  fill: '#86a18c',
+                  fontSize: 10
+                }}
+                axisLine={{
+                  stroke:
+                    'rgba(22, 101, 52, 0.12)'
+                }}
+                tickLine={false}
+              />
+
+              <YAxis
+                tick={{
+                  fill: '#86a18c',
+                  fontSize: 9
+                }}
+                axisLine={false}
+                tickLine={false}
+              />
+
+              <Tooltip
+                contentStyle={{
+                  border:
+                    '1px solid rgba(22, 101, 52, 0.12)',
+                  borderRadius: '8px',
+                  background: '#ffffff',
+                  color: '#285737',
+                  fontSize: '11px'
+                }}
+              />
+
+              <Bar
+                dataKey="value"
+                fill="#22c55e"
+                radius={[4, 4, 0, 0]}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </GlassCard>
       </div>
 
-      {/* Category & Stock Status pies */}
+      {/* 3) Circular charts: Inventory by Category (left), Current Stock Status (right) - ALWAYS side-by-side */}
       <div
-        className="chart-grid"
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '16px',
-          marginBottom: '16px'
+          ...chartRowStyle,
+          marginBottom: '12px'
         }}
       >
         <GlassCard className="chart-card">
           <div className="section-heading">
             <div>
               <h3>Inventory by Category</h3>
-              <p>Current quantity distribution</p>
+              <p>Quantity distribution</p>
             </div>
           </div>
 
           <ResponsiveContainer
             width="100%"
-            height={260}
+            height={220}
           >
             <PieChart>
               <Pie
                 data={categoryData}
                 dataKey="quantity"
                 nameKey="_id"
-                innerRadius={65}
-                outerRadius={95}
-                paddingAngle={3}
+                innerRadius={50}
+                outerRadius={80}
+                paddingAngle={2}
               >
                 {categoryData.map(
                   (entry, index) => (
@@ -635,7 +592,11 @@ export default function DashboardPage() {
               </Pie>
 
               <Tooltip />
-              <Legend />
+              <Legend
+                wrapperStyle={{
+                  fontSize: '11px'
+                }}
+              />
             </PieChart>
           </ResponsiveContainer>
         </GlassCard>
@@ -644,25 +605,22 @@ export default function DashboardPage() {
           <div className="section-heading">
             <div>
               <h3>Current Stock Status</h3>
-
-              <p>
-                Normal, low-stock, and unavailable products
-              </p>
+              <p>Normal, low, out of stock</p>
             </div>
           </div>
 
           <ResponsiveContainer
             width="100%"
-            height={260}
+            height={220}
           >
             <PieChart>
               <Pie
                 data={statusData}
                 dataKey="value"
                 nameKey="name"
-                innerRadius={65}
-                outerRadius={95}
-                paddingAngle={3}
+                innerRadius={50}
+                outerRadius={80}
+                paddingAngle={2}
               >
                 {statusData.map(entry => (
                   <Cell
@@ -673,118 +631,51 @@ export default function DashboardPage() {
               </Pie>
 
               <Tooltip />
-              <Legend />
+              <Legend
+                wrapperStyle={{
+                  fontSize: '11px'
+                }}
+              />
             </PieChart>
           </ResponsiveContainer>
         </GlassCard>
       </div>
 
-      {/* Lists: Recently updated & Low-stock */}
+      {/* 4) Count / summary cards - responsive grid, wrap on smaller screens */}
       <div
-        className="dashboard-grid"
+        className="summary-grid"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '16px'
+          gridTemplateColumns:
+            'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: '12px'
         }}
       >
-        <GlassCard>
-          <div className="section-heading">
-            <div>
-              <h3>Recently updated products</h3>
-              <p>Latest inventory changes</p>
-            </div>
+        {cards.map(card => {
+          const Icon = card.icon;
 
-            <Link to="/inventory">
-              View all
-            </Link>
-          </div>
-
-          <div className="mini-list">
-            {stock?.recent?.length ? (
-              stock.recent.map(product => (
+          return (
+            <Link
+              to={card.link}
+              className="summary-link"
+              key={card.label}
+            >
+              <GlassCard className="summary-card">
                 <div
-                  className="mini-row"
-                  key={product._id}
+                  className={`summary-icon tone-${card.tone}`}
                 >
-                  <div className="product-avatar">
-                    {product.name?.charAt(0)}
-                  </div>
-
-                  <div className="mini-info">
-                    <strong>
-                      {product.name}
-                    </strong>
-
-                    <small>
-                      {product.barcode} ·{' '}
-                      {product.currentStock}{' '}
-                      {product.unitType}
-                    </small>
-                  </div>
-
-                  <StatusBadge
-                    status={product.status}
-                  />
+                  <Icon size={20} />
                 </div>
-              ))
-            ) : (
-              <div className="empty-state">
-                No products found.
-              </div>
-            )}
-          </div>
-        </GlassCard>
 
-        <GlassCard>
-          <div className="section-heading">
-            <div>
-              <h3>Low-stock attention</h3>
-              <p>
-                Products at or below reorder level
-              </p>
-            </div>
-
-            <Link to="/alerts">
-              View alerts
+                <div>
+                  <p>{card.label}</p>
+                  <h2>{card.value}</h2>
+                  <small>{card.detail}</small>
+                </div>
+              </GlassCard>
             </Link>
-          </div>
-
-          <div className="mini-list">
-            {stock?.lowStock?.length ? (
-              stock.lowStock.map(product => (
-                <div
-                  className="mini-row"
-                  key={product._id}
-                >
-                  <div className="product-avatar warning-avatar">
-                    !
-                  </div>
-
-                  <div className="mini-info">
-                    <strong>
-                      {product.name}
-                    </strong>
-
-                    <small>
-                      {product.currentStock}{' '}
-                      remaining · Reorder at{' '}
-                      {product.reorderLevel}
-                    </small>
-                  </div>
-
-                  <StatusBadge
-                    status={product.status}
-                  />
-                </div>
-              ))
-            ) : (
-              <div className="empty-state success-empty">
-                Stock levels look healthy.
-              </div>
-            )}
-          </div>
-        </GlassCard>
+          );
+        })}
       </div>
     </div>
   );

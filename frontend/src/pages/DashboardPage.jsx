@@ -13,6 +13,7 @@ import {
 import { Link } from 'react-router-dom';
 import {
   Bar,
+  BarChart,
   CartesianGrid,
   Cell,
   Legend,
@@ -23,7 +24,8 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
-  YAxis
+  YAxis,
+  Area
 } from 'recharts';
 
 import client from '../api/client';

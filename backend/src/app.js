@@ -33,6 +33,7 @@ const app = express();
 
 app.set('trust proxy', 1);
 
+// Allowed origins from env (comma-separated)
 const allowedOrigins = (
   process.env.CLIENT_URL ||
   'http://localhost:5173'
@@ -43,21 +44,24 @@ const allowedOrigins = (
 
 app.use(helmet());
 
+// CORS configuration
 app.use(
   cors({
-    origin(origin, callback) {
-      if (
-        !origin ||
-        allowedOrigins.includes(origin)
-      ) {
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl) if needed
+      if (!origin) {
         return callback(null, true);
       }
 
-      return callback(
-        new Error('Origin is not allowed by CORS')
-      );
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error('Origin is not allowed by CORS'));
     },
-    credentials: false
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
   })
 );
 

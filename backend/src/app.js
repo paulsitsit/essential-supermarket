@@ -18,6 +18,7 @@ import accountRoutes from './routes/account.routes.js';
 import reportRoutes from './routes/report.routes.js';
 import auditRoutes from './routes/audit.routes.js';
 import exportRoutes from './routes/export.routes.js';
+import salesRoutes from './routes/sales.routes.js';
 
 import {
   apiLimiter,
@@ -42,7 +43,7 @@ const allowedOrigins = (
   .map(origin => origin.trim())
   .filter(Boolean);
 
-app.use(helmet());
+app.use(helmet);
 
 // CORS configuration
 app.use(
@@ -108,6 +109,9 @@ app.use('/api/accounts', accountRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/audit-logs', auditRoutes);
 app.use('/api/reports/export', exportRoutes);
+
+// Sales / POS checkout
+app.use('/api/sales', salesRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

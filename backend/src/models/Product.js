@@ -101,12 +101,6 @@ const productSchema = new mongoose.Schema(
       default: 'normal'
     },
 
-    expirationDate: {
-      type: Date,
-      default: null,
-      index: true
-    },
-
     isArchived: {
       type: Boolean,
       default: false
@@ -145,17 +139,7 @@ productSchema.pre('save', function (next) {
     this.currentStock * this.costPrice;
 
   if (this.status !== 'damaged') {
-    const hasExpirationDate = Boolean(
-      this.expirationDate
-    );
-
-    const isExpired =
-      hasExpirationDate &&
-      new Date(this.expirationDate).getTime() <= Date.now();
-
-    if (isExpired) {
-      this.status = 'expired';
-    } else if (this.currentStock === 0) {
+    if (this.currentStock === 0) {
       this.status = 'out_of_stock';
     } else if (
       this.currentStock <= this.reorderLevel

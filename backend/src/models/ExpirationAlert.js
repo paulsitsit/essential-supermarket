@@ -9,6 +9,24 @@ const expirationAlertSchema = new mongoose.Schema(
       index: true
     },
 
+    batch: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'ProductBatch',
+      required: true,
+      index: true
+    },
+
+    batchNumber: {
+      type: String,
+      default: ''
+    },
+
+    quantity: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+
     expirationDate: {
       type: Date,
       required: true,
@@ -59,9 +77,15 @@ const expirationAlertSchema = new mongoose.Schema(
 );
 
 expirationAlertSchema.index({
-  product: 1,
+  batch: 1,
   expirationDate: 1,
   status: 1
+});
+
+expirationAlertSchema.index({
+  product: 1,
+  status: 1,
+  expirationDate: 1
 });
 
 export default mongoose.model(

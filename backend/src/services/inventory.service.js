@@ -3,11 +3,27 @@ import StockMovement from '../models/StockMovement.js';
 import LowStockAlert from '../models/LowStockAlert.js';
 import { writeAudit } from '../utils/audit.js';
 
-export async function createOrUpdateAlert(product, account, req, io) {
+import {
+  allocateBatchesFEFO,
+  createReceivedBatch
+} from './batch.service.js';
+
+import {
+  syncExpirationAlertsForProduct
+} from './expirationAlert.service.js';
+
+export async function createOrUpdateAlert(
+  product,
+  account,
+  req,
+  io
+) {
   if (product.currentStock <= product.reorderLevel) {
     let alert = await LowStockAlert.findOne({
       product: product._id,
-      status: { $ne: 'resolved' }
+      status: {
+        $ne: 'resolved'
+      }
     });
 
     if (!alert) {
@@ -15,7 +31,10 @@ export async function createOrUpdateAlert(product, account, req, io) {
         product: product._id,
         currentStock: product.currentStock,
         reorderLevel: product.reorderLevel,
-        severity: product.currentStock === 0 ? 'critical' : 'warning',
+        severity:
+          product.currentStock === 0
+            ? 'critical'
+            : 'warning',
         status: 'unread'
       });
 
@@ -30,13 +49,24 @@ export async function createOrUpdateAlert(product, account, req, io) {
         }
       });
 
-      io?.emit('lowStockAlertCreated', { product, alert });
+      io?.emit('lowStockAlertCreated', {
+        product,
+        alert
+      });
     } else {
       alert.currentStock = product.currentStock;
       alert.reorderLevel = product.reorderLevel;
-      alert.severity = product.currentStock === 0 ? 'critical' : 'warning';
+      alert.severity =
+        product.currentStock === 0
+          ? 'critical'
+          : 'warning';
+
       await alert.save();
-      io?.emit('productUpdated', { product, alert });
+
+      io?.emit('productUpdated', {
+        product,
+        alert
+      });
     }
 
     return alert;
@@ -51,6 +81,9 @@ export async function applyMovement({
   movementType,
   quantityChanged,
   reason,
+  expirationDate,
+  batchNumber,
+  receivedDate,
   req,
   io
 }) {
@@ -65,14 +98,65 @@ export async function applyMovement({
   const change = Number(quantityChanged);
 
   if (!Number.isFinite(change) || change === 0) {
-    throw new Error('quantityChanged must be a non-zero number');
+    const error = new Error(
+      'quantityChanged must be a non-zero number'
+    );
+    error.statusCode = 400;
+    throw error;
   }
 
-  const previousStock = product.currentStock;
+  const previousStock = Number(product.currentStock || 0);
   const newStock = previousStock + change;
 
   if (newStock < 0) {
-    throw new Error('Stock cannot become negative');
+    const error = new Error(
+      'Stock cannot become negative'
+    );
+    error.statusCode = 409;
+    throw error;
+  }
+
+  let batchAllocations = [];
+  let receivedBatch = null;
+
+  if (movementType === 'stock_in') {
+    if (change <= 0) {
+      const error = new Error(
+        'Stock-in quantity must be greater than zero'
+      );
+      error.statusCode = 400;
+      throw error;
+    }
+
+    receivedBatch = await createReceivedBatch({
+      product,
+      quantity: change,
+      expirationDate,
+      batchNumber,
+      receivedDate,
+      account
+    });
+
+    batchAllocations = [
+      {
+        batch: receivedBatch._id,
+        batchNumber:
+          receivedBatch.batchNumber || '',
+        expirationDate:
+          receivedBatch.expirationDate || null,
+        quantity: change
+      }
+    ];
+  } else if (change < 0) {
+    /*
+     * Stock deductions use FEFO:
+     * nearest expiration date first,
+     * then oldest received batch.
+     */
+    batchAllocations = await allocateBatchesFEFO({
+      product,
+      quantity: Math.abs(change)
+    });
   }
 
   product.currentStock = newStock;
@@ -86,13 +170,36 @@ export async function applyMovement({
     previousStock,
     newStock,
     reason,
-    branch: product.branch
+    branch: product.branch,
+    batchAllocations
   });
 
-  await createOrUpdateAlert(product, account, req, io);
+  await createOrUpdateAlert(
+    product,
+    account,
+    req,
+    io
+  );
 
-  io?.emit('stockUpdated', { product, movement });
+  await syncExpirationAlertsForProduct(
+    product._id,
+    account,
+    req,
+    io
+  );
+
+  io?.emit('stockUpdated', {
+    product,
+    movement
+  });
+
   io?.emit('productUpdated', product);
+
+  io?.emit('batchUpdated', {
+    productId: product._id.toString(),
+    receivedBatch,
+    batchAllocations
+  });
 
   await writeAudit({
     req,
@@ -102,9 +209,22 @@ export async function applyMovement({
     metadata: {
       previousStock,
       newStock,
-      quantityChanged: change
+      quantityChanged: change,
+      batchAllocations: batchAllocations.map(
+        allocation => ({
+          batchId: allocation.batch.toString(),
+          batchNumber: allocation.batchNumber,
+          quantity: allocation.quantity,
+          expirationDate: allocation.expirationDate
+        })
+      )
     }
   });
 
-  return { product, movement };
+  return {
+    product,
+    movement,
+    receivedBatch,
+    batchAllocations
+  };
 }

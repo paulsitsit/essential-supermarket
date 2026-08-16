@@ -1,4 +1,5 @@
 import ExpirationAlert from '../models/ExpirationAlert.js';
+import ProductBatch from '../models/ProductBatch.js';
 
 const DEFAULT_ALERT_WINDOW_DAYS = 30;
 
@@ -15,9 +16,7 @@ function getAlertWindowDays() {
 
 function startOfDay(value) {
   const date = new Date(value);
-
   date.setHours(0, 0, 0, 0);
-
   return date;
 }
 
@@ -43,17 +42,16 @@ function getSeverity(daysRemaining) {
   return 'info';
 }
 
-async function resolveProductAlerts(
-  productId,
-  account,
+async function resolveBatchAlerts(
+  batchId,
   io,
-  reason = 'expiration_alert_resolved'
+  reason = 'batch_alert_resolved'
 ) {
   const resolvedAt = new Date();
 
   const result = await ExpirationAlert.updateMany(
     {
-      product: productId,
+      batch: batchId,
       status: {
         $ne: 'resolved'
       }
@@ -68,7 +66,7 @@ async function resolveProductAlerts(
 
   if (result.modifiedCount > 0) {
     io?.emit('expirationAlertResolved', {
-      productId: productId.toString(),
+      batchId: batchId.toString(),
       resolvedAt,
       reason
     });
@@ -77,107 +75,73 @@ async function resolveProductAlerts(
   return result;
 }
 
-export async function createOrUpdateExpirationAlert(
-  product,
+export async function syncExpirationAlertForBatch(
+  batch,
   account,
   req,
   io
 ) {
-  if (!product?._id) {
+  if (!batch?._id) {
     return null;
   }
 
-  const productId = product._id;
-  const expirationDate = product.expirationDate;
-
-  /*
-   * If the product is archived or has no expiration date,
-   * any existing active expiration alerts must be resolved.
-   */
   if (
-    product.isArchived ||
-    !expirationDate
+    !batch.expirationDate ||
+    Number(batch.quantity || 0) <= 0
   ) {
-    await resolveProductAlerts(
-      productId,
-      account,
+    await resolveBatchAlerts(
+      batch._id,
       io,
-      product.isArchived
-        ? 'product_archived'
-        : 'expiration_date_removed'
+      !batch.expirationDate
+        ? 'batch_has_no_expiration_date'
+        : 'batch_depleted'
     );
 
     return null;
   }
 
-  const daysRemaining =
-    getDaysRemaining(expirationDate);
+  const daysRemaining = getDaysRemaining(
+    batch.expirationDate
+  );
 
-  const alertWindowDays =
-    getAlertWindowDays();
+  const alertWindowDays = getAlertWindowDays();
 
-  /*
-   * Expired products and products outside the
-   * configured alert window do not need an active alert.
-   */
   if (
     daysRemaining < 0 ||
     daysRemaining > alertWindowDays
   ) {
-    await resolveProductAlerts(
-      productId,
-      account,
+    await resolveBatchAlerts(
+      batch._id,
       io,
       daysRemaining < 0
-        ? 'product_expired'
+        ? 'batch_expired'
         : 'outside_alert_window'
     );
 
     return null;
   }
 
-  /*
-   * If the expiration date changed, resolve alerts
-   * belonging to the old expiration date.
-   */
-  await ExpirationAlert.updateMany(
-    {
-      product: productId,
-      status: {
-        $ne: 'resolved'
-      },
-      expirationDate: {
-        $ne: new Date(expirationDate)
-      }
-    },
-    {
-      $set: {
-        status: 'resolved',
-        resolvedAt: new Date()
-      }
-    }
-  );
-
-  const severity =
-    getSeverity(daysRemaining);
+  const severity = getSeverity(daysRemaining);
 
   const alert = await ExpirationAlert.findOneAndUpdate(
     {
-      product: productId,
-      expirationDate: new Date(expirationDate),
+      batch: batch._id,
       status: {
         $ne: 'resolved'
       }
     },
     {
       $set: {
-        severity,
+        product: batch.product,
+        batchNumber: batch.batchNumber || '',
+        quantity: batch.quantity,
+        expirationDate: batch.expirationDate,
         daysRemaining,
+        severity,
         updatedAt: new Date()
       },
       $setOnInsert: {
-        product: productId,
-        expirationDate: new Date(expirationDate),
+        batch: batch._id,
         status: 'unread',
         createdAt: new Date()
       }
@@ -189,15 +153,62 @@ export async function createOrUpdateExpirationAlert(
     }
   ).populate(
     'product',
-    'name sku barcode expirationDate'
+    'name sku barcode currentStock reorderLevel status'
   );
 
-  io?.emit(
-    'expirationAlertCreated',
-    alert
-  );
+  io?.emit('expirationAlertCreated', alert);
 
   return alert;
+}
+
+export async function syncExpirationAlertsForProduct(
+  productId,
+  account,
+  req,
+  io
+) {
+  const batches = await ProductBatch.find({
+    product: productId
+  });
+
+  const activeBatchIds = new Set(
+    batches.map(batch => batch._id.toString())
+  );
+
+  const existingAlerts = await ExpirationAlert.find({
+    product: productId,
+    status: {
+      $ne: 'resolved'
+    }
+  });
+
+  for (const alert of existingAlerts) {
+    if (
+      !alert.batch ||
+      !activeBatchIds.has(alert.batch.toString())
+    ) {
+      alert.status = 'resolved';
+      alert.resolvedAt = new Date();
+      await alert.save();
+    }
+  }
+
+  const results = [];
+
+  for (const batch of batches) {
+    const alert = await syncExpirationAlertForBatch(
+      batch,
+      account,
+      req,
+      io
+    );
+
+    if (alert) {
+      results.push(alert);
+    }
+  }
+
+  return results;
 }
 
 export async function resolveExpirationAlert(
@@ -206,10 +217,53 @@ export async function resolveExpirationAlert(
   req,
   io
 ) {
-  return resolveProductAlerts(
-    productId,
-    account,
-    io,
-    'manual_product_resolution'
+  const result = await ExpirationAlert.updateMany(
+    {
+      product: productId,
+      status: {
+        $ne: 'resolved'
+      }
+    },
+    {
+      $set: {
+        status: 'resolved',
+        resolvedAt: new Date(),
+        resolvedBy: account?._id || null
+      }
+    }
   );
+
+  if (result.modifiedCount > 0) {
+    io?.emit('expirationAlertResolved', {
+      productId: productId.toString(),
+      reason: 'manual_product_resolution'
+    });
+  }
+
+  return result;
+}
+
+/*
+ * Compatibility export:
+ * Existing product controller calls this after create/update.
+ * Product-level expiration is no longer tracked, so it syncs any batches.
+ */
+export async function createOrUpdateExpirationAlert(
+  product,
+  account,
+  req,
+  io
+) {
+  if (!product?._id) {
+    return null;
+  }
+
+  const alerts = await syncExpirationAlertsForProduct(
+    product._id,
+    account,
+    req,
+    io
+  );
+
+  return alerts[0] || null;
 }

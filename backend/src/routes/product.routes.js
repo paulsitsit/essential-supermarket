@@ -8,6 +8,7 @@ import {
   deleteProduct,
   archiveProduct,
   scanProduct,
+  getProductBatches,
   lookupExternalProduct,
   recognizeProduct,
   uploadProductImage
@@ -47,6 +48,14 @@ router.post(
   allowRoles('admin', 'manager', 'staff'),
   uploadProductImage,
   recognizeProduct
+);
+
+router.get(
+  '/:id/batches',
+  allowRoles('admin', 'manager', 'staff'),
+  productIdRules,
+  validateRequest,
+  getProductBatches
 );
 
 router.get(

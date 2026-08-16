@@ -4,10 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "nodemon src/server.js",
-    "start": "node src/server.js",
-    "seed:local": "node src/seed.js local",
-    "seed:atlas": "node src/seed.js atlas"
+  "dev": "nodemon src/server.js",
+  "start": "node src/server.js",
+  "seed:local": "node src/seed.js local",
+  "seed:atlas": "node src/seed.js atlas",
+  "migrate:batches:atlas": "node src/migrations/migrateProductBatches.js atlas",
+  "migrate:batches:local": "node src/migrations/migrateProductBatches.js local"
   },
   "dependencies": {
     "@google-cloud/vision": "^5.3.7",

@@ -4,11 +4,17 @@ import { writeAudit } from '../utils/audit.js';
 import {
   createOrUpdateAlert
 } from '../services/inventory.service.js';
+import ProductBatch from '../models/ProductBatch.js';
 
 import {
-  createOrUpdateExpirationAlert,
-  resolveExpirationAlert
+  removeBatchesForProduct
+} from '../services/batch.service.js';
+
+import {
+  syncExpirationAlertsForProduct
 } from '../services/expirationAlert.service.js';
+
+import ExpirationAlert from '../models/ExpirationAlert.js';
 
 import { generateInternalBarcode } from '../utils/barcode.js';
 import { generateUniqueSku } from '../utils/sku.js';
@@ -165,6 +171,34 @@ export async function scanProduct(req, res) {
   }
 
   res.json(product);
+}
+
+export async function getProductBatches(req, res) {
+  const product = await Product.findById(
+    req.params.id
+  ).populate('category supplier', 'name');
+
+  if (!product || product.isArchived) {
+    return res.status(404).json({
+      message: 'Product not found'
+    });
+  }
+
+  const batches = await ProductBatch.find({
+    product: product._id,
+    quantity: {
+      $gt: 0
+    }
+  }).sort({
+    expirationDate: 1,
+    receivedDate: 1,
+    createdAt: 1
+  });
+
+  res.json({
+    product,
+    batches
+  });
 }
 
 export async function lookupExternalProduct(req, res) {
@@ -355,13 +389,6 @@ export async function createProduct(req, res) {
     );
   }
 
-  await createOrUpdateExpirationAlert(
-    product,
-    req.account,
-    req,
-    req.app.get('io')
-  );
-
   if (product.currentStock > 0) {
     await writeAudit({
       req,
@@ -408,8 +435,7 @@ export async function updateProduct(req, res) {
     'unitType',
     'branch',
     'reorderLevel',
-    'costPrice',
-    'expirationDate'
+    'costPrice'
   ];
 
   const updates = Object.fromEntries(
@@ -509,13 +535,6 @@ export async function updateProduct(req, res) {
     });
   }
 
-  await createOrUpdateExpirationAlert(
-    product,
-    req.account,
-    req,
-    req.app.get('io')
-  );
-
   await writeAudit({
     req,
     account: req.account,
@@ -547,7 +566,7 @@ export async function archiveProduct(req, res) {
     });
   }
 
-  await resolveExpirationAlert(
+  await syncExpirationAlertsForProduct(
     product._id,
     req.account,
     req,
@@ -583,12 +602,11 @@ export async function deleteProduct(req, res) {
     });
   }
 
-  await resolveExpirationAlert(
-    product._id,
-    req.account,
-    req,
-    req.app.get('io')
-  );
+  await removeBatchesForProduct(product._id);
+
+  await ExpirationAlert.deleteMany({
+    product: product._id
+  });
 
   await Product.findByIdAndDelete(
     req.params.id

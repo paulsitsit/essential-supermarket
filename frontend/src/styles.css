@@ -1813,3 +1813,75 @@ body {
     width: 100%;
   }
 }
+/* Make every modal appear above the sidebar and page content */
+.modal-backdrop,
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.5);
+  isolation: isolate;
+}
+
+/* Modal container */
+.modal-card,
+.modal-panel {
+  position: relative;
+  z-index: 10000;
+  width: min(100%, 720px);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  border: 1px solid rgba(22, 101, 52, 0.14);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.24);
+}
+
+/* Larger modal variants */
+.details-modal {
+  width: min(100%, 900px);
+}
+
+.modal-card form,
+.modal-panel form {
+  position: relative;
+  z-index: 10001;
+}
+
+/* Prevent the sidebar from covering dialogs */
+.sidebar {
+  z-index: 100;
+}
+
+.sidebar-open {
+  z-index: 100;
+}
+
+/* Keep modal controls above the modal content */
+.modal-header,
+.modal-actions {
+  position: relative;
+  z-index: 10002;
+}
+
+/* Mobile modal behavior */
+@media (max-width: 640px) {
+  .modal-backdrop,
+  .modal-overlay {
+    align-items: flex-start;
+    padding: 12px;
+    overflow-y: auto;
+  }
+
+  .modal-card,
+  .modal-panel {
+    width: 100%;
+    max-height: calc(100vh - 24px);
+    margin: 0;
+    border-radius: 14px;
+  }
+}

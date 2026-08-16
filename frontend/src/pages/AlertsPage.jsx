@@ -244,62 +244,65 @@ export default function AlertsPage() {
         </GlassCard>
       </div>
 
-      <GlassCard className="alerts-container">
-        <div className="section-heading">
-          <div>
-            <h3>
-              <ShieldAlert size={18} />
-              Low-Stock Alerts
-            </h3>
+      {/* Two-column layout for Low-Stock and Expiration alerts */}
+      <div className="alerts-side-by-side">
+        <GlassCard className="alerts-container">
+          <div className="section-heading">
+            <div>
+              <h3>
+                <ShieldAlert size={18} />
+                Low-Stock Alerts
+              </h3>
 
-            <p>
-              Products at or below their reorder level.
-            </p>
+              <p>
+                Products at or below their reorder level.
+              </p>
+            </div>
+
+            <AlertFilters
+              value={lowStockFilter}
+              onChange={setLowStockFilter}
+            />
           </div>
 
-          <AlertFilters
-            value={lowStockFilter}
-            onChange={setLowStockFilter}
-          />
-        </div>
+          {renderAlertList(
+            filteredLowStock,
+            lowStockFilter === 'all'
+              ? 'No low-stock alerts'
+              : `No ${lowStockFilter} low-stock alerts`,
+            'Products reaching their reorder level will appear here automatically.'
+          )}
+        </GlassCard>
 
-        {renderAlertList(
-          filteredLowStock,
-          lowStockFilter === 'all'
-            ? 'No low-stock alerts'
-            : `No ${lowStockFilter} low-stock alerts`,
-          'Products reaching their reorder level will appear here automatically.'
-        )}
-      </GlassCard>
+        <GlassCard className="alerts-container">
+          <div className="section-heading">
+            <div>
+              <h3>
+                <CalendarClock size={18} />
+                Expiration Alerts
+              </h3>
 
-      <GlassCard className="alerts-container">
-        <div className="section-heading">
-          <div>
-            <h3>
-              <CalendarClock size={18} />
-              Expiration Alerts
-            </h3>
+              <p>
+                Products approaching or passing their
+                expiration date.
+              </p>
+            </div>
 
-            <p>
-              Products approaching or passing their
-              expiration date.
-            </p>
+            <AlertFilters
+              value={expirationFilter}
+              onChange={setExpirationFilter}
+            />
           </div>
 
-          <AlertFilters
-            value={expirationFilter}
-            onChange={setExpirationFilter}
-          />
-        </div>
-
-        {renderAlertList(
-          filteredExpiration,
-          expirationFilter === 'all'
-            ? 'No expiration alerts'
-            : `No ${expirationFilter} expiration alerts`,
-          'Products expiring soon will appear here automatically.'
-        )}
-      </GlassCard>
+          {renderAlertList(
+            filteredExpiration,
+            expirationFilter === 'all'
+              ? 'No expiration alerts'
+              : `No ${expirationFilter} expiration alerts`,
+            'Products expiring soon will appear here automatically.'
+          )}
+        </GlassCard>
+      </div>
     </div>
   );
 }

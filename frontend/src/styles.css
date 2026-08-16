@@ -1251,8 +1251,8 @@ background: #dcfce7;
 
 /* Image inside the green rounded square */
 .brand-logo-img {
-  max-width: 30px;
-  max-height: 30px;
+  max-width: 50px;
+  max-height: 50px;
   width: 100%;
   height: auto;
   object-fit: contain;
@@ -1294,8 +1294,8 @@ background: #dcfce7;
 }
 
 .brand-mark.large .brand-logo-img {
-  max-width: 42px;
-  max-height: 42px;
+  max-width: 500px;
+  max-height: 500px;
 }
 /* =========================================================
    Fixed application layout

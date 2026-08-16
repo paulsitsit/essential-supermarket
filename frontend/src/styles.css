@@ -1688,3 +1688,128 @@ body {
     padding-right: 14px;
   }
 }
+/* Alerts: two columns only when there is enough horizontal space */
+.alerts-side-by-side {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 17px;
+  width: 100%;
+  min-width: 0;
+  margin-top: 17px;
+}
+
+.alerts-side-by-side > .alerts-column {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* Each column keeps alert content inside its available space */
+.alerts-side-by-side .alerts-list,
+.alerts-side-by-side .alert-card,
+.alerts-side-by-side .alert-card-header,
+.alerts-side-by-side .alert-card-body,
+.alerts-side-by-side .alert-card-footer,
+.alerts-side-by-side .alert-card-heading,
+.alerts-side-by-side .alert-field {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Text must wrap rather than stretch the column */
+.alerts-side-by-side .alert-card-title-row h3,
+.alerts-side-by-side .alert-card-subtitle,
+.alerts-side-by-side .alert-field strong,
+.alerts-side-by-side .alert-field span {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+}
+
+/* Keep detailed data compact but readable within each desktop column */
+.alerts-side-by-side .alert-fields-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* Action controls must wrap */
+.alerts-side-by-side .alert-card-footer,
+.alerts-side-by-side .alert-card-actions {
+  flex-wrap: wrap;
+}
+
+/* Switch to full-width sections before they become too narrow */
+@media (max-width: 1100px) {
+  .alerts-side-by-side {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .alerts-side-by-side .alert-fields-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* Tablet and phone readability */
+@media (max-width: 700px) {
+  .alerts-side-by-side .alerts-container {
+    padding: 15px;
+  }
+
+  .alerts-side-by-side .section-heading {
+    display: block;
+  }
+
+  .alerts-side-by-side .section-heading .alert-filters {
+    width: 100%;
+    margin-top: 12px;
+  }
+
+  .alerts-side-by-side .alert-card-header {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .alerts-side-by-side .alert-status {
+    grid-column: 2;
+    justify-self: start;
+    margin-top: 8px;
+  }
+
+  .alerts-side-by-side .alert-fields-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .alerts-side-by-side .alert-card-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .alerts-side-by-side .alert-card-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+/* Narrow phones */
+@media (max-width: 450px) {
+  .alerts-side-by-side .alerts-container {
+    padding: 12px;
+  }
+
+  .alerts-side-by-side .alert-fields-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .alerts-side-by-side .alert-card-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .alerts-side-by-side .alert-action-btn {
+    width: 100%;
+  }
+}

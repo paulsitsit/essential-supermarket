@@ -70,15 +70,11 @@ export default function AlertsPage() {
     resolve
   } = useLowStockAlerts();
 
-  const [
-    lowStockFilter,
-    setLowStockFilter
-  ] = useState('all');
+  const [lowStockFilter, setLowStockFilter] =
+    useState('all');
 
-  const [
-    expirationFilter,
-    setExpirationFilter
-  ] = useState('all');
+  const [expirationFilter, setExpirationFilter] =
+    useState('all');
 
   const filteredLowStock = useMemo(
     () =>
@@ -114,7 +110,11 @@ export default function AlertsPage() {
     'manager'
   ].includes(account?.role);
 
-  function renderAlertList(rows, emptyTitle, emptyDescription) {
+  function renderAlertList(
+    rows,
+    emptyTitle,
+    emptyDescription
+  ) {
     if (loading) {
       return (
         <div className="page-loading">
@@ -167,8 +167,15 @@ export default function AlertsPage() {
     );
   }
 
+  const resolvedCount = [
+    ...lowStockAlerts,
+    ...expirationAlerts
+  ].filter(
+    alert => alert.status === 'resolved'
+  ).length;
+
   return (
-    <div>
+    <div className="alerts-page">
       <div className="page-heading">
         <div>
           <p className="eyebrow">
@@ -184,6 +191,7 @@ export default function AlertsPage() {
         </div>
 
         <button
+          type="button"
           className="secondary-btn"
           onClick={load}
         >
@@ -207,7 +215,9 @@ export default function AlertsPage() {
           <div>
             <span>Active alerts</span>
             <strong>{activeCount}</strong>
-            <small>Low-stock and expiration alerts</small>
+            <small>
+              Low-stock and expiration alerts
+            </small>
           </div>
         </GlassCard>
 
@@ -230,23 +240,14 @@ export default function AlertsPage() {
 
           <div>
             <span>Resolved alerts</span>
-            <strong>
-              {
-                [...lowStockAlerts, ...expirationAlerts]
-                  .filter(
-                    alert =>
-                      alert.status === 'resolved'
-                  ).length
-              }
-            </strong>
+            <strong>{resolvedCount}</strong>
             <small>Completed reviews</small>
           </div>
         </GlassCard>
       </div>
 
-      {/* Two-column layout for Low-Stock and Expiration alerts */}
       <div className="alerts-side-by-side">
-        <GlassCard className="alerts-container">
+        <GlassCard className="alerts-container alerts-column">
           <div className="section-heading">
             <div>
               <h3>
@@ -274,7 +275,7 @@ export default function AlertsPage() {
           )}
         </GlassCard>
 
-        <GlassCard className="alerts-container">
+        <GlassCard className="alerts-container alerts-column">
           <div className="section-heading">
             <div>
               <h3>

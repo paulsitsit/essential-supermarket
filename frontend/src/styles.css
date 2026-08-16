@@ -318,23 +318,6 @@ background: #dcfce7;
   position: relative;
   z-index: 81;
 }
-
-.notification-wrapper {
-  position: static;
-  }
-
-.notification-dropdown {
-  position: fixed;
-  top: 72px;
-  left: 8px;
-  right: 8px;
-  width: auto;
-  max-width: none;
-  max-height: calc(100dvh - 88px);
-  overflow-y: auto;
-  z-index: 9999;
-  border-radius: 18px;
-}
 .stock-price-section {
   margin-top: 18px;
 }
@@ -1311,6 +1294,336 @@ background: #dcfce7;
 }
 
 .brand-mark.large .brand-logo-img {
-  max-width: 500px;
-  max-height: 501px;
+  max-width: 42px;
+  max-height: 42px;
+}
+/* =========================================================
+   Fixed application layout
+   ========================================================= */
+
+:root {
+  --sidebar-width: 260px;
+  --topbar-height: 76px;
+  --mobile-topbar-height: 66px;
+}
+
+/* Prevent the browser window itself from scrolling */
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+}
+
+/* Main application frame */
+.app-shell {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100dvh;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+/* =========================================================
+   Fixed sidebar
+   ========================================================= */
+
+.sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 1000;
+
+  display: flex;
+  flex-direction: column;
+
+  width: var(--sidebar-width);
+  height: 100dvh;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+
+  padding: 22px 14px;
+
+  background: rgba(255, 255, 255, 0.9);
+  border-right: 1px solid var(--border);
+  box-shadow: 8px 0 25px rgba(22, 101, 52, 0.06);
+
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+
+  scrollbar-width: thin;
+  scrollbar-color: rgba(22, 101, 52, 0.2) transparent;
+}
+
+/* =========================================================
+   Main right-hand area
+   ========================================================= */
+
+.main-shell {
+  display: flex;
+  flex-direction: column;
+
+  width: calc(100% - var(--sidebar-width));
+  height: 100dvh;
+  min-width: 0;
+  min-height: 0;
+
+  margin-left: var(--sidebar-width);
+  overflow: hidden;
+}
+
+/* =========================================================
+   Fixed topbar
+   ========================================================= */
+
+.topbar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: var(--sidebar-width);
+  z-index: 900;
+
+  display: flex;
+  align-items: center;
+  gap: 22px;
+
+  width: auto;
+  height: var(--topbar-height);
+  min-height: var(--topbar-height);
+
+  padding: 0 32px;
+
+  background: rgba(255, 255, 255, 0.88);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 5px 20px rgba(22, 101, 52, 0.06);
+
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+/* =========================================================
+   Scrollable content only
+   ========================================================= */
+
+.page-content {
+  width: 100%;
+  height: 100dvh;
+  min-width: 0;
+  min-height: 0;
+
+  padding: calc(var(--topbar-height) + 34px) 34px 34px;
+
+  overflow-x: hidden;
+  overflow-y: auto;
+
+  scrollbar-width: thin;
+  scrollbar-color: rgba(22, 101, 52, 0.25) transparent;
+}
+
+/* Keep large dashboard elements inside the viewport */
+.page-content > * {
+  min-width: 0;
+}
+
+/* =========================================================
+   Search and topbar safety
+   ========================================================= */
+
+.global-search-container {
+  position: relative;
+  z-index: 2;
+
+  flex: 1;
+  min-width: 0;
+}
+
+.global-search {
+  min-width: 0;
+  max-width: 470px;
+}
+
+.global-search input {
+  min-width: 0;
+}
+
+.topbar-actions {
+  position: relative;
+  z-index: 3;
+}
+
+/* =========================================================
+   Mobile sidebar drawer
+   ========================================================= */
+
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+
+  display: block;
+
+  width: 100%;
+  height: 100%;
+
+  padding: 0;
+
+  border: 0;
+  background: rgba(22, 101, 52, 0.2);
+
+  cursor: pointer;
+
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.menu-btn {
+  display: none;
+}
+
+@media (max-width: 850px) {
+  :root {
+    --sidebar-width: 260px;
+    --topbar-height: var(--mobile-topbar-height);
+  }
+
+  .sidebar {
+    transform: translateX(-105%);
+    transition: transform 0.25s ease;
+    box-shadow: 20px 0 40px rgba(22, 101, 52, 0.18);
+  }
+
+  .sidebar.sidebar-open {
+    transform: translateX(0);
+  }
+
+  .main-shell {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .topbar {
+    left: 0;
+
+    height: var(--mobile-topbar-height);
+    min-height: var(--mobile-topbar-height);
+
+    padding: 0 18px;
+  }
+
+  .page-content {
+    padding: calc(var(--mobile-topbar-height) + 24px) 18px 24px;
+  }
+
+  .menu-btn {
+    display: grid;
+    flex: 0 0 36px;
+    place-items: center;
+  }
+
+  .topbar-account > div {
+    display: none;
+  }
+}
+
+/* =========================================================
+   Smaller screens
+   ========================================================= */
+
+@media (max-width: 620px) {
+  .topbar {
+    gap: 8px;
+    padding: 0 12px;
+  }
+
+  .page-content {
+    padding: calc(var(--mobile-topbar-height) + 18px) 12px 18px;
+  }
+
+  .global-search {
+    flex: 1;
+    width: auto;
+    max-width: none;
+  }
+
+  .global-search input {
+    font-size: 11px;
+  }
+
+  .topbar-actions {
+    gap: 8px;
+  }
+
+  .page-heading {
+    display: block;
+  }
+
+  .heading-actions {
+    display: flex;
+    flex-wrap: wrap;
+    margin-top: 16px;
+  }
+
+  .heading-actions .primary-btn,
+  .heading-actions .secondary-btn {
+    flex: 1 1 150px;
+  }
+}
+
+@media (max-width: 390px) {
+  .topbar {
+    gap: 5px;
+    padding: 0 8px;
+  }
+
+  .page-content {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .topbar-actions {
+    gap: 4px;
+  }
+
+  .global-search {
+    padding: 9px 10px;
+  }
+
+  .global-search input {
+    font-size: 10px;
+  }
+}
+
+/* =========================================================
+   Fixed-position dropdowns must stay above content
+   ========================================================= */
+
+.notification-dropdown,
+.search-suggestions,
+.search-status {
+  z-index: 3000;
+}
+
+/* Mobile dropdown positioning below fixed topbar */
+@media (max-width: 600px) {
+  .notification-dropdown,
+  .search-suggestions,
+  .search-status {
+    position: fixed;
+    top: calc(var(--mobile-topbar-height) + 6px);
+    right: 8px;
+    left: 8px;
+
+    width: auto;
+    max-width: none;
+    max-height: calc(100dvh - var(--mobile-topbar-height) - 20px);
+
+    overflow-y: auto;
+  }
 }

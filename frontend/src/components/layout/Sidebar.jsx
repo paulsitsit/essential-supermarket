@@ -3,6 +3,7 @@ import {
   Boxes,
   ClipboardList,
   FileBarChart,
+  Layers,
   LayoutDashboard,
   LogOut,
   Package,
@@ -12,7 +13,9 @@ import {
   Tags,
   Truck,
   Users,
-  X
+  X,
+  CalendarClock,
+  ShoppingCart
 } from 'lucide-react';
 
 import { useAuth } from '../../context/AuthContext';
@@ -30,6 +33,30 @@ const items = [
     path: '/products',
     icon: Package,
     roles: ['admin', 'manager']
+  },
+  {
+    label: 'Batches',
+    path: '/batches',
+    icon: Layers,
+    roles: ['admin', 'manager']
+  },
+  {
+    label: 'Batch Trace',
+    path: '/batch-trace',
+    icon: ClipboardList,
+    roles: ['admin', 'manager', 'staff']
+  },
+  {
+    label: 'Expiring Soon',
+    path: '/expiring-soon',
+    icon: CalendarClock,
+    roles: ['admin', 'manager', 'staff']
+  },
+  {
+    label: 'Sales',
+    path: '/sales',
+    icon: ShoppingCart,
+    roles: ['admin', 'manager', 'staff']
   },
   {
     label: 'Categories',

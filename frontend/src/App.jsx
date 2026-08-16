@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 
 import ProtectedRoute from './routes/ProtectedRoute';
 import AppLayout from './layouts/AppLayout';
+import BatchesPage from './pages/BatchesPage';
 
 import ScannerPage from './pages/ScannerPage';
 import AlertsPage from './pages/AlertsPage';
@@ -18,6 +19,9 @@ import InventoryPage from './pages/InventoryPage';
 import StockMovementsPage from './pages/StockMovementsPage';
 import EditProductPage from './pages/EditProductPage';
 import AuditLogsPage from './pages/AuditLogsPage';
+import ExpiringSoonPage from './pages/ExpiringSoonPage';
+import BatchTracePage from './pages/BatchTracePage';
+import SalesPage from './pages/SalesPage';
 
 export default function App() {
   return (
@@ -54,6 +58,26 @@ export default function App() {
             <Route
               path="products"
               element={<ProductsPage />}
+            />
+
+            <Route
+              path="/batches" 
+              element={<BatchesPage />} 
+            /> 
+
+            <Route 
+              path="/expiring-soon" 
+              element={<ExpiringSoonPage />}
+            />
+
+            <Route 
+              path="/batch-trace" 
+              element={<BatchTracePage />} 
+            />
+
+            <Route 
+              path="/sales" 
+              element={<SalesPage />} 
             />
 
             <Route

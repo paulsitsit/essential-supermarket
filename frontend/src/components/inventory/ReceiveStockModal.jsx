@@ -21,6 +21,15 @@ const defectReasons = [
   'Other defect'
 ];
 
+function generateBatchNumber() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const rand = Math.floor(1000 + Math.random() * 9000);
+  return `LOT-${yyyy}-${mm}-${dd}-${rand}`;
+}
+
 export default function ReceiveStockModal({
   product,
   onClose,
@@ -28,16 +37,22 @@ export default function ReceiveStockModal({
 }) {
   const [mode, setMode] = useState('receive'); // 'receive' | 'defect'
   const [quantity, setQuantity] = useState('');
-  const [reason, setReason] = useState(
-    receiveReasons[0]
-  );
+  const [reason, setReason] = useState(receiveReasons[0]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  const reasons =
-    mode === 'receive'
-      ? receiveReasons
-      : defectReasons;
+  // Batch fields (only used in receive mode)
+  const [expirationDate, setExpirationDate] = useState('');
+  const [batchNumber, setBatchNumber] = useState(() => generateBatchNumber());
+  const [receivedDate, setReceivedDate] = useState(() => {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  });
+
+  const reasons = mode === 'receive' ? receiveReasons : defectReasons;
 
   async function submit(event) {
     event.preventDefault();
@@ -46,9 +61,7 @@ export default function ReceiveStockModal({
     const qty = Number(quantity);
 
     if (!Number.isInteger(qty) || qty <= 0) {
-      setError(
-        'Enter a whole quantity greater than zero.'
-      );
+      setError('Enter a whole quantity greater than zero.');
       return;
     }
 
@@ -60,25 +73,34 @@ export default function ReceiveStockModal({
     setBusy(true);
 
     try {
-      const movementType =
-        mode === 'receive'
-          ? 'stock_in'
-          : 'damaged';
+      if (mode === 'receive') {
+        // New batch-based receiving
+        const payload = {
+          productId: product._id,
+          quantity: qty,
+          reason: reason.trim(),
+          batchNumber: batchNumber.trim() || generateBatchNumber(),
+          receivedDate,
+          expirationDate: expirationDate || null
+        };
 
-      await client.post('/stock-movements', {
-        productId: product._id,
-        movementType,
-        quantityChanged: qty,
-        reason
-      });
+        await client.post('/batches/receive', payload);
+      } else {
+        // Defect path still uses stock-movements for now
+        const movementType = 'damaged';
+
+        await client.post('/stock-movements', {
+          productId: product._id,
+          movementType,
+          quantityChanged: qty,
+          reason
+        });
+      }
 
       onSaved?.();
     } catch (err) {
       setError(
-        getErrorMessage(
-          err,
-          'Unable to save stock movement'
-        )
+        getErrorMessage(err, 'Unable to save stock movement')
       );
     } finally {
       setBusy(false);
@@ -91,11 +113,8 @@ export default function ReceiveStockModal({
         <div className="modal-header">
           <div>
             <p className="eyebrow">
-              {mode === 'receive'
-                ? 'RECEIVE STOCK'
-                : 'REPORT DEFECT'}
+              {mode === 'receive' ? 'RECEIVE STOCK' : 'REPORT DEFECT'}
             </p>
-
             <h3>{product.name}</h3>
           </div>
 
@@ -122,46 +141,32 @@ export default function ReceiveStockModal({
           <div>
             <span>Current stock</span>
             <strong>
-              {product.currentStock}{' '}
-              {product.unitType}
+              {product.currentStock} {product.unitType}
             </strong>
           </div>
 
           <div>
             <span>Reorder level</span>
             <strong>
-              {product.reorderLevel}{' '}
-              {product.unitType}
+              {product.reorderLevel} {product.unitType}
             </strong>
           </div>
 
           <div>
             <span>Status</span>
-            <StatusBadge
-              status={product.status}
-            />
+            <StatusBadge status={product.status} />
           </div>
         </div>
 
-        {error && (
-          <div className="form-error">
-            {error}
-          </div>
-        )}
+        {error && <div className="form-error">{error}</div>}
 
-        <form
-          onSubmit={submit}
-          className="modal-form"
-        >
+        <form onSubmit={submit} className="modal-form">
           <label>
             Stock action
-
             <select
               value={mode}
               onChange={event => {
-                const nextMode =
-                  event.target.value;
-
+                const nextMode = event.target.value;
                 setMode(nextMode);
                 setQuantity('');
                 setReason(
@@ -172,53 +177,100 @@ export default function ReceiveStockModal({
                 setError('');
               }}
             >
-              <option value="receive">
-                Receive stock into inventory
-              </option>
-
-              <option value="defect">
-                Report damaged / defective stock
-              </option>
+              <option value="receive">Receive stock into inventory</option>
+              <option value="defect">Report damaged / defective stock</option>
             </select>
           </label>
 
-          <label>
-            Quantity
-            <input
-              type="number"
-              min="1"
-              step="1"
-              value={quantity}
-              onChange={event =>
-                setQuantity(event.target.value)
-              }
-              placeholder={
-                mode === 'receive'
-                  ? 'Enter quantity received'
-                  : 'Enter quantity marked defective'
-              }
-              autoFocus
-            />
-          </label>
+          {mode === 'receive' && (
+            <>
+              <label>
+                Quantity received
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={quantity}
+                  onChange={event => setQuantity(event.target.value)}
+                  placeholder="Enter quantity received"
+                  autoFocus
+                />
+              </label>
 
-          <label>
-            Reason
-            <select
-              value={reason}
-              onChange={event =>
-                setReason(event.target.value)
-              }
-            >
-              {reasons.map(item => (
-                <option
-                  key={item}
-                  value={item}
+              <label>
+                Expiration date (optional)
+                <input
+                  type="date"
+                  value={expirationDate}
+                  onChange={event => setExpirationDate(event.target.value)}
+                />
+              </label>
+
+              <label>
+                Batch / lot number
+                <input
+                  type="text"
+                  value={batchNumber}
+                  onChange={event => setBatchNumber(event.target.value)}
+                  placeholder="LOT-YYYY-MM-DD-XXXX"
+                />
+              </label>
+
+              <label>
+                Received date
+                <input
+                  type="date"
+                  value={receivedDate}
+                  onChange={event => setReceivedDate(event.target.value)}
+                />
+              </label>
+
+              <label>
+                Reason
+                <select
+                  value={reason}
+                  onChange={event => setReason(event.target.value)}
                 >
-                  {item}
-                </option>
-              ))}
-            </select>
-          </label>
+                  {reasons.map(item => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
+          )}
+
+          {mode === 'defect' && (
+            <>
+              <label>
+                Quantity defective
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={quantity}
+                  onChange={event => setQuantity(event.target.value)}
+                  placeholder="Enter quantity marked defective"
+                  autoFocus
+                />
+              </label>
+
+              <label>
+                Reason
+                <select
+                  value={reason}
+                  onChange={event => setReason(event.target.value)}
+                >
+                  {reasons.map(item => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </>
+          )}
 
           <div className="modal-actions">
             <button
@@ -237,8 +289,8 @@ export default function ReceiveStockModal({
               {busy
                 ? 'Saving...'
                 : mode === 'receive'
-                  ? 'Save Stock Movement'
-                  : 'Save Defect Movement'}
+                ? 'Save Stock Movement'
+                : 'Save Defect Movement'}
             </button>
           </div>
         </form>

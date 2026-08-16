@@ -71,185 +71,230 @@ export async function createSale(req, res) {
     });
   }
 
-  /*
-   * First validate every product and requested quantity
-   * before reducing any batch stock.
-   */
-  const preparedItems = [];
+  const io = req.app.get('io');
 
-  for (const item of items) {
-    const product = await Product.findById(
-      item.productId
-    );
+  // Start transaction
+  const session = await Product.startSession();
+  session.startTransaction();
 
-    if (!product || product.isArchived) {
-      return res.status(400).json({
-        message:
+  try {
+    /*
+     * Validate all items first (read-only checks)
+     */
+    const preparedItems = [];
+
+    for (const item of items) {
+      const product = await Product.findById(
+        item.productId
+      ).session(session);
+
+      if (!product || product.isArchived) {
+        const error = new Error(
           `Product ${item.productId || ''} not found`
-      });
-    }
+        );
+        error.statusCode = 400;
+        throw error;
+      }
 
-    const quantity = Number(item.quantity || 0);
+      const quantity = Number(item.quantity || 0);
 
-    if (
-      !Number.isFinite(quantity) ||
-      quantity <= 0
-    ) {
-      return res.status(400).json({
-        message:
+      if (
+        !Number.isFinite(quantity) ||
+        quantity <= 0
+      ) {
+        const error = new Error(
           'Quantity must be greater than zero'
-      });
-    }
+        );
+        error.statusCode = 400;
+        throw error;
+      }
 
-    if (product.currentStock < quantity) {
-      return res.status(409).json({
-        message:
+      if (product.currentStock < quantity) {
+        const error = new Error(
           `Insufficient stock for ${product.name}`
-      });
-    }
+        );
+        error.statusCode = 409;
+        throw error;
+      }
 
-    const unitPrice = Number(
-      item.unitPrice ?? product.costPrice
-    );
+      const unitPrice = Number(
+        item.unitPrice ?? product.costPrice
+      );
 
-    if (
-      !Number.isFinite(unitPrice) ||
-      unitPrice < 0
-    ) {
-      return res.status(400).json({
-        message:
+      if (
+        !Number.isFinite(unitPrice) ||
+        unitPrice < 0
+      ) {
+        const error = new Error(
           `Invalid unit price for ${product.name}`
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+
+      preparedItems.push({
+        product,
+        quantity,
+        unitPrice,
+        subtotal: unitPrice * quantity
       });
     }
 
-    preparedItems.push({
-      product,
-      quantity,
-      unitPrice,
-      subtotal: unitPrice * quantity
-    });
-  }
-
-  const saleItems = [];
-  const stockMovements = [];
-  let totalAmount = 0;
-
-  for (const item of preparedItems) {
-    const {
-      product,
-      quantity,
-      unitPrice,
-      subtotal
-    } = item;
+    const saleItems = [];
+    const stockMovements = [];
+    let totalAmount = 0;
 
     /*
-     * FEFO batch deduction:
-     * earliest expiry is deducted first.
+     * Now perform all mutations inside the transaction
      */
-    const batchAllocations =
-      await allocateBatchesFEFO({
+    for (const item of preparedItems) {
+      const {
         product,
-        quantity
-      });
+        quantity,
+        unitPrice,
+        subtotal
+      } = item;
 
-    const previousStock = Number(
-      product.currentStock || 0
-    );
+      const batchAllocations =
+        await allocateBatchesFEFO({
+          product,
+          quantity,
+          session
+        });
 
-    const newStock = previousStock - quantity;
+      // Keep the allocations on the item so the post-commit
+      // side-effects loop below can reference them without
+      // recomputing or guessing at what was deducted.
+      item.batchAllocations = batchAllocations;
 
-    if (newStock < 0) {
-      return res.status(409).json({
-        message:
+      const previousStock = Number(
+        product.currentStock || 0
+      );
+
+      const newStock = previousStock - quantity;
+
+      if (newStock < 0) {
+        const error = new Error(
           `Stock cannot become negative for ${product.name}`
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
+      product.currentStock = newStock;
+      await product.save({ session });
+
+      const movement = await StockMovement.create(
+        [{
+          product: product._id,
+          account: req.account._id,
+          movementType: 'stock_adjustment',
+          quantityChanged: -quantity,
+          previousStock,
+          newStock,
+          reason: 'POS sale',
+          branch: product.branch,
+          batchAllocations
+        }],
+        { session }
+      );
+
+      item.movement = movement[0];
+      stockMovements.push(movement[0]);
+
+      saleItems.push({
+        product: product._id,
+        name: product.name,
+        barcode: product.barcode,
+        quantity,
+        unitPrice,
+        subtotal,
+        batchAllocations
+      });
+
+      totalAmount += subtotal;
+    }
+
+    const sale = await Sale.create(
+      [{
+        cashier: req.account._id,
+        items: saleItems,
+        totalAmount,
+        paymentMethod,
+        status: 'completed'
+      }],
+      { session }
+    );
+
+    await writeAudit({
+      req,
+      account: req.account,
+      action: 'sale_completed',
+      affectedRecord: sale[0]._id.toString(),
+      metadata: {
+        totalAmount,
+        itemCount: saleItems.length,
+        stockMovementIds: stockMovements.map(
+          movement => movement._id.toString()
+        )
+      },
+      session
+    });
+
+    // Commit transaction
+    await session.commitTransaction();
+
+    /*
+     * After commit: emit socket events and update alerts
+     * (these are side effects, so they run only after success)
+     */
+    for (const item of preparedItems) {
+      const { product, batchAllocations, movement } = item;
+
+      // Re-fetch product to ensure we emit final state
+      const freshProduct = await Product.findById(product._id);
+
+      await createOrUpdateAlert(
+        freshProduct,
+        req.account,
+        req,
+        io
+      );
+
+      await syncExpirationAlertsForProduct(
+        freshProduct._id,
+        req.account,
+        req,
+        io
+      );
+
+      io?.emit('productUpdated', freshProduct);
+
+      io?.emit('stockUpdated', {
+        product: freshProduct,
+        movement
+      });
+
+      io?.emit('batchUpdated', {
+        productId: freshProduct._id.toString(),
+        batchAllocations
       });
     }
 
-    product.currentStock = newStock;
-    await product.save();
+    io?.emit('saleCreated', sale[0]);
 
-    const movement = await StockMovement.create({
-      product: product._id,
-      account: req.account._id,
-      movementType: 'stock_adjustment',
-      quantityChanged: -quantity,
-      previousStock,
-      newStock,
-      reason: 'POS sale',
-      branch: product.branch,
-      batchAllocations
+    return res.status(201).json({
+      sale: sale[0],
+      movements: stockMovements
     });
+  } catch (err) {
+    // Abort transaction on any error
+    await session.abortTransaction();
 
-    stockMovements.push(movement);
-
-    saleItems.push({
-      product: product._id,
-      name: product.name,
-      barcode: product.barcode,
-      quantity,
-      unitPrice,
-      subtotal,
-      batchAllocations
+    return res.status(err.statusCode || 500).json({
+      message: err.message || 'Unable to complete sale'
     });
-
-    totalAmount += subtotal;
-
-    await createOrUpdateAlert(
-      product,
-      req.account,
-      req,
-      req.app.get('io')
-    );
-
-    await syncExpirationAlertsForProduct(
-      product._id,
-      req.account,
-      req,
-      req.app.get('io')
-    );
-
-    req.app.get('io')?.emit(
-      'productUpdated',
-      product
-    );
-
-    req.app.get('io')?.emit('stockUpdated', {
-      product,
-      movement
-    });
-
-    req.app.get('io')?.emit('batchUpdated', {
-      productId: product._id.toString(),
-      batchAllocations
-    });
+  } finally {
+    session.endSession();
   }
-
-  const sale = await Sale.create({
-    cashier: req.account._id,
-    items: saleItems,
-    totalAmount,
-    paymentMethod,
-    status: 'completed'
-  });
-
-  await writeAudit({
-    req,
-    account: req.account,
-    action: 'sale_completed',
-    affectedRecord: sale._id.toString(),
-    metadata: {
-      totalAmount,
-      itemCount: saleItems.length,
-      stockMovementIds: stockMovements.map(
-        movement => movement._id.toString()
-      )
-    }
-  });
-
-  req.app.get('io')?.emit('saleCreated', sale);
-
-  res.status(201).json({
-    sale,
-    movements: stockMovements
-  });
 }

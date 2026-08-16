@@ -414,3 +414,82 @@ export async function realtimeStock(req, res) {
     outOfStock
   });
 }
+
+export async function getExpirySummary(req, res) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const plus7 = new Date(today);
+  plus7.setDate(plus7.getDate() + 7);
+
+  const plus14 = new Date(today);
+  plus14.setDate(plus14.getDate() + 14);
+
+  const plus30 = new Date(today);
+  plus30.setDate(plus30.getDate() + 30);
+
+  // Base query: active batches with non-null expiry
+  const baseQuery = {
+    quantity: { $gt: 0 },
+    expirationDate: { $ne: null }
+  };
+
+  const { default: ProductBatch } = await import('../models/ProductBatch.js');
+
+  const [count0to7, count8to14, count15to30] = await Promise.all([
+    // 0–7 days
+    ProductBatch.countDocuments({
+      ...baseQuery,
+      expirationDate: { $gte: today, $lte: plus7 }
+    }),
+
+    // 8–14 days
+    ProductBatch.countDocuments({
+      ...baseQuery,
+      expirationDate: { $gt: plus7, $lte: plus14 }
+    }),
+
+    // 15–30 days
+    ProductBatch.countDocuments({
+      ...baseQuery,
+      expirationDate: { $gt: plus14, $lte: plus30 }
+    })
+  ]);
+
+  // Optional: top 5 most urgent batches (earliest expiry)
+  const urgentBatches = await ProductBatch.find({
+    ...baseQuery,
+    expirationDate: { $lte: plus7 }
+  })
+    .populate('product', 'name barcode sku')
+    .sort({ expirationDate: 1 })
+    .limit(5)
+    .lean();
+
+  const rows = urgentBatches.map(b => {
+    const product = b.product || {};
+    const exp = new Date(b.expirationDate);
+    const diff = exp.getTime() - today.getTime();
+    const daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
+
+    return {
+      batchId: b._id,
+      batchNumber: b.batchNumber,
+      productName: product.name || 'Deleted product',
+      barcode: product.barcode || '',
+      sku: product.sku || '',
+      quantity: b.quantity,
+      expirationDate: b.expirationDate,
+      daysLeft
+    };
+  });
+
+  res.json({
+    summary: {
+      within0to7: count0to7,
+      within8to14: count8to14,
+      within15to30: count15to30
+    },
+    urgent: rows
+  });
+}

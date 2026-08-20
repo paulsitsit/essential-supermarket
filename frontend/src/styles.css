@@ -2108,3 +2108,51 @@ body {
     pointer-events: auto;
   }
 }
+@media (max-width: 850px) {
+  .compact-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+
+    width: min(232px, 86vw);
+    height: 100dvh;
+    max-height: 100dvh;
+
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+
+    z-index: 2000;
+    transform: translateX(-105%);
+    pointer-events: none;
+  }
+
+  .compact-sidebar.sidebar-open {
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+
+  .compact-sidebar-nav {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: 8px;
+  }
+
+  .compact-sidebar-bottom {
+    flex: 0 0 auto;
+    margin-top: 10px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    background: #ffffff;
+  }
+
+  .compact-sidebar-bottom .logout-btn {
+    display: flex !important;
+    align-items: center;
+    width: 100%;
+    min-height: 40px;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+}

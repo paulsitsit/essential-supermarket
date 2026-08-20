@@ -2156,3 +2156,13 @@ body {
     opacity: 1 !important;
   }
 }
+@media (min-width: 851px) {
+  .topbar {
+    padding-left: 18px;
+  }
+
+  .topbar .global-search-container,
+  .topbar .global-search {
+    margin-left: 0;
+  }
+}

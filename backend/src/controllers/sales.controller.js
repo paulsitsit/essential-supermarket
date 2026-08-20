@@ -71,17 +71,23 @@ export async function createSale(req, res) {
     });
   }
 
-  const io = req.app.get('io');
+  if (!req.account?._id) {
+    return res.status(401).json({
+      message: 'Authentication is required'
+    });
+  }
 
-  // Start transaction
+  const io = req.app.get('io');
   const session = await Product.startSession();
-  session.startTransaction();
+
+  let sale = null;
+  let stockMovements = [];
+  let preparedItems = [];
 
   try {
-    /*
-     * Validate all items first (read-only checks)
-     */
-    const preparedItems = [];
+    session.startTransaction();
+
+    preparedItems = [];
 
     for (const item of items) {
       const product = await Product.findById(
@@ -92,6 +98,7 @@ export async function createSale(req, res) {
         const error = new Error(
           `Product ${item.productId || ''} not found`
         );
+
         error.statusCode = 400;
         throw error;
       }
@@ -105,14 +112,16 @@ export async function createSale(req, res) {
         const error = new Error(
           'Quantity must be greater than zero'
         );
+
         error.statusCode = 400;
         throw error;
       }
 
-      if (product.currentStock < quantity) {
+      if (Number(product.currentStock || 0) < quantity) {
         const error = new Error(
           `Insufficient stock for ${product.name}`
         );
+
         error.statusCode = 409;
         throw error;
       }
@@ -128,6 +137,7 @@ export async function createSale(req, res) {
         const error = new Error(
           `Invalid unit price for ${product.name}`
         );
+
         error.statusCode = 400;
         throw error;
       }
@@ -136,17 +146,16 @@ export async function createSale(req, res) {
         product,
         quantity,
         unitPrice,
-        subtotal: unitPrice * quantity
+        subtotal: unitPrice * quantity,
+        batchAllocations: [],
+        movement: null
       });
     }
 
     const saleItems = [];
-    const stockMovements = [];
+    stockMovements = [];
     let totalAmount = 0;
 
-    /*
-     * Now perform all mutations inside the transaction
-     */
     for (const item of preparedItems) {
       const {
         product,
@@ -162,9 +171,6 @@ export async function createSale(req, res) {
           session
         });
 
-      // Keep the allocations on the item so the post-commit
-      // side-effects loop below can reference them without
-      // recomputing or guessing at what was deducted.
       item.batchAllocations = batchAllocations;
 
       const previousStock = Number(
@@ -177,30 +183,33 @@ export async function createSale(req, res) {
         const error = new Error(
           `Stock cannot become negative for ${product.name}`
         );
+
         error.statusCode = 409;
         throw error;
       }
 
       product.currentStock = newStock;
+
       await product.save({ session });
 
-      const movement = await StockMovement.create(
-        [{
-          product: product._id,
-          account: req.account._id,
-          movementType: 'stock_adjustment',
-          quantityChanged: -quantity,
-          previousStock,
-          newStock,
-          reason: 'POS sale',
-          branch: product.branch,
-          batchAllocations
-        }],
-        { session }
-      );
+      const createdMovement =
+        await StockMovement.create(
+          [{
+            product: product._id,
+            account: req.account._id,
+            movementType: 'stock_adjustment',
+            quantityChanged: -quantity,
+            previousStock,
+            newStock,
+            reason: 'POS sale',
+            branch: product.branch,
+            batchAllocations
+          }],
+          { session }
+        );
 
-      item.movement = movement[0];
-      stockMovements.push(movement[0]);
+      item.movement = createdMovement[0];
+      stockMovements.push(createdMovement[0]);
 
       saleItems.push({
         product: product._id,
@@ -215,7 +224,7 @@ export async function createSale(req, res) {
       totalAmount += subtotal;
     }
 
-    const sale = await Sale.create(
+    const createdSale = await Sale.create(
       [{
         cashier: req.account._id,
         items: saleItems,
@@ -226,11 +235,13 @@ export async function createSale(req, res) {
       { session }
     );
 
+    sale = createdSale[0];
+
     await writeAudit({
       req,
       account: req.account,
       action: 'sale_completed',
-      affectedRecord: sale[0]._id.toString(),
+      affectedRecord: sale._id.toString(),
       metadata: {
         totalAmount,
         itemCount: saleItems.length,
@@ -241,32 +252,112 @@ export async function createSale(req, res) {
       session
     });
 
-    // Commit transaction
     await session.commitTransaction();
 
     /*
-     * After commit: emit socket events and update alerts
-     * (these are side effects, so they run only after success)
+     * The transaction has succeeded at this point.
+     * Return success to the client now.
      */
+    res.status(201).json({
+      sale,
+      movements: stockMovements
+    });
+
+    /*
+     * Run non-critical work after responding.
+     * Any failure here must not change a completed sale
+     * into a 500 response.
+     */
+    void runPostSaleEffects({
+      preparedItems,
+      account: req.account,
+      req,
+      io,
+      sale
+    });
+  } catch (err) {
+    console.error('Create sale error:', err);
+
+    /*
+     * Only abort an active transaction.
+     * Calling abortTransaction after commitTransaction causes:
+     * "Cannot call abortTransaction after calling commitTransaction".
+     */
+    if (session.inTransaction()) {
+      try {
+        await session.abortTransaction();
+      } catch (abortError) {
+        console.error(
+          'Unable to abort sale transaction:',
+          abortError
+        );
+      }
+    }
+
+    if (!res.headersSent) {
+      return res.status(err.statusCode || 500).json({
+        message: err.message || 'Unable to complete sale'
+      });
+    }
+  } finally {
+    await session.endSession();
+  }
+}
+
+async function runPostSaleEffects({
+  preparedItems,
+  account,
+  req,
+  io,
+  sale
+}) {
+  try {
     for (const item of preparedItems) {
-      const { product, batchAllocations, movement } = item;
+      const {
+        product,
+        batchAllocations,
+        movement
+      } = item;
 
-      // Re-fetch product to ensure we emit final state
-      const freshProduct = await Product.findById(product._id);
-
-      await createOrUpdateAlert(
-        freshProduct,
-        req.account,
-        req,
-        io
+      const freshProduct = await Product.findById(
+        product._id
       );
 
-      await syncExpirationAlertsForProduct(
-        freshProduct._id,
-        req.account,
-        req,
-        io
-      );
+      if (!freshProduct) {
+        console.warn(
+          `Post-sale effects skipped: product ${product._id} was not found`
+        );
+
+        continue;
+      }
+
+      try {
+        await createOrUpdateAlert(
+          freshProduct,
+          account,
+          req,
+          io
+        );
+      } catch (alertError) {
+        console.error(
+          `Low-stock alert update failed for ${freshProduct._id}:`,
+          alertError
+        );
+      }
+
+      try {
+        await syncExpirationAlertsForProduct(
+          freshProduct._id,
+          account,
+          req,
+          io
+        );
+      } catch (expirationError) {
+        console.error(
+          `Expiration alert sync failed for ${freshProduct._id}:`,
+          expirationError
+        );
+      }
 
       io?.emit('productUpdated', freshProduct);
 
@@ -281,20 +372,11 @@ export async function createSale(req, res) {
       });
     }
 
-    io?.emit('saleCreated', sale[0]);
-
-    return res.status(201).json({
-      sale: sale[0],
-      movements: stockMovements
-    });
-  } catch (err) {
-    // Abort transaction on any error
-    await session.abortTransaction();
-
-    return res.status(err.statusCode || 500).json({
-      message: err.message || 'Unable to complete sale'
-    });
-  } finally {
-    session.endSession();
+    io?.emit('saleCreated', sale);
+  } catch (error) {
+    console.error(
+      'Post-sale side effects failed:',
+      error
+    );
   }
 }

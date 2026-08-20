@@ -133,7 +133,10 @@ const groups = [
   }
 ];
 
-export default function Sidebar({ open, onClose }) {
+export default function Sidebar({
+  open,
+  onClose
+}) {
   const { account, logout } = useAuth();
 
   function handleNavigation() {
@@ -196,7 +199,10 @@ export default function Sidebar({ open, onClose }) {
                           : 'nav-item compact-nav-item'
                       }
                     >
-                      <Icon size={15} strokeWidth={1.8} />
+                      <Icon
+                        size={15}
+                        strokeWidth={1.8}
+                      />
                       <span>{item.label}</span>
                     </NavLink>
                   );

@@ -90,15 +90,11 @@ export default function Topbar({
 
         const products = Array.isArray(data)
           ? data
-          : data.products || data.data || [];
+          : data?.products || data?.data || [];
 
         setSuggestions(products.slice(0, 6));
       } catch (error) {
-        console.error(
-          'Product search failed:',
-          error
-        );
-
+        console.error('Product search failed:', error);
         setSuggestions([]);
       } finally {
         setSearchLoading(false);
@@ -122,8 +118,12 @@ export default function Topbar({
   }
 
   function toggleNotifications() {
-    setNotificationsOpen(value => !value);
     closeSearch();
+    setNotificationsOpen(value => !value);
+  }
+
+  function closeNotifications() {
+    setNotificationsOpen(false);
   }
 
   function submitSearch(event) {
@@ -158,15 +158,15 @@ export default function Topbar({
 
   function getAlertName(alert) {
     return (
-      alert.product?.name ||
-      alert.productName ||
-      alert.name ||
+      alert?.product?.name ||
+      alert?.productName ||
+      alert?.name ||
       'Inventory alert'
     );
   }
 
   function getAlertMessage(alert) {
-    if (alert.type === 'expiration') {
+    if (alert?.type === 'expiration') {
       if (alert.message) {
         return alert.message;
       }
@@ -190,16 +190,20 @@ export default function Topbar({
       return 'Product expiration is near';
     }
 
-    if (alert.message) {
+    if (alert?.message) {
       return alert.message;
     }
 
-    if (alert.currentStock !== undefined) {
+    if (alert?.currentStock !== undefined) {
       return `${alert.currentStock} units remaining`;
     }
 
     return 'Product requires attention';
   }
+
+  const safeAlerts = Array.isArray(alerts)
+    ? alerts
+    : [];
 
   return (
     <header className="topbar">
@@ -259,23 +263,23 @@ export default function Topbar({
                   type="button"
                   className="search-suggestion"
                   key={
-                    product._id ||
-                    product.id ||
+                    product?._id ||
+                    product?.id ||
                     index
                   }
                   onClick={() => selectProduct(product)}
                 >
                   <div>
                     <strong>
-                      {product.name ||
-                        product.productName ||
+                      {product?.name ||
+                        product?.productName ||
                         'Unnamed product'}
                     </strong>
 
                     <small>
-                      {product.sku
+                      {product?.sku
                         ? `SKU: ${product.sku}`
-                        : product.barcode
+                        : product?.barcode
                           ? `Barcode: ${product.barcode}`
                           : 'Product'}
                     </small>
@@ -319,7 +323,11 @@ export default function Topbar({
           </button>
 
           {notificationsOpen && (
-            <div className="notification-dropdown">
+            <div
+              className="notification-dropdown"
+              role="dialog"
+              aria-label="Notifications"
+            >
               <div className="notification-header">
                 <div>
                   <strong>Notifications</strong>
@@ -338,26 +346,26 @@ export default function Topbar({
                 <Bell size={17} />
               </div>
 
-              {alerts.length > 0 ? (
+              {safeAlerts.length > 0 ? (
                 <div className="notification-list">
-                  {alerts.slice(0, 5).map(
+                  {safeAlerts.slice(0, 5).map(
                     (alert, index) => (
                       <Link
                         to="/alerts"
                         className="notification-item"
                         key={
-                          alert._id ||
-                          alert.id ||
+                          alert?._id ||
+                          alert?.id ||
                           index
                         }
                         onClick={() => {
-                          setNotificationsOpen(false);
+                          closeNotifications();
                           closeSearch();
                         }}
                       >
                         <div
                           className={`notification-icon ${
-                            alert.type === 'expiration'
+                            alert?.type === 'expiration'
                               ? 'expiration-icon'
                               : ''
                           }`}
@@ -414,7 +422,7 @@ export default function Topbar({
                 to="/alerts"
                 className="notification-footer"
                 onClick={() => {
-                  setNotificationsOpen(false);
+                  closeNotifications();
                   closeSearch();
                 }}
               >

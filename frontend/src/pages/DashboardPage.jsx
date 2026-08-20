@@ -246,11 +246,11 @@ export default function DashboardPage() {
           </h1>
 
           <p>
-            EssentialSupermarket Inventory & POS Dashboard
+            A Web-Based Inventory Management System 
           </p>
 
           <p>
-            Monitor stock levels, sales, and inventory activity in real time.
+            with Real-Time Stock Monitoring and Automated Low-Stock Alerts for Supermarkets.
           </p>
         </div>
 

@@ -2174,7 +2174,7 @@ body {
 
   .sidebar,
   .compact-sidebar {
-    width: 320px !important;
+    width: 290px !important;
     min-width: 190px !important;
     flex: 0 0 190px !important;
     box-sizing: border-box;

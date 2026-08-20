@@ -1,19 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Bell,
-  Menu,
-  Search,
-  UserCircle,
-  CheckCircle2,
   AlertTriangle,
-  ArrowRight
+  ArrowRight,
+  Bell,
+  CheckCircle2,
+  Menu,
+  Search
 } from 'lucide-react';
 import {
   Link,
-  useNavigate,
-  useLocation
+  useLocation,
+  useNavigate
 } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+
 import client from '../../api/client';
 
 export default function Topbar({
@@ -21,12 +20,13 @@ export default function Topbar({
   alertCount = 0,
   alerts = []
 }) {
-  const { account } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const searchRef = useRef(null);
 
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] =
+    useState(false);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -263,9 +263,7 @@ export default function Topbar({
                     product.id ||
                     index
                   }
-                  onClick={() =>
-                    selectProduct(product)
-                  }
+                  onClick={() => selectProduct(product)}
                 >
                   <div>
                     <strong>
@@ -353,23 +351,18 @@ export default function Topbar({
                           index
                         }
                         onClick={() => {
-                          setNotificationsOpen(
-                            false
-                          );
+                          setNotificationsOpen(false);
                           closeSearch();
                         }}
                       >
                         <div
                           className={`notification-icon ${
-                            alert.type ===
-                            'expiration'
+                            alert.type === 'expiration'
                               ? 'expiration-icon'
                               : ''
                           }`}
                         >
-                          <AlertTriangle
-                            size={15}
-                          />
+                          <AlertTriangle size={15} />
                         </div>
 
                         <div className="notification-content">
@@ -391,32 +384,26 @@ export default function Topbar({
                 <div className="notification-empty">
                   {alertCount > 0 ? (
                     <>
-                      <AlertTriangle
-                        size={25}
-                      />
+                      <AlertTriangle size={25} />
 
                       <strong>
                         Alerts available
                       </strong>
 
                       <span>
-                        Open alerts to view
-                        affected products.
+                        Open alerts to view affected
+                        products.
                       </span>
                     </>
                   ) : (
                     <>
-                      <CheckCircle2
-                        size={25}
-                      />
+                      <CheckCircle2 size={25} />
 
-                      <strong>
-                        All clear
-                      </strong>
+                      <strong>All clear</strong>
 
                       <span>
-                        There are no active
-                        inventory alerts.
+                        There are no active inventory
+                        alerts.
                       </span>
                     </>
                   )}
@@ -427,9 +414,7 @@ export default function Topbar({
                 to="/alerts"
                 className="notification-footer"
                 onClick={() => {
-                  setNotificationsOpen(
-                    false
-                  );
+                  setNotificationsOpen(false);
                   closeSearch();
                 }}
               >
@@ -438,20 +423,6 @@ export default function Topbar({
               </Link>
             </div>
           )}
-        </div>
-
-        <div className="topbar-account">
-          <UserCircle size={29} />
-
-          <div>
-            <strong>
-              {account?.fullName}
-            </strong>
-
-            <small className="role-text">
-              {account?.role}
-            </small>
-          </div>
         </div>
       </div>
     </header>

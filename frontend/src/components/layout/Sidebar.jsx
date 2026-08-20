@@ -139,8 +139,15 @@ export default function Sidebar({
 }) {
   const { account, logout } = useAuth();
 
-  function handleNavigation() {
+  function handleNavigation(event) {
+    event.currentTarget.blur();
     onClose?.();
+  }
+
+  function handleLogout(event) {
+    event.currentTarget.blur();
+    onClose?.();
+    logout();
   }
 
   return (
@@ -148,7 +155,6 @@ export default function Sidebar({
       className={`sidebar compact-sidebar ${
         open ? 'sidebar-open' : ''
       }`}
-      aria-hidden={!open}
     >
       <div className="sidebar-brand compact-brand">
         <div className="brand-mark">
@@ -233,7 +239,7 @@ export default function Sidebar({
         <button
           type="button"
           className="logout-btn"
-          onClick={logout}
+          onClick={handleLogout}
         >
           <LogOut size={16} />
           Logout

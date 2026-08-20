@@ -14,123 +14,140 @@ import {
   ShoppingCart,
   Tags,
   Truck,
-  Users,
-  X
+  Users
 } from 'lucide-react';
 
 import { useAuth } from '../../context/AuthContext';
 import Logo from '../../assets/logo.png';
 
-const items = [
+const groups = [
   {
-    label: 'Dashboard',
-    path: '/dashboard',
-    icon: LayoutDashboard,
-    roles: ['admin', 'manager', 'staff']
+    label: 'Overview',
+    items: [
+      {
+        label: 'Dashboard',
+        path: '/dashboard',
+        icon: LayoutDashboard,
+        roles: ['admin', 'manager', 'staff']
+      }
+    ]
   },
   {
-    label: 'Products',
-    path: '/products',
-    icon: Package,
-    roles: ['admin', 'manager']
+    label: 'Catalog',
+    items: [
+      {
+        label: 'Products',
+        path: '/products',
+        icon: Package,
+        roles: ['admin', 'manager']
+      },
+      {
+        label: 'Batches',
+        path: '/batches',
+        icon: Layers,
+        roles: ['admin', 'manager']
+      },
+      {
+        label: 'Batch trace',
+        path: '/batch-trace',
+        icon: ClipboardList,
+        roles: ['admin', 'manager', 'staff']
+      },
+      {
+        label: 'Categories',
+        path: '/categories',
+        icon: Tags,
+        roles: ['admin', 'manager']
+      },
+      {
+        label: 'Expiring soon',
+        path: '/expiring-soon',
+        icon: CalendarClock,
+        roles: ['admin', 'manager', 'staff']
+      }
+    ]
   },
   {
-    label: 'Batches',
-    path: '/batches',
-    icon: Layers,
-    roles: ['admin', 'manager']
+    label: 'Operations',
+    items: [
+      {
+        label: 'Sales',
+        path: '/sales',
+        icon: ShoppingCart,
+        roles: ['admin', 'manager', 'staff']
+      },
+      {
+        label: 'Inventory',
+        path: '/inventory',
+        icon: Boxes,
+        roles: ['admin', 'manager', 'staff']
+      },
+      {
+        label: 'Stock movements',
+        path: '/stock-movements',
+        icon: ClipboardList,
+        roles: ['admin', 'manager', 'staff']
+      },
+      {
+        label: 'QR and barcode scanner',
+        path: '/scanner',
+        icon: ScanLine,
+        roles: ['admin', 'manager', 'staff']
+      },
+      {
+        label: 'Low stock and expiration',
+        path: '/alerts',
+        icon: ShieldAlert,
+        roles: ['admin', 'manager', 'staff']
+      }
+    ]
   },
   {
-    label: 'Batch Trace',
-    path: '/batch-trace',
-    icon: ClipboardList,
-    roles: ['admin', 'manager', 'staff']
-  },
-  {
-    label: 'Expiring Soon',
-    path: '/expiring-soon',
-    icon: CalendarClock,
-    roles: ['admin', 'manager', 'staff']
-  },
-  {
-    label: 'Sales',
-    path: '/sales',
-    icon: ShoppingCart,
-    roles: ['admin', 'manager', 'staff']
-  },
-  {
-    label: 'Categories',
-    path: '/categories',
-    icon: Tags,
-    roles: ['admin', 'manager']
-  },
-  {
-    label: 'Inventory',
-    path: '/inventory',
-    icon: Boxes,
-    roles: ['admin', 'manager', 'staff']
-  },
-  {
-    label: 'Stock Movements',
-    path: '/stock-movements',
-    icon: ClipboardList,
-    roles: ['admin', 'manager', 'staff']
-  },
-  {
-    label: 'QR & Barcode Scanner',
-    path: '/scanner',
-    icon: ScanLine,
-    roles: ['admin', 'manager', 'staff']
-  },
-  {
-    label: 'Low Stock & Expiration Alerts',
-    path: '/alerts',
-    icon: ShieldAlert,
-    roles: ['admin', 'manager', 'staff']
-  },
-  {
-    label: 'Suppliers',
-    path: '/suppliers',
-    icon: Truck,
-    roles: ['admin', 'manager']
-  },
-  {
-    label: 'Reports',
-    path: '/reports',
-    icon: FileBarChart,
-    roles: ['admin', 'manager']
-  },
-  {
-    label: 'Account Management',
-    path: '/accounts',
-    icon: Users,
-    roles: ['admin']
-  },
-  {
-    label: 'Settings',
-    path: '/settings',
-    icon: Settings,
-    roles: ['admin']
+    label: 'Business',
+    items: [
+      {
+        label: 'Suppliers',
+        path: '/suppliers',
+        icon: Truck,
+        roles: ['admin', 'manager']
+      },
+      {
+        label: 'Reports',
+        path: '/reports',
+        icon: FileBarChart,
+        roles: ['admin', 'manager']
+      },
+      {
+        label: 'Account management',
+        path: '/accounts',
+        icon: Users,
+        roles: ['admin']
+      },
+      {
+        label: 'Settings',
+        path: '/settings',
+        icon: Settings,
+        roles: ['admin']
+      }
+    ]
   }
 ];
 
 export default function Sidebar({ open, onClose }) {
   const { account, logout } = useAuth();
 
-  const visibleItems = items.filter(item =>
-    item.roles.includes(account?.role)
-  );
-
-  function handleNavClick() {
+  function handleNavigation() {
     onClose?.();
   }
 
   return (
     <aside
-      className={`sidebar ${open ? 'sidebar-open' : ''}`}
+      className={`sidebar compact-sidebar ${
+        open ? 'sidebar-open' : ''
+      }`}
       aria-hidden={!open}
     >
-      <div className="sidebar-brand">
+      <div className="sidebar-brand compact-brand">
         <div className="brand-mark">
           <img
             src={Logo}
@@ -139,48 +156,58 @@ export default function Sidebar({ open, onClose }) {
           />
         </div>
 
-        <div>
+        <div className="brand-copy">
           <strong>Essential</strong>
           <span>Supermarket</span>
         </div>
-
-        <button
-          type="button"
-          className="icon-btn sidebar-close"
-          aria-label="Close sidebar"
-          onClick={handleNavClick}
-        >
-          <X size={20} />
-        </button>
       </div>
 
-      <div className="sidebar-label">
-        MAIN MENU
-      </div>
+      <nav className="compact-sidebar-nav">
+        {groups.map(group => {
+          const visibleItems = group.items.filter(item =>
+            item.roles.includes(account?.role)
+          );
 
-      <nav className="sidebar-nav">
-        {visibleItems.map(item => {
-          const Icon = item.icon;
+          if (!visibleItems.length) {
+            return null;
+          }
 
           return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              onClick={handleNavClick}
-              className={({ isActive }) =>
-                isActive
-                  ? 'nav-item active'
-                  : 'nav-item'
-              }
+            <div
+              className="sidebar-group"
+              key={group.label}
             >
-              <Icon size={19} />
-              <span>{item.label}</span>
-            </NavLink>
+              <div className="sidebar-group-label">
+                {group.label}
+              </div>
+
+              <div className="sidebar-group-items">
+                {visibleItems.map(item => {
+                  const Icon = item.icon;
+
+                  return (
+                    <NavLink
+                      key={item.path}
+                      to={item.path}
+                      onClick={handleNavigation}
+                      className={({ isActive }) =>
+                        isActive
+                          ? 'nav-item compact-nav-item active'
+                          : 'nav-item compact-nav-item'
+                      }
+                    >
+                      <Icon size={15} strokeWidth={1.8} />
+                      <span>{item.label}</span>
+                    </NavLink>
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
       </nav>
 
-      <div className="sidebar-bottom">
+      <div className="sidebar-bottom compact-sidebar-bottom">
         <div className="sidebar-user">
           <div className="avatar">
             {account?.fullName?.charAt(0) || 'U'}
@@ -202,7 +229,7 @@ export default function Sidebar({ open, onClose }) {
           className="logout-btn"
           onClick={logout}
         >
-          <LogOut size={18} />
+          <LogOut size={16} />
           Logout
         </button>
       </div>

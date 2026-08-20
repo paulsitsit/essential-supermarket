@@ -2156,13 +2156,33 @@ body {
     opacity: 1 !important;
   }
 }
+/* Desktop sidebar width: keep sidebar and content aligned */
 @media (min-width: 851px) {
+  .app-shell {
+    display: flex;
+  }
+
+  .sidebar,
+  .compact-sidebar {
+    width: 190px !important;
+    min-width: 190px !important;
+    flex: 0 0 190px !important;
+    box-sizing: border-box;
+  }
+
+  .main-shell {
+    width: calc(100% - 190px);
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
   .topbar {
+    width: 100%;
     padding-left: 18px;
   }
 
-  .topbar .global-search-container,
-  .topbar .global-search {
-    margin-left: 0;
+  .global-search-container,
+  .global-search {
+    margin-left: 0 !important;
   }
 }

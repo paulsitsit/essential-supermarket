@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import {
   Boxes,
+  CalendarClock,
   ClipboardList,
   FileBarChart,
   Layers,
@@ -10,12 +11,11 @@ import {
   ScanLine,
   Settings,
   ShieldAlert,
+  ShoppingCart,
   Tags,
   Truck,
   Users,
-  X,
-  CalendarClock,
-  ShoppingCart
+  X
 } from 'lucide-react';
 
 import { useAuth } from '../../context/AuthContext';
@@ -121,11 +121,14 @@ export default function Sidebar({ open, onClose }) {
     item.roles.includes(account?.role)
   );
 
+  function handleNavClick() {
+    onClose?.();
+  }
+
   return (
     <aside
-      className={`sidebar ${
-        open ? 'sidebar-open' : ''
-      }`}
+      className={`sidebar ${open ? 'sidebar-open' : ''}`}
+      aria-hidden={!open}
     >
       <div className="sidebar-brand">
         <div className="brand-mark">
@@ -145,7 +148,7 @@ export default function Sidebar({ open, onClose }) {
           type="button"
           className="icon-btn sidebar-close"
           aria-label="Close sidebar"
-          onClick={onClose}
+          onClick={handleNavClick}
         >
           <X size={20} />
         </button>
@@ -155,7 +158,7 @@ export default function Sidebar({ open, onClose }) {
         MAIN MENU
       </div>
 
-      <nav>
+      <nav className="sidebar-nav">
         {visibleItems.map(item => {
           const Icon = item.icon;
 
@@ -163,7 +166,7 @@ export default function Sidebar({ open, onClose }) {
             <NavLink
               key={item.path}
               to={item.path}
-              onClick={onClose}
+              onClick={handleNavClick}
               className={({ isActive }) =>
                 isActive
                   ? 'nav-item active'

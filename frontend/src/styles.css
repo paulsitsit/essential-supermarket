@@ -1885,3 +1885,57 @@ body {
     border-radius: 14px;
   }
 }
+/* Sidebar must be above the mobile overlay and all page content. */
+.sidebar {
+  z-index: 2000;
+}
+
+/* Ensure every clickable item has a valid touch layer. */
+.sidebar-nav,
+.sidebar-nav .nav-item,
+.sidebar-bottom,
+.sidebar-close {
+  position: relative;
+  z-index: 2001;
+  pointer-events: auto;
+}
+
+/* Mobile slide-out menu. */
+@media (max-width: 900px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 2000;
+    width: min(290px, 86vw);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    transform: translateX(-105%);
+    transition: transform 220ms ease;
+    pointer-events: none;
+  }
+
+  .sidebar.sidebar-open {
+    z-index: 2000;
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+
+  /* If your app has a sidebar overlay, it must be BELOW the sidebar. */
+  .sidebar-overlay,
+  .mobile-nav-overlay,
+  .layout-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1990;
+  }
+
+  /* Do not allow content layers to cover the opened sidebar. */
+  .app-shell,
+  .app-content,
+  .main-content,
+  .page-content {
+    z-index: auto;
+  }
+}

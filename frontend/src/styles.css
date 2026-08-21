@@ -2563,3 +2563,140 @@ body {
     box-sizing: border-box !important;
   }
 }
+/* Sidebar colors matching the reference image */
+:root {
+  --sidebar-mint: #f2fff8;
+  --sidebar-mint-light: #f8fffb;
+  --sidebar-green: #16a34a;
+  --sidebar-green-dark: #166534;
+  --sidebar-text: #52665b;
+  --sidebar-muted: #718379;
+  --sidebar-border: #dff2e7;
+}
+
+/* Sidebar background */
+.sidebar,
+.compact-sidebar {
+  background: var(--sidebar-mint) !important;
+  border-right: 1px solid var(--sidebar-border) !important;
+  color: var(--sidebar-text) !important;
+}
+
+/* Brand area */
+.compact-brand,
+.sidebar-brand {
+  background: transparent !important;
+  color: var(--sidebar-green-dark) !important;
+}
+
+.compact-brand .brand-copy strong,
+.sidebar-brand strong {
+  color: #064e3b !important;
+}
+
+.compact-brand .brand-copy span,
+.sidebar-brand span {
+  color: #728278 !important;
+}
+
+/* Section labels */
+.sidebar-group-label,
+.sidebar-label {
+  color: #87968d !important;
+  font-size: 9px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+}
+
+/* Navigation text */
+.compact-nav-item,
+.nav-item {
+  color: var(--sidebar-text) !important;
+  background: transparent !important;
+  border-radius: 9px !important;
+  font-weight: 500 !important;
+}
+
+.compact-nav-item svg,
+.nav-item svg {
+  color: #718279 !important;
+}
+
+/* Hover state */
+.compact-nav-item:hover,
+.nav-item:hover {
+  color: var(--sidebar-green-dark) !important;
+  background: #e4f8ec !important;
+}
+
+.compact-nav-item:hover svg,
+.nav-item:hover svg {
+  color: var(--sidebar-green) !important;
+}
+
+/* Active menu item */
+.compact-nav-item.active,
+.nav-item.active {
+  color: #ffffff !important;
+  background: var(--sidebar-green) !important;
+  border-radius: 9px !important;
+  box-shadow: 0 5px 12px rgba(22, 163, 74, 0.22) !important;
+  font-weight: 600 !important;
+}
+
+.compact-nav-item.active svg,
+.nav-item.active svg {
+  color: #ffffff !important;
+}
+
+/* User section at the bottom */
+.compact-sidebar-bottom,
+.sidebar-bottom {
+  background: var(--sidebar-mint) !important;
+  border-top: 1px solid var(--sidebar-border) !important;
+}
+
+.sidebar-user strong {
+  color: #365346 !important;
+}
+
+.sidebar-user small {
+  color: #7a8b81 !important;
+}
+
+.avatar {
+  color: var(--sidebar-green-dark) !important;
+  background: #d9f7e3 !important;
+}
+
+/* Logout */
+.logout-btn {
+  color: #a66b32 !important;
+  background: transparent !important;
+}
+
+.logout-btn:hover {
+  color: #92400e !important;
+  background: #fff1df !important;
+}
+
+/* Logo background */
+.compact-brand .brand-mark,
+.sidebar-brand .brand-mark {
+  background: #d9f7e3 !important;
+  box-shadow: none !important;
+}
+
+/* Mobile sidebar should keep the same mint color */
+@media (max-width: 850px) {
+  .compact-sidebar,
+  .sidebar {
+    background: var(--sidebar-mint) !important;
+  }
+
+  .compact-sidebar-bottom,
+  .sidebar-bottom {
+    background: var(--sidebar-mint) !important;
+  }
+}

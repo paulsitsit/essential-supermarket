@@ -1,4 +1,5 @@
 import PushSubscription from '../models/PushSubscription.js';
+import FcmDevice from '../models/FcmDevice.js';
 import {
   getVapidPublicKey,
   sendPushToAccount
@@ -94,6 +95,45 @@ export async function getPushStatus(req, res) {
   return res.json({
     enabled: count > 0,
     devices: count
+  });
+}
+
+export async function registerFcmDevice(req, res) {
+  const token = String(req.body?.token || '').trim();
+
+  if (!token) {
+    return res.status(400).json({
+      message: 'An FCM device token is required.'
+    });
+  }
+
+  const device = await FcmDevice.findOneAndUpdate(
+    {
+      token
+    },
+    {
+      $set: {
+        account: req.account._id,
+        token,
+        platform: 'android',
+        enabled: true,
+        lastUsedAt: new Date()
+      }
+    },
+    {
+      new: true,
+      upsert: true,
+      setDefaultsOnInsert: true
+    }
+  );
+
+  return res.status(201).json({
+    message: 'Android device registered for notifications.',
+    device: {
+      id: device._id,
+      enabled: device.enabled,
+      platform: device.platform
+    }
   });
 }
 

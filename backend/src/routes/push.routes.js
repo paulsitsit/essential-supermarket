@@ -3,6 +3,7 @@ import { Router } from 'express';
 import {
   getPushPublicKey,
   getPushStatus,
+  registerFcmDevice,
   sendTestPush,
   subscribeToPush,
   unsubscribeFromPush
@@ -44,6 +45,12 @@ router.post(
   '/unsubscribe',
   protect,
   unsubscribeFromPush
+);
+
+router.post(
+  '/fcm/register',
+  protect,
+  registerFcmDevice
 );
 
 /*

@@ -1,14 +1,20 @@
 import webpush from 'web-push';
+
 import PushSubscription from '../models/PushSubscription.js';
+import FcmDevice from '../models/FcmDevice.js';
+
+import {
+  getFirebaseMessaging
+} from './firebase.service.js';
 
 const vapidSubject = process.env.VAPID_SUBJECT;
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 
-let configured = false;
+let webPushConfigured = false;
 
 function configureWebPush() {
-  if (configured) {
+  if (webPushConfigured) {
     return true;
   }
 
@@ -17,10 +23,6 @@ function configureWebPush() {
     !vapidPublicKey ||
     !vapidPrivateKey
   ) {
-    console.warn(
-      'Web push is disabled: VAPID environment variables are missing.'
-    );
-
     return false;
   }
 
@@ -30,7 +32,7 @@ function configureWebPush() {
     vapidPrivateKey
   );
 
-  configured = true;
+  webPushConfigured = true;
 
   return true;
 }
@@ -39,7 +41,35 @@ export function getVapidPublicKey() {
   return vapidPublicKey || '';
 }
 
-export async function sendPushToAccount(
+function createWebPushPayload(notification) {
+  return JSON.stringify({
+    title:
+      notification.title ||
+      'Essential Supermarket',
+
+    body:
+      notification.body ||
+      'You have a new inventory alert.',
+
+    url: notification.url || '/alerts',
+
+    tag: notification.tag || 'inventory-alert',
+
+    icon:
+      notification.icon ||
+      '/pwa-192x192.png',
+
+    badge:
+      notification.badge ||
+      '/pwa-192x192.png',
+
+    data: {
+      url: notification.url || '/alerts'
+    }
+  });
+}
+
+async function sendBrowserPushes(
   accountId,
   notification
 ) {
@@ -59,25 +89,12 @@ export async function sendPushToAccount(
   if (!subscriptions.length) {
     return {
       sent: 0,
-      skipped: true
+      skipped: false
     };
   }
 
-  const payload = JSON.stringify({
-    title:
-      notification.title ||
-      'Essential Supermarket',
-    body:
-      notification.body ||
-      'You have a new inventory alert.',
-    url: notification.url || '/alerts',
-    tag: notification.tag || 'inventory-alert',
-    icon: notification.icon || '/pwa-192x192.png',
-    badge: notification.badge || '/pwa-192x192.png',
-    data: {
-      url: notification.url || '/alerts'
-    }
-  });
+  const payload =
+    createWebPushPayload(notification);
 
   let sent = 0;
 
@@ -103,16 +120,11 @@ export async function sendPushToAccount(
         const statusCode = error?.statusCode;
 
         console.error(
-          'Push notification failed:',
+          'Browser push notification failed:',
           statusCode,
           error?.body || error?.message
         );
 
-        /*
-         * The push service returns 404/410 when the user
-         * uninstalls the app, clears browser data, or revokes
-         * notification permission. Remove invalid subscriptions.
-         */
         if (
           statusCode === 404 ||
           statusCode === 410
@@ -128,5 +140,137 @@ export async function sendPushToAccount(
   return {
     sent,
     skipped: false
+  };
+}
+
+async function sendFcmPushes(
+  accountId,
+  notification
+) {
+  if (!accountId) {
+    return {
+      sent: 0,
+      skipped: true
+    };
+  }
+
+  const messaging = getFirebaseMessaging();
+
+  if (!messaging) {
+    return {
+      sent: 0,
+      skipped: true
+    };
+  }
+
+  const devices = await FcmDevice.find({
+    account: accountId,
+    enabled: true
+  });
+
+  if (!devices.length) {
+    return {
+      sent: 0,
+      skipped: false
+    };
+  }
+
+  let sent = 0;
+
+  await Promise.all(
+    devices.map(async device => {
+      try {
+        await messaging.send({
+          token: device.token,
+
+          notification: {
+            title:
+              notification.title ||
+              'Essential Supermarket',
+
+            body:
+              notification.body ||
+              'You have a new inventory alert.'
+          },
+
+          data: {
+            url: String(
+              notification.url || '/alerts'
+            ),
+            tag: String(
+              notification.tag || 'inventory-alert'
+            )
+          },
+
+          android: {
+            priority: 'high',
+            notification: {
+              channelId: 'inventory-alerts',
+              sound: 'default'
+            }
+          }
+        });
+
+        device.lastUsedAt = new Date();
+        await device.save();
+
+        sent += 1;
+      } catch (error) {
+        const code = error?.code || '';
+
+        console.error(
+          'FCM notification failed:',
+          code,
+          error?.message
+        );
+
+        if (
+          code ===
+            'messaging/registration-token-not-registered' ||
+          code ===
+            'messaging/invalid-registration-token'
+        ) {
+          await FcmDevice.deleteOne({
+            _id: device._id
+          });
+        }
+      }
+    })
+  );
+
+  return {
+    sent,
+    skipped: false
+  };
+}
+
+export async function sendPushToAccount(
+  accountId,
+  notification
+) {
+  const [
+    browser,
+    android
+  ] = await Promise.all([
+    sendBrowserPushes(
+      accountId,
+      notification
+    ),
+
+    sendFcmPushes(
+      accountId,
+      notification
+    )
+  ]);
+
+  return {
+    sent: browser.sent + android.sent,
+
+    browserSent: browser.sent,
+    androidSent: android.sent,
+
+    skipped:
+      browser.skipped &&
+      android.skipped
   };
 }

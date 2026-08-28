@@ -36,14 +36,23 @@ const app = express();
 
 app.set('trust proxy', 1);
 
-// Allowed origins from env (comma-separated)
-const allowedOrigins = (
-  process.env.CLIENT_URL ||
-  'http://localhost:5173'
-)
-  .split(',')
-  .map(origin => origin.trim())
-  .filter(Boolean);
+/*
+ * Allowed origins:
+ * - Vercel website (from CLIENT_URL)
+ * - Capacitor Android app (https://localhost and http://localhost)
+ */
+const allowedOrigins = [
+  ...(
+    process.env.CLIENT_URL ||
+    'http://localhost:5173'
+  )
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean),
+
+  'https://localhost',
+  'http://localhost'
+];
 
 app.use(helmet());
 
@@ -59,6 +68,10 @@ app.use(
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
+
+      console.warn(
+        `Blocked CORS request from origin: ${origin}`
+      );
 
       return callback(new Error('Origin is not allowed by CORS'));
     },

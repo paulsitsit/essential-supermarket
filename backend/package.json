@@ -4,12 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-  "dev": "nodemon src/server.js",
-  "start": "node src/server.js",
-  "seed:local": "node src/seed.js local",
-  "seed:atlas": "node src/seed.js atlas",
-  "migrate:batches:atlas": "node src/migrations/migrateProductBatches.js atlas",
-  "migrate:batches:local": "node src/migrations/migrateProductBatches.js local"
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "seed:local": "node src/seed.js local",
+    "seed:atlas": "node src/seed.js atlas",
+    "migrate:batches:atlas": "node src/migrations/migrateProductBatches.js atlas",
+    "migrate:batches:local": "node src/migrations/migrateProductBatches.js local"
   },
   "dependencies": {
     "@google-cloud/vision": "^5.3.7",
@@ -34,7 +34,8 @@
     "multer": "^2.2.0",
     "node-fetch": "^3.3.2",
     "pdfkit": "^0.15.2",
-    "socket.io": "^4.7.5"
+    "socket.io": "^4.7.5",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

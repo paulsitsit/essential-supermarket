@@ -12,6 +12,10 @@ import {
   syncExpirationAlertsForProduct
 } from './expirationAlert.service.js';
 
+import {
+  sendPushToAccount
+} from './push.service.js';
+
 export async function createOrUpdateAlert(
   product,
   account,
@@ -53,6 +57,35 @@ export async function createOrUpdateAlert(
         product,
         alert
       });
+
+      try {
+        const isOutOfStock =
+          Number(product.currentStock || 0) === 0;
+
+        await sendPushToAccount(account?._id, {
+          title: isOutOfStock
+            ? 'Out of stock'
+            : 'Low stock alert',
+
+          body: isOutOfStock
+            ? `${product.name} is out of stock.`
+            : `${product.name} has only ${
+                product.currentStock
+              } unit${
+                Number(product.currentStock) === 1
+                  ? ''
+                  : 's'
+              } remaining.`,
+
+          url: '/alerts',
+          tag: `low-stock-${product._id.toString()}`
+        });
+      } catch (pushError) {
+        console.error(
+          'Low-stock push notification failed:',
+          pushError
+        );
+      }
     } else {
       alert.currentStock = product.currentStock;
       alert.reorderLevel = product.reorderLevel;

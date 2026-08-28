@@ -20,6 +20,7 @@ import auditRoutes from './routes/audit.routes.js';
 import exportRoutes from './routes/export.routes.js';
 import salesRoutes from './routes/sales.routes.js';
 import batchRoutes from './routes/batch.routes.js';
+import pushRoutes from './routes/push.routes.js';
 
 import {
   apiLimiter,
@@ -114,6 +115,7 @@ app.use('/api/reports/export', exportRoutes);
 // Sales / POS checkout
 app.use('/api/sales', salesRoutes);
 app.use('/api/batches', batchRoutes);
+app.use('/api/push', pushRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

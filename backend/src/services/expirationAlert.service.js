@@ -1,6 +1,10 @@
 import ExpirationAlert from '../models/ExpirationAlert.js';
 import ProductBatch from '../models/ProductBatch.js';
 
+import {
+  sendPushToAccount
+} from './push.service.js';
+
 const DEFAULT_ALERT_WINDOW_DAYS = 30;
 
 function getAlertWindowDays() {
@@ -123,6 +127,13 @@ export async function syncExpirationAlertForBatch(
 
   const severity = getSeverity(daysRemaining);
 
+  const existingAlert = await ExpirationAlert.findOne({
+    batch: batch._id,
+    status: {
+      $ne: 'resolved'
+    }
+  });
+
   const alert = await ExpirationAlert.findOneAndUpdate(
     {
       batch: batch._id,
@@ -157,6 +168,38 @@ export async function syncExpirationAlertForBatch(
   );
 
   io?.emit('expirationAlertCreated', alert);
+
+  if (!existingAlert) {
+    try {
+      const productName =
+        alert.product?.name ||
+        'A product';
+
+      await sendPushToAccount(account?._id, {
+        title:
+          daysRemaining <= 0
+            ? 'Product expires today'
+            : 'Expiration alert',
+
+        body:
+          daysRemaining <= 0
+            ? `${productName} expires today.`
+            : `${productName} expires in ${
+                daysRemaining
+              } day${
+                daysRemaining === 1 ? '' : 's'
+              }.`,
+
+        url: '/alerts',
+        tag: `expiration-${batch._id.toString()}`
+      });
+    } catch (pushError) {
+      console.error(
+        'Expiration push notification failed:',
+        pushError
+      );
+    }
+  }
 
   return alert;
 }

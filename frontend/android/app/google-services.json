@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "324644977210",
+    "project_id": "essential-supermarket",
+    "storage_bucket": "essential-supermarket.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:324644977210:android:f8f9f2b66a90f26ae05303",
+        "android_client_info": {
+          "package_name": "com.essentialsupermarket.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBHa-xV8sm0rogpxeRV2pZbBpbJZlddoaM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,8 @@
+{
+  "appId": "com.essentialsupermarket.app",
+  "appName": "Essential Supermarket",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}

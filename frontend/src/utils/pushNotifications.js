@@ -1,15 +1,29 @@
 import client from '../api/client';
 
 function urlBase64ToUint8Array(base64String) {
+  if (typeof base64String !== 'string' || !base64String.trim()) {
+    throw new Error('The VAPID public key is missing.');
+  }
+
+  const value = base64String.trim();
+
   const padding = '='.repeat(
-    (4 - (base64String.length % 4)) % 4
+    (4 - (value.length % 4)) % 4
   );
 
-  const base64 = (base64String + padding)
+  const base64 = (value + padding)
     .replace(/-/g, '+')
     .replace(/_/g, '/');
 
-  const rawData = window.atob(base64);
+  let rawData;
+
+  try {
+    rawData = window.atob(base64);
+  } catch {
+    throw new Error(
+      'The VAPID public key from the server is not valid Base64URL.'
+    );
+  }
 
   return Uint8Array.from(
     [...rawData].map(character => character.charCodeAt(0))
@@ -54,7 +68,11 @@ function getErrorMessage(error) {
   }
 
   if (error?.name === 'InvalidAccessError') {
-    return 'The server VAPID public key is invalid or does not match the configured push service.';
+    return 'The VAPID public key is invalid. Generate a matching VAPID key pair, update Render, and redeploy.';
+  }
+
+  if (error?.name === 'AbortError') {
+    return 'The browser push service rejected registration. Clear this site’s data and service worker, then retry in a normal Chrome or Edge window without VPN or proxy.';
   }
 
   if (error?.response?.data?.message) {
@@ -77,6 +95,7 @@ export async function getPushNotificationStatus() {
 
   try {
     const registration = await getServiceWorkerRegistration();
+
     const subscription =
       await registration.pushManager.getSubscription();
 
@@ -129,6 +148,7 @@ export async function enablePushNotifications() {
 
   try {
     const { data } = await client.get('/push/public-key');
+
     const publicKey = data?.publicKey;
 
     if (!publicKey) {
@@ -137,23 +157,56 @@ export async function enablePushNotifications() {
       );
     }
 
+    const applicationServerKey =
+      urlBase64ToUint8Array(publicKey);
+
+    if (
+      applicationServerKey.length !== 65 ||
+      applicationServerKey[0] !== 4
+    ) {
+      throw new Error(
+        `Invalid VAPID public key format. Expected 65 bytes beginning with 4, received ${applicationServerKey.length} bytes.`
+      );
+    }
+
+    console.log(
+      'VAPID public key validated:',
+      `${publicKey.slice(0, 12)}...`,
+      `(${applicationServerKey.length} bytes)`
+    );
+
     const registration = await getServiceWorkerRegistration();
 
     let subscription =
       await registration.pushManager.getSubscription();
 
     if (!subscription) {
+      console.log(
+        'Creating a browser push subscription...'
+      );
+
       subscription =
         await registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey:
-            urlBase64ToUint8Array(publicKey)
+          applicationServerKey
         });
+
+      console.log(
+        'Browser push subscription created successfully.'
+      );
+    } else {
+      console.log(
+        'An existing browser push subscription was found.'
+      );
     }
 
     await client.post(
       '/push/subscribe',
       subscription.toJSON()
+    );
+
+    console.log(
+      'Browser push subscription saved to Render.'
     );
 
     return {

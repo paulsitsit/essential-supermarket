@@ -1,6 +1,11 @@
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 
+import {
+  enablePushNotifications,
+  getPushNotificationStatus
+} from '../utils/pushNotifications';
+
 let listenersAdded = false;
 let registered = false;
 
@@ -9,18 +14,22 @@ function isNativeApp() {
 }
 
 async function addPushListeners() {
-  if (listenersAdded) return;
+  if (listenersAdded) {
+    return;
+  }
 
   await PushNotifications.addListener(
     'registration',
     async token => {
-      console.log('FCM TOKEN:', token.value);
-
       const authToken = localStorage.getItem(
         'essential_token'
       );
 
       if (!authToken) {
+        console.warn(
+          'Android notification token received without a logged-in account.'
+        );
+
         return;
       }
 
@@ -29,12 +38,10 @@ async function addPushListeners() {
           `${import.meta.env.VITE_API_URL}/push/fcm/register`,
           {
             method: 'POST',
-
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${authToken}`
             },
-
             body: JSON.stringify({
               token: token.value
             })
@@ -42,8 +49,11 @@ async function addPushListeners() {
         );
 
         if (!response.ok) {
+          const errorText = await response.text();
+
           throw new Error(
-            'Unable to save the Android notification device.'
+            errorText ||
+              'Unable to save the Android notification device.'
           );
         }
 
@@ -52,7 +62,7 @@ async function addPushListeners() {
         );
       } catch (error) {
         console.error(
-          'Failed to register FCM device with backend:',
+          'Failed to register Android FCM device with backend:',
           error
         );
       }
@@ -63,7 +73,7 @@ async function addPushListeners() {
     'registrationError',
     error => {
       console.error(
-        'FCM registration error:',
+        'Android FCM registration error:',
         error
       );
     }
@@ -73,7 +83,7 @@ async function addPushListeners() {
     'pushNotificationReceived',
     notification => {
       console.log(
-        'Push notification received:',
+        'Android push notification received:',
         notification
       );
     }
@@ -83,7 +93,7 @@ async function addPushListeners() {
     'pushNotificationActionPerformed',
     action => {
       console.log(
-        'Notification opened:',
+        'Android notification opened:',
         action
       );
     }
@@ -92,49 +102,72 @@ async function addPushListeners() {
   listenersAdded = true;
 }
 
-export async function initializePushNotifications() {
-  if (!isNativeApp()) {
-    console.log(
-      'Push notifications are skipped in the web browser.'
+async function initializeNativePushNotifications() {
+  await addPushListeners();
+
+  let permission =
+    await PushNotifications.checkPermissions();
+
+  if (permission.receive === 'prompt') {
+    permission =
+      await PushNotifications.requestPermissions();
+  }
+
+  if (permission.receive !== 'granted') {
+    console.warn(
+      'Android notification permission was not granted.'
+    );
+
+    return {
+      supported: true,
+      granted: false,
+      platform: 'android'
+    };
+  }
+
+  if (!registered) {
+    await PushNotifications.register();
+    registered = true;
+  }
+
+  return {
+    supported: true,
+    granted: true,
+    platform: 'android'
+  };
+}
+
+async function initializeWebPushNotifications() {
+  const status = await getPushNotificationStatus();
+
+  if (!status.supported) {
+    console.warn(
+      'Web push notifications are not supported in this browser.'
     );
 
     return {
       supported: false,
-      granted: false
+      granted: false,
+      platform: 'web'
     };
   }
 
+  return {
+    supported: true,
+    granted:
+      status.permission === 'granted' &&
+      status.subscribed,
+    platform: 'web'
+  };
+}
+
+export async function initializePushNotifications() {
   try {
-    await addPushListeners();
-
-    let permission =
-      await PushNotifications.checkPermissions();
-
-    if (permission.receive === 'prompt') {
-      permission =
-        await PushNotifications.requestPermissions();
+    if (isNativeApp()) {
+      return await initializeNativePushNotifications();
     }
 
-    if (permission.receive !== 'granted') {
-      console.warn(
-        'Notification permission was not granted.'
-      );
-
-      return {
-        supported: true,
-        granted: false
-      };
-    }
-
-    if (!registered) {
-      await PushNotifications.register();
-      registered = true;
-    }
-
-    return {
-      supported: true,
-      granted: true
-    };
+    return await initializeWebPushNotifications();
   } catch (error) {
     console.error(
       'Could not initialize push notifications:',
@@ -143,7 +176,25 @@ export async function initializePushNotifications() {
 
     return {
       supported: true,
-      granted: false
+      granted: false,
+      platform: isNativeApp()
+        ? 'android'
+        : 'web'
     };
   }
+}
+
+export async function enableNotificationsForCurrentDevice() {
+  if (isNativeApp()) {
+    return await initializeNativePushNotifications();
+  }
+
+  const result = await enablePushNotifications();
+
+  return {
+    supported: true,
+    granted: result.permission === 'granted',
+    platform: 'web',
+    subscription: result.subscription
+  };
 }

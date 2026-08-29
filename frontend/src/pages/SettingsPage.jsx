@@ -23,10 +23,13 @@ import GlassCard from '../components/common/GlassCard';
 
 import {
   disablePushNotifications,
-  enablePushNotifications,
   getPushNotificationStatus,
   sendTestPushNotification
 } from '../utils/pushNotifications';
+
+import {
+  enableNotificationsForCurrentDevice
+} from '../services/pushNotifications';
 
 export default function SettingsPage() {
   const [saved, setSaved] = useState(false);
@@ -49,21 +52,26 @@ export default function SettingsPage() {
   const [pushLoading, setPushLoading] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
 
-  useEffect(() => {
-    async function loadPushStatus() {
-      try {
-        const status =
-          await getPushNotificationStatus();
+  async function loadPushStatus() {
+    try {
+      const status = await getPushNotificationStatus();
 
-        setPushStatus(status);
-      } catch (error) {
-        console.error(
-          'Unable to load push notification status:',
-          error
-        );
-      }
+      setPushStatus(status);
+    } catch (error) {
+      console.error(
+        'Unable to load push notification status:',
+        error
+      );
+
+      setPushStatus({
+        supported: false,
+        permission: 'default',
+        subscribed: false
+      });
     }
+  }
 
+  useEffect(() => {
     loadPushStatus();
   }, []);
 
@@ -89,62 +97,65 @@ export default function SettingsPage() {
     toast.success('Settings saved locally.');
   }
 
-  async function enablePhoneNotifications() {
+  async function enableDeviceNotifications() {
     try {
       setPushLoading(true);
 
-      await enablePushNotifications();
+      await enableNotificationsForCurrentDevice();
 
-      const status =
-        await getPushNotificationStatus();
-
-      setPushStatus(status);
+      await loadPushStatus();
 
       toast.success(
-        'Phone notifications are enabled.'
+        'Notifications are enabled for this device.'
       );
     } catch (error) {
+      console.error(
+        'Unable to enable device notifications:',
+        error
+      );
+
       toast.error(
         error?.response?.data?.message ||
-          error.message ||
-          'Unable to enable phone notifications.'
+          error?.message ||
+          'Unable to enable notifications for this device.'
       );
     } finally {
       setPushLoading(false);
     }
   }
 
-  async function disablePhoneNotifications() {
+  async function disableDeviceNotifications() {
     try {
       setPushLoading(true);
 
       await disablePushNotifications();
 
-      const status =
-        await getPushNotificationStatus();
-
-      setPushStatus(status);
+      await loadPushStatus();
 
       toast.success(
-        'Phone notifications are disabled.'
+        'Notifications are disabled for this device.'
       );
     } catch (error) {
+      console.error(
+        'Unable to disable device notifications:',
+        error
+      );
+
       toast.error(
         error?.response?.data?.message ||
-          error.message ||
-          'Unable to disable phone notifications.'
+          error?.message ||
+          'Unable to disable notifications for this device.'
       );
     } finally {
       setPushLoading(false);
     }
   }
 
-  async function testPhoneNotification() {
+  async function testDeviceNotification() {
     try {
       setTestLoading(true);
 
-      const result =
-        await sendTestPushNotification();
+      const result = await sendTestPushNotification();
 
       if (result.sent > 0) {
         toast.success(
@@ -156,9 +167,14 @@ export default function SettingsPage() {
         );
       }
     } catch (error) {
+      console.error(
+        'Unable to send test notification:',
+        error
+      );
+
       toast.error(
         error?.response?.data?.message ||
-          error.message ||
+          error?.message ||
           'Unable to send test notification.'
       );
     } finally {
@@ -166,10 +182,15 @@ export default function SettingsPage() {
     }
   }
 
-  const phoneNotificationsEnabled =
+  const deviceNotificationsEnabled =
     pushStatus.supported &&
     pushStatus.permission === 'granted' &&
     pushStatus.subscribed;
+
+  const pushUnsupportedMessage =
+    pushStatus.permission === 'insecure-context'
+      ? 'Notifications require the secure HTTPS version of the app.'
+      : 'Push notifications are not supported in this browser. Use the latest Chrome or Microsoft Edge.';
 
   return (
     <div>
@@ -331,11 +352,11 @@ export default function SettingsPage() {
             <Smartphone size={19} />
 
             <div>
-              <h3>Phone notifications</h3>
+              <h3>Device notifications</h3>
 
               <p>
                 Receive low-stock and expiration alerts
-                even while the app is closed.
+                on this Windows browser or Android device.
               </p>
             </div>
           </div>
@@ -345,36 +366,34 @@ export default function SettingsPage() {
               <BellOff size={17} />
 
               <span>
-                Push notifications are not supported in
-                this browser. Use the installed PWA in
-                Chrome or another supported browser.
+                {pushUnsupportedMessage}
               </span>
             </div>
           ) : (
             <>
               <div className="settings-info">
-                {phoneNotificationsEnabled ? (
+                {deviceNotificationsEnabled ? (
                   <CheckCircle2 size={17} />
                 ) : (
                   <BellOff size={17} />
                 )}
 
                 <span>
-                  {phoneNotificationsEnabled
-                    ? 'Phone notifications are enabled for this device.'
+                  {deviceNotificationsEnabled
+                    ? 'Notifications are enabled for this device.'
                     : pushStatus.permission === 'denied'
                       ? 'Notifications are blocked in browser settings.'
-                      : 'Phone notifications are not enabled on this device.'}
+                      : 'Notifications are not enabled on this device.'}
                 </span>
               </div>
 
               <div className="notification-settings-actions">
-                {phoneNotificationsEnabled ? (
+                {deviceNotificationsEnabled ? (
                   <>
                     <button
                       type="button"
                       className="secondary-btn"
-                      onClick={testPhoneNotification}
+                      onClick={testDeviceNotification}
                       disabled={testLoading}
                     >
                       {testLoading ? (
@@ -392,7 +411,7 @@ export default function SettingsPage() {
                     <button
                       type="button"
                       className="danger-btn"
-                      onClick={disablePhoneNotifications}
+                      onClick={disableDeviceNotifications}
                       disabled={pushLoading}
                     >
                       {pushLoading ? (
@@ -411,7 +430,7 @@ export default function SettingsPage() {
                   <button
                     type="button"
                     className="primary-btn"
-                    onClick={enablePhoneNotifications}
+                    onClick={enableDeviceNotifications}
                     disabled={
                       pushLoading ||
                       pushStatus.permission === 'denied'
@@ -426,16 +445,16 @@ export default function SettingsPage() {
                       <Bell size={16} />
                     )}
 
-                    Enable phone notifications
+                    Enable notifications
                   </button>
                 )}
               </div>
 
               {pushStatus.permission === 'denied' && (
                 <small className="notification-help">
-                  Open your browser or phone settings,
-                  allow notifications for Essential
-                  Supermarket, then reload this page.
+                  Open browser site settings, allow
+                  notifications for Essential Supermarket,
+                  then reload this page.
                 </small>
               )}
             </>

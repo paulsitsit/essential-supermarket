@@ -16,8 +16,11 @@ jobs:
 
       - name: Install MongoDB Database Tools
         run: |
-          curl -fsSL https://www.mongodb.com/static/cli/mongo-database-tools/latest/mongodb-database-tools-ubuntu2204-x86_64-latest.tgz \
+          # Use a known working version URL for Ubuntu 22.04 x86_64
+          curl -fsSL \
+            "https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2204-x86_64-100.9.2.tgz" \
             -o mongodb-tools.tgz
+
           tar -xzf mongodb-tools.tgz
           sudo mv mongodb-database-tools-*/bin/* /usr/local/bin/
           rm -rf mongodb-tools.tgz mongodb-database-tools-*

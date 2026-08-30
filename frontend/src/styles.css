@@ -2735,3 +2735,193 @@ body {
     width: 100%;
   }
 }
+/* Mobile layout fixes */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+img,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Keep cards and grid items shrinkable */
+.card,
+.alert-card,
+.settings-card,
+.page-card,
+.scanner-card,
+.scan-result,
+.grid-item {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Prevent long names, SKUs, and barcodes from escaping */
+.alert-card h1,
+.alert-card h2,
+.alert-card h3,
+.alert-card p,
+.alert-card span,
+.product-name,
+.product-title,
+.product-barcode,
+.product-sku,
+.scan-result *,
+.notification-card * {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+/* Do not allow normal text to become vertical */
+.alert-card,
+.alert-card *,
+.notification-card,
+.notification-card * {
+  writing-mode: horizontal-tb;
+}
+
+/* Mobile alert cards */
+@media (max-width: 700px) {
+  .alerts-grid,
+  .alert-grid,
+  .settings-grid,
+  .scanner-grid,
+  .scan-layout,
+  .page-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    display: grid;
+    gap: 16px;
+  }
+
+  .alert-card,
+  .notification-card {
+    width: 100%;
+    min-height: auto;
+    height: auto;
+    padding: 16px;
+    overflow: hidden;
+  }
+
+  .alert-card-content,
+  .notification-card-content,
+  .alert-details,
+  .notification-details {
+    width: 100%;
+    min-width: 0;
+    display: block;
+  }
+
+  .alert-card h1,
+  .alert-card h2,
+  .alert-card h3,
+  .notification-card h1,
+  .notification-card h2,
+  .notification-card h3 {
+    white-space: normal;
+    line-height: 1.25;
+    margin: 8px 0;
+  }
+
+  .alert-card p,
+  .notification-card p {
+    white-space: normal;
+    line-height: 1.45;
+  }
+
+  /* Keep alert metadata horizontal when possible */
+  .alert-meta,
+  .notification-meta,
+  .alert-header,
+  .notification-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  /* Scanner becomes one column */
+  .scanner-grid,
+  .scan-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .scanner-panel,
+  .scan-result-panel,
+  .camera-panel,
+  .scan-result {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .scanner-panel video,
+  .scanner-panel canvas {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+  }
+
+  .scan-result img {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+  }
+
+  /* Prevent desktop table width from breaking the page */
+  .table-wrapper,
+  .responsive-table,
+  .data-table-wrapper {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Mobile page spacing */
+  .page-container,
+  .content,
+  .main-content {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+/* Specific low-stock fix: force product info horizontal */
+.alert-card .product-info,
+.alert-card .product-info *,
+.low-stock-alert .product-info,
+.low-stock-alert .product-info * {
+  writing-mode: horizontal-tb !important;
+  transform: none !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+}
+
+/* Specific scanner fix: stack panels on mobile */
+@media (max-width: 700px) {
+  .scanner-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

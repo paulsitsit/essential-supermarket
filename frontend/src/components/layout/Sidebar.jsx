@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+
 import {
   Boxes,
   CalendarClock,
@@ -28,7 +29,7 @@ const groups = [
         label: 'Dashboard',
         path: '/dashboard',
         icon: LayoutDashboard,
-        roles: ['admin', 'manager', 'staff']
+        roles: ['admin', 'manager']
       }
     ]
   },
@@ -51,7 +52,7 @@ const groups = [
         label: 'Batch trace',
         path: '/batch-trace',
         icon: ClipboardList,
-        roles: ['admin', 'manager', 'staff']
+        roles: ['admin', 'manager']
       },
       {
         label: 'Categories',
@@ -63,7 +64,7 @@ const groups = [
         label: 'Expiring soon',
         path: '/expiring-soon',
         icon: CalendarClock,
-        roles: ['admin', 'manager', 'staff']
+        roles: ['admin', 'manager']
       }
     ]
   },
@@ -80,13 +81,13 @@ const groups = [
         label: 'Inventory',
         path: '/inventory',
         icon: Boxes,
-        roles: ['admin', 'manager', 'staff']
+        roles: ['admin', 'manager']
       },
       {
         label: 'Stock movements',
         path: '/stock-movements',
         icon: ClipboardList,
-        roles: ['admin', 'manager', 'staff']
+        roles: ['admin', 'manager']
       },
       {
         label: 'QR and barcode scanner',
@@ -139,6 +140,19 @@ export default function Sidebar({
 }) {
   const { account, logout } = useAuth();
 
+  const userRole = String(
+    account?.role || ''
+  ).toLowerCase();
+
+  const visibleGroups = groups
+    .map(group => ({
+      ...group,
+      items: group.items.filter(item =>
+        item.roles.includes(userRole)
+      )
+    }))
+    .filter(group => group.items.length > 0);
+
   function handleNavigation(event) {
     event.currentTarget.blur();
     onClose?.();
@@ -172,51 +186,42 @@ export default function Sidebar({
       </div>
 
       <nav className="compact-sidebar-nav">
-        {groups.map(group => {
-          const visibleItems = group.items.filter(item =>
-            item.roles.includes(account?.role)
-          );
-
-          if (!visibleItems.length) {
-            return null;
-          }
-
-          return (
-            <div
-              className="sidebar-group"
-              key={group.label}
-            >
-              <div className="sidebar-group-label">
-                {group.label}
-              </div>
-
-              <div className="sidebar-group-items">
-                {visibleItems.map(item => {
-                  const Icon = item.icon;
-
-                  return (
-                    <NavLink
-                      key={item.path}
-                      to={item.path}
-                      onClick={handleNavigation}
-                      className={({ isActive }) =>
-                        isActive
-                          ? 'nav-item compact-nav-item active'
-                          : 'nav-item compact-nav-item'
-                      }
-                    >
-                      <Icon
-                        size={15}
-                        strokeWidth={1.8}
-                      />
-                      <span>{item.label}</span>
-                    </NavLink>
-                  );
-                })}
-              </div>
+        {visibleGroups.map(group => (
+          <div
+            className="sidebar-group"
+            key={group.label}
+          >
+            <div className="sidebar-group-label">
+              {group.label}
             </div>
-          );
-        })}
+
+            <div className="sidebar-group-items">
+              {group.items.map(item => {
+                const Icon = item.icon;
+
+                return (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    onClick={handleNavigation}
+                    className={({ isActive }) =>
+                      isActive
+                        ? 'nav-item compact-nav-item active'
+                        : 'nav-item compact-nav-item'
+                    }
+                  >
+                    <Icon
+                      size={15}
+                      strokeWidth={1.8}
+                    />
+
+                    <span>{item.label}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       <div className="sidebar-bottom compact-sidebar-bottom">

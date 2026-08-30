@@ -1,27 +1,46 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import {
+  Navigate,
+  Route,
+  Routes
+} from 'react-router-dom';
 
 import ProtectedRoute from './routes/ProtectedRoute';
 import AppLayout from './layouts/AppLayout';
-import BatchesPage from './pages/BatchesPage';
 
-import ScannerPage from './pages/ScannerPage';
-import AlertsPage from './pages/AlertsPage';
-import CategoriesPage from './pages/CategoriesPage';
-import SuppliersPage from './pages/SuppliersPage';
-import AccountsPage from './pages/AccountsPage';
-import ReportsPage from './pages/ReportsPage';
-import SettingsPage from './pages/SettingsPage';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ProductsPage from './pages/ProductsPage';
 import AddProductPage from './pages/AddProductPage';
+import EditProductPage from './pages/EditProductPage';
+import BatchesPage from './pages/BatchesPage';
+import BatchTracePage from './pages/BatchTracePage';
+import ExpiringSoonPage from './pages/ExpiringSoonPage';
+import CategoriesPage from './pages/CategoriesPage';
+import SuppliersPage from './pages/SuppliersPage';
+import SalesPage from './pages/SalesPage';
 import InventoryPage from './pages/InventoryPage';
 import StockMovementsPage from './pages/StockMovementsPage';
-import EditProductPage from './pages/EditProductPage';
+import ScannerPage from './pages/ScannerPage';
+import AlertsPage from './pages/AlertsPage';
+import ReportsPage from './pages/ReportsPage';
+import AccountsPage from './pages/AccountsPage';
+import SettingsPage from './pages/SettingsPage';
 import AuditLogsPage from './pages/AuditLogsPage';
-import ExpiringSoonPage from './pages/ExpiringSoonPage';
-import BatchTracePage from './pages/BatchTracePage';
-import SalesPage from './pages/SalesPage';
+
+const MANAGEMENT_ROLES = [
+  'admin',
+  'manager'
+];
+
+const ADMIN_ROLES = [
+  'admin'
+];
+
+const STAFF_ROLES = [
+  'admin',
+  'manager',
+  'staff'
+];
 
 export default function App() {
   return (
@@ -37,93 +56,60 @@ export default function App() {
             index
             element={
               <Navigate
-                to="/dashboard"
+                to="/sales"
                 replace
               />
             }
           />
 
-          <Route
-            path="dashboard"
-            element={<DashboardPage />}
-          />
-
+          {/* Admin and Manager only */}
           <Route
             element={
               <ProtectedRoute
-                roles={['admin', 'manager']}
+                roles={MANAGEMENT_ROLES}
               />
             }
           >
+            <Route
+              path="dashboard"
+              element={<DashboardPage />}
+            />
+
             <Route
               path="products"
               element={<ProductsPage />}
             />
 
             <Route
-              path="/batches" 
-              element={<BatchesPage />} 
-            /> 
-
-            <Route 
-              path="/expiring-soon" 
-              element={<ExpiringSoonPage />}
-            />
-
-            <Route 
-              path="/batch-trace" 
-              element={<BatchTracePage />} 
-            />
-
-            <Route 
-              path="/sales" 
-              element={<SalesPage />} 
-            />
-
-            <Route
               path="products/:id/edit"
               element={<EditProductPage />}
             />
-          </Route>
 
-          <Route
-            element={
-              <ProtectedRoute roles={['admin']} />
-            }
-          >
             <Route
-              path="products/new"
-              element={<AddProductPage />}
+              path="batches"
+              element={<BatchesPage />}
             />
-          </Route>
 
-          <Route
-            path="inventory"
-            element={<InventoryPage />}
-          />
+            <Route
+              path="batch-trace"
+              element={<BatchTracePage />}
+            />
 
-          <Route
-            path="stock-movements"
-            element={<StockMovementsPage />}
-          />
+            <Route
+              path="expiring-soon"
+              element={<ExpiringSoonPage />}
+            />
 
-          <Route
-            path="scanner"
-            element={<ScannerPage />}
-          />
+            <Route
+              path="inventory"
+              element={<InventoryPage />}
+            />
 
-          <Route
-            path="alerts"
-            element={<AlertsPage />}
-          />
+            <Route
+              path="stock-movements"
+              element={<StockMovementsPage />}
+            />
 
-          <Route
-            element={
-              <ProtectedRoute
-                roles={['admin', 'manager']}
-              />
-            }
-          >
             <Route
               path="categories"
               element={<CategoriesPage />}
@@ -140,11 +126,19 @@ export default function App() {
             />
           </Route>
 
+          {/* Admin only */}
           <Route
             element={
-              <ProtectedRoute roles={['admin']} />
+              <ProtectedRoute
+                roles={ADMIN_ROLES}
+              />
             }
           >
+            <Route
+              path="products/new"
+              element={<AddProductPage />}
+            />
+
             <Route
               path="accounts"
               element={<AccountsPage />}
@@ -160,6 +154,30 @@ export default function App() {
               element={<AuditLogsPage />}
             />
           </Route>
+
+          {/* All signed-in roles, including staff */}
+          <Route
+            element={
+              <ProtectedRoute
+                roles={STAFF_ROLES}
+              />
+            }
+          >
+            <Route
+              path="sales"
+              element={<SalesPage />}
+            />
+
+            <Route
+              path="scanner"
+              element={<ScannerPage />}
+            />
+
+            <Route
+              path="alerts"
+              element={<AlertsPage />}
+            />
+          </Route>
         </Route>
       </Route>
 
@@ -167,7 +185,7 @@ export default function App() {
         path="*"
         element={
           <Navigate
-            to="/dashboard"
+            to="/sales"
             replace
           />
         }

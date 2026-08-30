@@ -2925,3 +2925,141 @@ canvas {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+/* ===== Mobile overflow and alert-card repair ===== */
+
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Never allow product text to render vertically */
+.alert-card,
+.alert-card *,
+.low-stock-alert,
+.low-stock-alert *,
+.alert-row,
+.alert-row * {
+  writing-mode: horizontal-tb !important;
+  text-orientation: mixed !important;
+}
+
+/* Let all flex/grid children shrink on narrow devices */
+.alert-card,
+.low-stock-alert,
+.alert-row,
+.alert-content,
+.alert-product,
+.alert-details,
+.product-info {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Wrap long product names, barcode values, and descriptions */
+.alert-card h1,
+.alert-card h2,
+.alert-card h3,
+.alert-card p,
+.alert-card span,
+.low-stock-alert h1,
+.low-stock-alert h2,
+.low-stock-alert h3,
+.low-stock-alert p,
+.low-stock-alert span,
+.product-name,
+.product-info,
+.alert-details {
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+/* Phone layout */
+@media (max-width: 700px) {
+  .alerts-grid,
+  .alert-grid,
+  .scanner-layout,
+  .scanner-grid,
+  .scan-layout,
+  .settings-grid,
+  .page-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) !important;
+    width: 100%;
+    max-width: 100%;
+    gap: 14px;
+  }
+
+  .alerts-grid > *,
+  .alert-grid > *,
+  .scanner-layout > *,
+  .scanner-grid > *,
+  .scan-layout > *,
+  .settings-grid > *,
+  .page-grid > * {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+  }
+
+  .alert-card,
+  .low-stock-alert {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 0;
+    height: auto;
+    overflow: hidden;
+    padding: 16px;
+  }
+
+  .alert-card-header,
+  .alert-header,
+  .low-stock-alert-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .alert-card-header > *,
+  .alert-header > *,
+  .low-stock-alert-header > * {
+    min-width: 0;
+  }
+
+  .alert-card .product-name,
+  .alert-card .alert-details,
+  .low-stock-alert .product-name,
+  .low-stock-alert .alert-details {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .scanner-layout video,
+  .scanner-layout canvas,
+  .scanner-grid video,
+  .scanner-grid canvas,
+  .scan-layout video,
+  .scan-layout canvas,
+  .scan-result img {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+  }
+}

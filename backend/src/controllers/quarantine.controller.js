@@ -1,8 +1,8 @@
-import QuarantineItem from '../models/QuarantineItem.js';
+﻿import QuarantineItem from '../models/QuarantineItem.js';
 import Product from '../models/Product.js';
 import ProductBatch from '../models/ProductBatch.js';
 import StockMovement from '../models/StockMovement.js';
-import { createAuditLog } from '../utils/audit.js';
+import { logAudit } from '../utils/audit.js';
 
 export async function listQuarantine(req, res) {
   try {
@@ -44,7 +44,7 @@ export async function disposeItem(req, res) {
     qItem.disposedAt = new Date();
     await qItem.save();
 
-    await createAuditLog({
+    await logAudit({
       account: account._id,
       action: 'quarantine_disposed',
       entity: 'QuarantineItem',
@@ -75,7 +75,7 @@ export async function returnToSupplier(req, res) {
     qItem.disposedAt = new Date();
     await qItem.save();
 
-    await createAuditLog({
+    await logAudit({
       account: account._id,
       action: 'quarantine_returned_to_supplier',
       entity: 'QuarantineItem',
@@ -136,7 +136,7 @@ export async function releaseToStock(req, res) {
       ]
     });
 
-    await createAuditLog({
+    await logAudit({
       account: account._id,
       action: 'quarantine_released_to_stock',
       entity: 'QuarantineItem',

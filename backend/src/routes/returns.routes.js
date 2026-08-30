@@ -1,10 +1,10 @@
 import express from 'express';
 import * as returnsController from '../controllers/returns.controller.js';
-import { requireAuth } from '../middleware/auth.js';
+import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.use(requireAuth);
+router.use(protect);
 
 router.get('/', returnsController.listReturns);
 router.get('/:id', returnsController.getReturn);

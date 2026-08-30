@@ -4,7 +4,7 @@ import Sale from '../models/Sale.js';
 import Product from '../models/Product.js';
 import ProductBatch from '../models/ProductBatch.js';
 import StockMovement from '../models/StockMovement.js';
-import { logAudit } from '../utils/audit.js';
+import { writeAudit } from '../utils/audit.js';
 
 export async function listReturns(req, res) {
   try {
@@ -165,12 +165,17 @@ export async function createReturn(req, res) {
       $set: { hasReturns: true }
     });
 
-    await logAudit({
-      account: account._id,
+    await writeAudit({
+      req,
+      account,
       action: 'return_created',
-      entity: 'SaleReturn',
-      entityId: retDoc._id,
-      details: { saleId, totalRefund, itemCount: items.length }
+      affectedRecord: retDoc._id,
+      metadata: {
+        entity: 'SaleReturn',
+        saleId,
+        totalRefund,
+        itemCount: items.length
+      }
     });
 
     res.status(201).json(retDoc);

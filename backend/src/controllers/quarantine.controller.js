@@ -2,7 +2,7 @@
 import Product from '../models/Product.js';
 import ProductBatch from '../models/ProductBatch.js';
 import StockMovement from '../models/StockMovement.js';
-import { logAudit } from '../utils/audit.js';
+import { writeAudit } from '../utils/audit.js';
 
 export async function listQuarantine(req, res) {
   try {
@@ -44,12 +44,17 @@ export async function disposeItem(req, res) {
     qItem.disposedAt = new Date();
     await qItem.save();
 
-    await logAudit({
-      account: account._id,
+    await writeAudit({
+      req,
+      account,
       action: 'quarantine_disposed',
-      entity: 'QuarantineItem',
-      entityId: qItem._id,
-      details: { productId: qItem.product, quantity: qItem.quantity, reason: qItem.reason }
+      affectedRecord: qItem._id,
+      metadata: {
+        entity: 'QuarantineItem',
+        productId: qItem.product,
+        quantity: qItem.quantity,
+        reason: qItem.reason
+      }
     });
 
     res.json(qItem);
@@ -75,12 +80,16 @@ export async function returnToSupplier(req, res) {
     qItem.disposedAt = new Date();
     await qItem.save();
 
-    await logAudit({
-      account: account._id,
+    await writeAudit({
+      req,
+      account,
       action: 'quarantine_returned_to_supplier',
-      entity: 'QuarantineItem',
-      entityId: qItem._id,
-      details: { productId: qItem.product, quantity: qItem.quantity }
+      affectedRecord: qItem._id,
+      metadata: {
+        entity: 'QuarantineItem',
+        productId: qItem.product,
+        quantity: qItem.quantity
+      }
     });
 
     res.json(qItem);
@@ -136,12 +145,17 @@ export async function releaseToStock(req, res) {
       ]
     });
 
-    await logAudit({
-      account: account._id,
+    await writeAudit({
+      req,
+      account,
       action: 'quarantine_released_to_stock',
-      entity: 'QuarantineItem',
-      entityId: qItem._id,
-      details: { productId: qItem.product._id, quantity: qItem.quantity, batchId }
+      affectedRecord: qItem._id,
+      metadata: {
+        entity: 'QuarantineItem',
+        productId: qItem.product._id,
+        quantity: qItem.quantity,
+        batchId
+      }
     });
 
     res.json(qItem);

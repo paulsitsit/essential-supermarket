@@ -21,7 +21,12 @@ export default function SaleDetailsModal({ sale, onClose, account }) {
               <h3>Sale #{sale._id.slice(-8)}</h3>
             </div>
 
-            <button type="button" className="icon-btn" onClick={onClose} aria-label="Close sale details">
+            <button
+              type="button"
+              className="icon-btn"
+              onClick={onClose}
+              aria-label="Close sale details"
+            >
               <X size={20} />
             </button>
           </div>
@@ -31,18 +36,22 @@ export default function SaleDetailsModal({ sale, onClose, account }) {
               <span>Date</span>
               <strong>{dateTime(sale.createdAt)}</strong>
             </div>
+
             <div>
               <span>Cashier</span>
               <strong>{sale.cashier?.fullName || '—'}</strong>
             </div>
+
             <div>
               <span>Payment</span>
               <strong>{sale.paymentMethod || 'cash'}</strong>
             </div>
+
             <div>
               <span>Total</span>
               <strong>{peso(sale.totalAmount)}</strong>
             </div>
+
             <div>
               <span>Status</span>
               <strong>{sale.status || 'completed'}</strong>
@@ -62,18 +71,27 @@ export default function SaleDetailsModal({ sale, onClose, account }) {
                     <th>Subtotal</th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {(sale.items || []).map((item, idx) => (
                     <tr key={`${item.product?._id || idx}`}>
                       <td>
-                        <strong>{item.name || item.product?.name || 'Deleted product'}</strong>
-                        <small className="table-subtext" style={{ fontSize: 11 }}>
+                        <strong>
+                          {item.name || item.product?.name || 'Deleted product'}
+                        </strong>
+
+                        <small
+                          className="table-subtext"
+                          style={{ fontSize: 11 }}
+                        >
                           {item.barcode || item.product?.barcode || '—'}
                         </small>
                       </td>
+
                       <td>
                         <strong>{item.quantity}</strong>
                       </td>
+
                       <td>{peso(item.unitPrice)}</td>
                       <td>{peso(item.subtotal)}</td>
                     </tr>
@@ -86,7 +104,9 @@ export default function SaleDetailsModal({ sale, onClose, account }) {
           <div>
             <h4 style={{ marginBottom: 8 }}>Batch allocations</h4>
 
-            {(sale.items || []).some(item => (item.batchAllocations || []).length > 0) ? (
+            {(sale.items || []).some(
+              item => (item.batchAllocations || []).length > 0
+            ) ? (
               <div className="table-wrap">
                 <table className="data-table" style={{ fontSize: 13 }}>
                   <thead>
@@ -97,31 +117,52 @@ export default function SaleDetailsModal({ sale, onClose, account }) {
                       <th>Qty from batch</th>
                     </tr>
                   </thead>
+
                   <tbody>
                     {(sale.items || []).flatMap((item, itemIdx) => {
                       const allocs = item.batchAllocations || [];
+
                       if (!allocs.length) return [];
 
                       return allocs.map((alloc, allocIdx) => {
                         const batch = alloc.batch || {};
+
                         return (
                           <tr key={`${itemIdx}-${allocIdx}`}>
                             <td>
-                              <strong>{item.name || item.product?.name || 'Deleted product'}</strong>
-                              <small className="table-subtext" style={{ fontSize: 11 }}>
-                                {item.barcode || item.product?.barcode || '—'}
+                              <strong>
+                                {item.name ||
+                                  item.product?.name ||
+                                  'Deleted product'}
+                              </strong>
+
+                              <small
+                                className="table-subtext"
+                                style={{ fontSize: 11 }}
+                              >
+                                {item.barcode ||
+                                  item.product?.barcode ||
+                                  '—'}
                               </small>
                             </td>
+
                             <td>
                               <strong className="mono-text">
-                                {batch.batchNumber || alloc.batchNumber || '—'}
+                                {batch.batchNumber ||
+                                  alloc.batchNumber ||
+                                  '—'}
                               </strong>
                             </td>
+
                             <td>
                               {batch.expirationDate || alloc.expirationDate
-                                ? dateOnly(batch.expirationDate || alloc.expirationDate)
+                                ? dateOnly(
+                                    batch.expirationDate ||
+                                      alloc.expirationDate
+                                  )
                                 : 'No expiry'}
                             </td>
+
                             <td>
                               <strong>{alloc.quantity}</strong>
                             </td>
@@ -133,19 +174,38 @@ export default function SaleDetailsModal({ sale, onClose, account }) {
                 </table>
               </div>
             ) : (
-              <EmptyState title="No batch allocations" description="This sale does not have batch-level details." />
+              <EmptyState
+                title="No batch allocations"
+                description="This sale does not have batch-level details."
+              />
             )}
           </div>
 
-          <div className="modal-actions" style={{ marginTop: 16 }}>
+          <div
+            className="modal-actions"
+            style={{
+              marginTop: 16,
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: 9
+            }}
+          >
             {canProcessReturn && (
-              <button type="button" className="secondary-btn" onClick={() => setShowReturn(true)}>
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => setShowReturn(true)}
+              >
                 <RotateCcw size={16} />
                 Process return
               </button>
             )}
 
-            <button type="button" className="secondary-btn" onClick={onClose}>
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={onClose}
+            >
               Close
             </button>
           </div>

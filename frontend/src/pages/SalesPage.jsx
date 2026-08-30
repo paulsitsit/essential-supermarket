@@ -195,6 +195,7 @@ export default function SalesPage() {
       {selectedSale && (
         <SaleDetailsModal
           sale={selectedSale}
+          account={account}
           onClose={() => setSelectedSale(null)}
         />
       )}

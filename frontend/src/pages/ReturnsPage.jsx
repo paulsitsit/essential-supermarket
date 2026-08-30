@@ -1,77 +1,136 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
-import { dateTime, peso } from '../utils/format';
+import { useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, RefreshCw } from 'lucide-react';
+import client from '../api/client';
 import EmptyState from '../components/common/EmptyState';
-import LoadingScreen from '../components/common/LoadingScreen';
+import GlassCard from '../components/common/GlassCard';
+import { getErrorMessage } from '../utils/errors';
+import { dateTime, peso } from '../utils/format';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-
-export default function ReturnsPage({ account }) {
+export default function ReturnsPage() {
   const { saleId } = useParams();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
+
   const [returns, setReturns] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  async function loadReturns() {
+    setLoading(true);
+    setError('');
+
+    try {
+      const query = saleId ? `?saleId=${saleId}` : '';
+      const response = await client.get(`/returns${query}`);
+      setReturns(response.data.returns || []);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Unable to load returns.'));
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    const url = saleId ? `${API}/returns?saleId=${saleId}` : `${API}/returns`;
-    fetch(url, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
-      .then(r => r.json())
-      .then(data => {
-        setReturns(data.returns || []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    loadReturns();
   }, [saleId]);
-
-  if (loading) return <LoadingScreen />;
 
   return (
     <div>
       <div className="page-heading">
         <div>
           <p className="eyebrow">RETURNS</p>
-          <h1>{saleId ? 'Sale returns' : 'All returns'}</h1>
+          <h1>{saleId ? 'Sale returns' : 'Customer returns'}</h1>
+          <p>
+            Review completed refunds and returned items.
+          </p>
         </div>
+
         <div className="heading-actions">
-          <button className="secondary-btn" onClick={() => navigate(-1)}>
-            <ArrowLeft size={16} /> Back
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={loadReturns}
+            disabled={loading}
+          >
+            <RefreshCw size={16} />
+            Refresh
+          </button>
+
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={() => navigate(-1)}
+          >
+            <ArrowLeft size={16} />
+            Back
           </button>
         </div>
       </div>
 
-      {returns.length === 0 ? (
-        <EmptyState title="No returns yet" description="This sale has no customer returns." />
-      ) : (
-        <div className="table-card">
+      {error && <div className="form-error page-message">{error}</div>}
+
+      <GlassCard className="table-card">
+        {loading ? (
+          <div className="page-loading">Loading returns...</div>
+        ) : returns.length ? (
           <div className="table-wrap">
             <table className="data-table">
               <thead>
                 <tr>
                   <th>Date</th>
+                  <th>Return ID</th>
                   <th>Sale</th>
                   <th>Items</th>
                   <th>Refund</th>
                   <th>Processed by</th>
+                  <th>Reason</th>
                 </tr>
               </thead>
+
               <tbody>
-                {returns.map(ret => (
-                  <tr key={ret._id}>
-                    <td>{dateTime(ret.createdAt)}</td>
+                {returns.map(returnRecord => (
+                  <tr key={returnRecord._id}>
+                    <td>{dateTime(returnRecord.createdAt)}</td>
+
                     <td>
-                      <strong>#{ret.sale?.saleNumber?.slice(-8) || '—'}</strong>
+                      <strong className="mono-text">
+                        #{returnRecord._id.slice(-8)}
+                      </strong>
                     </td>
-                    <td>{ret.items?.length || 0}</td>
-                    <td className="quantity-negative">{peso(ret.totalRefund)}</td>
-                    <td>{ret.processedBy?.fullName || '—'}</td>
+
+                    <td>
+                      <strong>
+                        {returnRecord.sale?.saleNumber
+                          ? `#${returnRecord.sale.saleNumber.slice(-8)}`
+                          : '—'}
+                      </strong>
+                    </td>
+
+                    <td>
+                      <strong>{returnRecord.items?.length || 0}</strong>
+                    </td>
+
+                    <td className="quantity-negative">
+                      {peso(returnRecord.totalRefund)}
+                    </td>
+
+                    <td>
+                      {returnRecord.processedBy?.fullName || '—'}
+                    </td>
+
+                    <td>{returnRecord.reason || '—'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        ) : (
+          <EmptyState
+            title="No returns found"
+            description="Processed customer returns will appear here."
+          />
+        )}
+      </GlassCard>
     </div>
   );
 }

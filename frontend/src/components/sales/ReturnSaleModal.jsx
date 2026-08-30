@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
+import client from '../../api/client';
+import { getErrorMessage } from '../../utils/errors';
 import { peso } from '../../utils/format';
 
 export default function ReturnSaleModal({ sale, onClose, onSuccess }) {
@@ -8,79 +10,139 @@ export default function ReturnSaleModal({ sale, onClose, onSuccess }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  function toggleItem(idx, condition) {
-    setSelected(prev => {
-      const exists = prev.find(s => s.saleItemIndex === idx);
-      if (exists) {
-        return prev.filter(s => s.saleItemIndex !== idx);
+  function addItem(index) {
+    const item = sale.items[index];
+
+    setSelected(previous => [
+      ...previous,
+      {
+        saleItemIndex: index,
+        quantity: 1,
+        condition: 'resellable',
+        reason: ''
       }
-      const item = sale.items[idx];
-      return [...prev, { saleItemIndex: idx, quantity: 1, condition, reason: '' }];
-    });
+    ]);
   }
 
-  function updateSelection(idx, field, value) {
-    setSelected(prev => prev.map(s => (s.saleItemIndex === idx ? { ...s, [field]: value } : s)));
+  function removeItem(index) {
+    setSelected(previous =>
+      previous.filter(item => item.saleItemIndex !== index)
+    );
   }
 
-  const totalRefund = selected.reduce((sum, s) => {
-    const item = sale.items[s.saleItemIndex];
-    return sum + s.quantity * item.unitPrice;
+  function updateSelectedItem(index, field, value) {
+    setSelected(previous =>
+      previous.map(item => {
+        if (item.saleItemIndex !== index) return item;
+
+        return {
+          ...item,
+          [field]: value
+        };
+      })
+    );
+  }
+
+  function getSelectedItem(index) {
+    return selected.find(item => item.saleItemIndex === index);
+  }
+
+  const totalRefund = selected.reduce((total, selectedItem) => {
+    const saleItem = sale.items[selectedItem.saleItemIndex];
+    const quantity = Number(selectedItem.quantity) || 0;
+
+    return total + quantity * saleItem.unitPrice;
   }, 0);
 
   async function handleSubmit() {
-    if (selected.length === 0) return setError('Select at least one item');
-    if (!reason.trim()) return setError('Provide a return reason');
+    if (!selected.length) {
+      setError('Select at least one item to return.');
+      return;
+    }
+
+    if (!reason.trim()) {
+      setError('Enter an overall return reason.');
+      return;
+    }
+
+    const invalidQuantity = selected.some(selectedItem => {
+      const saleItem = sale.items[selectedItem.saleItemIndex];
+      const quantity = Number(selectedItem.quantity);
+
+      return (
+        !Number.isInteger(quantity) ||
+        quantity < 1 ||
+        quantity > saleItem.quantity
+      );
+    });
+
+    if (invalidQuantity) {
+      setError('Each return quantity must be between 1 and the sold quantity.');
+      return;
+    }
+
     setSubmitting(true);
     setError('');
 
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/returns`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify({ saleId: sale._id, items: selected, reason })
+      const response = await client.post('/returns', {
+        saleId: sale._id,
+        reason: reason.trim(),
+        items: selected.map(item => ({
+          saleItemIndex: item.saleItemIndex,
+          quantity: Number(item.quantity),
+          condition: item.condition,
+          reason: item.reason?.trim() || ''
+        }))
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Return failed');
-      onSuccess?.(data);
+
+      onSuccess?.(response.data);
       onClose();
     } catch (err) {
-      setError(err.message);
+      setError(getErrorMessage(err, 'Unable to process the return.'));
+    } finally {
       setSubmitting(false);
     }
   }
 
   return (
     <div className="modal-backdrop">
-      <div className="modal-card" style={{ maxWidth: 900 }}>
+      <div className="modal-card" style={{ maxWidth: 980 }}>
         <div className="modal-header">
           <div>
             <p className="eyebrow">PROCESS RETURN</p>
             <h3>Sale #{sale._id.slice(-8)}</h3>
           </div>
-          <button type="button" className="icon-btn" onClick={onClose}>
+
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={onClose}
+            aria-label="Close return form"
+            disabled={submitting}
+          >
             <X size={20} />
           </button>
         </div>
 
         <div className="stock-summary">
           <div>
-            <span>Date</span>
+            <span>Sale date</span>
             <strong>{new Date(sale.createdAt).toLocaleString()}</strong>
           </div>
+
           <div>
             <span>Cashier</span>
             <strong>{sale.cashier?.fullName || '—'}</strong>
           </div>
+
           <div>
             <span>Payment</span>
-            <strong>{sale.paymentMethod}</strong>
+            <strong>{sale.paymentMethod || 'cash'}</strong>
           </div>
+
           <div>
-            <span>Total</span>
+            <span>Original total</span>
             <strong>{peso(sale.totalAmount)}</strong>
           </div>
         </div>
@@ -88,60 +150,93 @@ export default function ReturnSaleModal({ sale, onClose, onSuccess }) {
         {error && <div className="form-error">{error}</div>}
 
         <div style={{ marginBottom: 12 }}>
-          <h4 style={{ marginBottom: 8 }}>Items</h4>
+          <h4 style={{ marginBottom: 8 }}>Select returned items</h4>
+
           <div className="table-wrap">
             <table className="data-table" style={{ fontSize: 13 }}>
               <thead>
                 <tr>
                   <th>Select</th>
                   <th>Product</th>
-                  <th>Qty</th>
+                  <th>Sold qty</th>
+                  <th>Return qty</th>
                   <th>Unit price</th>
-                  <th>Subtotal</th>
                   <th>Condition</th>
-                  <th>Reason</th>
+                  <th>Item reason</th>
                 </tr>
               </thead>
+
               <tbody>
-                {sale.items.map((item, idx) => {
-                  const sel = selected.find(s => s.saleItemIndex === idx);
+                {(sale.items || []).map((item, index) => {
+                  const selectedItem = getSelectedItem(index);
+
                   return (
-                    <tr key={idx}>
+                    <tr key={`${item.product?._id || item.name}-${index}`}>
                       <td>
                         <input
                           type="checkbox"
-                          checked={!!sel}
-                          onChange={e => {
-                            if (e.target.checked) toggleItem(idx, 'resellable');
-                            else setSelected(prev => prev.filter(s => s.saleItemIndex !== idx));
+                          checked={Boolean(selectedItem)}
+                          disabled={submitting}
+                          onChange={event => {
+                            if (event.target.checked) {
+                              addItem(index);
+                            } else {
+                              removeItem(index);
+                            }
                           }}
                         />
                       </td>
+
                       <td>
-                        <strong>{item.name}</strong>
-                        <small className="table-subtext">{item.barcode || '—'}</small>
+                        <strong>
+                          {item.name || item.product?.name || 'Deleted product'}
+                        </strong>
+
+                        <small className="table-subtext">
+                          {item.barcode || item.product?.barcode || '—'}
+                        </small>
                       </td>
+
                       <td>
-                        {sel ? (
+                        <strong>{item.quantity}</strong>
+                      </td>
+
+                      <td>
+                        {selectedItem ? (
                           <input
                             type="number"
-                            min={1}
+                            min="1"
                             max={item.quantity}
-                            value={sel.quantity}
-                            onChange={e => updateSelection(idx, 'quantity', Number(e.target.value))}
-                            style={{ width: 60 }}
+                            value={selectedItem.quantity}
+                            disabled={submitting}
+                            onChange={event =>
+                              updateSelectedItem(
+                                index,
+                                'quantity',
+                                event.target.value
+                              )
+                            }
+                            style={{ width: 76 }}
                           />
                         ) : (
-                          item.quantity
+                          '—'
                         )}
                       </td>
+
                       <td>{peso(item.unitPrice)}</td>
-                      <td>{peso(item.subtotal)}</td>
+
                       <td>
-                        {sel && (
+                        {selectedItem ? (
                           <select
-                            value={sel.condition}
-                            onChange={e => updateSelection(idx, 'condition', e.target.value)}
+                            value={selectedItem.condition}
+                            disabled={submitting}
+                            onChange={event =>
+                              updateSelectedItem(
+                                index,
+                                'condition',
+                                event.target.value
+                              )
+                            }
                           >
                             <option value="resellable">Resellable</option>
                             <option value="damaged">Damaged</option>
@@ -149,16 +244,28 @@ export default function ReturnSaleModal({ sale, onClose, onSuccess }) {
                             <option value="expired">Expired</option>
                             <option value="other">Other</option>
                           </select>
+                        ) : (
+                          '—'
                         )}
                       </td>
+
                       <td>
-                        {sel && (
+                        {selectedItem ? (
                           <input
                             type="text"
-                            placeholder="Optional"
-                            value={sel.reason || ''}
-                            onChange={e => updateSelection(idx, 'reason', e.target.value)}
+                            placeholder="Optional details"
+                            value={selectedItem.reason}
+                            disabled={submitting}
+                            onChange={event =>
+                              updateSelectedItem(
+                                index,
+                                'reason',
+                                event.target.value
+                              )
+                            }
                           />
+                        ) : (
+                          '—'
                         )}
                       </td>
                     </tr>
@@ -171,32 +278,47 @@ export default function ReturnSaleModal({ sale, onClose, onSuccess }) {
 
         <div className="modal-form">
           <label>
-            <span>Return reason</span>
+            <span>Overall return reason</span>
             <input
               type="text"
               value={reason}
-              onChange={e => setReason(e.target.value)}
-              placeholder="e.g. Wrong item, customer changed mind"
+              disabled={submitting}
+              onChange={event => setReason(event.target.value)}
+              placeholder="Example: Wrong item purchased"
             />
           </label>
         </div>
 
         <div className="stock-summary" style={{ marginTop: 16 }}>
           <div>
-            <span>Items selected</span>
+            <span>Products selected</span>
             <strong>{selected.length}</strong>
           </div>
+
           <div>
             <span>Total refund</span>
-            <strong className="quantity-negative">{peso(totalRefund)}</strong>
+            <strong className="quantity-negative">
+              {peso(totalRefund)}
+            </strong>
           </div>
         </div>
 
         <div className="modal-actions">
-          <button type="button" className="secondary-btn" onClick={onClose}>
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={onClose}
+            disabled={submitting}
+          >
             Cancel
           </button>
-          <button type="button" className="primary-btn" onClick={handleSubmit} disabled={submitting}>
+
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={handleSubmit}
+            disabled={submitting}
+          >
             {submitting ? 'Processing...' : 'Confirm return'}
           </button>
         </div>

@@ -25,6 +25,22 @@ function formatUnits(quantity) {
   return `${value} unit${value === 1 ? '' : 's'}`;
 }
 
+function isPositiveStockIncrease(
+  movementType,
+  quantityChanged
+) {
+  const increaseMovementTypes = [
+    'stock_in',
+    'stock_adjustment',
+    'manual_correction'
+  ];
+
+  return (
+    Number(quantityChanged) > 0 &&
+    increaseMovementTypes.includes(movementType)
+  );
+}
+
 async function notifyStockAdded({
   product,
   movement,
@@ -37,6 +53,10 @@ async function notifyStockAdded({
   }).select('_id fullName role');
 
   if (!recipients.length) {
+    console.warn(
+      'Stock-added notification skipped: no active admin or manager accounts found.'
+    );
+
     return {
       notifications: [],
       pushResults: []
@@ -62,6 +82,7 @@ async function notifyStockAdded({
     productId: product._id.toString(),
     productName: product.name,
     movementId: movement._id.toString(),
+    movementType: movement.movementType,
     quantityAdded,
     previousStock: Number(movement.previousStock || 0),
     currentStock,
@@ -93,6 +114,14 @@ async function notifyStockAdded({
 
   io?.emit('stockAdded', socketPayload);
 
+  console.log('Stock-added notification created:', {
+    product: product.name,
+    movementType: movement.movementType,
+    quantityAdded,
+    currentStock,
+    recipientCount: recipients.length
+  });
+
   const pushResults = await Promise.allSettled(
     recipients.map(recipient =>
       sendPushToAccount(recipient._id, {
@@ -105,12 +134,20 @@ async function notifyStockAdded({
   );
 
   pushResults.forEach((result, index) => {
-    if (result.status === 'rejected') {
-      console.error(
-        `Stock-added push notification failed for ${recipients[index]._id}:`,
-        result.reason
+    const recipient = recipients[index];
+
+    if (result.status === 'fulfilled') {
+      console.log(
+        `Stock-added push result for ${recipient.fullName}:`,
+        result.value
       );
+      return;
     }
+
+    console.error(
+      `Stock-added push notification failed for ${recipient.fullName}:`,
+      result.reason
+    );
   });
 
   return {
@@ -332,9 +369,24 @@ export async function applyMovement({
     batchAllocations
   });
 
+  const shouldNotifyStockAdded =
+    isPositiveStockIncrease(
+      movementType,
+      change
+    );
+
+  console.log('Stock movement notification check:', {
+    product: product.name,
+    movementType,
+    quantityChanged: change,
+    previousStock,
+    newStock,
+    shouldNotifyStockAdded
+  });
+
   let stockAddedNotificationResult = null;
 
-  if (movementType === 'stock_in') {
+  if (shouldNotifyStockAdded) {
     try {
       stockAddedNotificationResult =
         await notifyStockAdded({
@@ -360,6 +412,9 @@ export async function applyMovement({
       previousStock,
       newStock,
       quantityChanged: change,
+      movementType,
+      stockAddedNotificationTriggered:
+        shouldNotifyStockAdded,
       batchAllocations: batchAllocations.map(
         allocation => ({
           batchId: allocation.batch.toString(),
@@ -376,8 +431,9 @@ export async function applyMovement({
     movement,
     receivedBatch,
     batchAllocations,
-    stockAddedNotifications: stockAddedNotificationResult
-      ? stockAddedNotificationResult.notifications.length
-      : 0
+    stockAddedNotifications:
+      stockAddedNotificationResult
+        ? stockAddedNotificationResult.notifications.length
+        : 0
   };
 }

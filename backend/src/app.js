@@ -21,6 +21,8 @@ import exportRoutes from './routes/export.routes.js';
 import salesRoutes from './routes/sales.routes.js';
 import batchRoutes from './routes/batch.routes.js';
 import pushRoutes from './routes/push.routes.js';
+import returnsRoutes from './routes/returns.routes.js';
+import quarantineRoutes from './routes/quarantine.routes.js';
 
 import {
   apiLimiter,
@@ -129,6 +131,10 @@ app.use('/api/reports/export', exportRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/batches', batchRoutes);
 app.use('/api/push', pushRoutes);
+
+// Returns and quarantine
+app.use('/api/returns', returnsRoutes);
+app.use('/api/quarantine', quarantineRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

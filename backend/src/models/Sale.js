@@ -112,6 +112,18 @@ const saleSchema = new mongoose.Schema(
         'voided'
       ],
       default: 'completed'
+    },
+
+    returns: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'SaleReturn'
+      }
+    ],
+
+    hasReturns: {
+      type: Boolean,
+      default: false
     }
   },
   {

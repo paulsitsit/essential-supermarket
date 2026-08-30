@@ -7,26 +7,11 @@ const batchAllocationSchema = new mongoose.Schema(
       ref: 'ProductBatch',
       required: true
     },
-
-    batchNumber: {
-      type: String,
-      default: ''
-    },
-
-    expirationDate: {
-      type: Date,
-      default: null
-    },
-
-    quantity: {
-      type: Number,
-      required: true,
-      min: 0
-    }
+    batchNumber: { type: String, default: '' },
+    expirationDate: { type: Date, default: null },
+    quantity: { type: Number, required: true, min: 0 }
   },
-  {
-    _id: false
-  }
+  { _id: false }
 );
 
 const schema = new mongoose.Schema(
@@ -36,13 +21,11 @@ const schema = new mongoose.Schema(
       ref: 'Product',
       required: true
     },
-
     account: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Account',
       required: true
     },
-
     movementType: {
       type: String,
       enum: [
@@ -52,51 +35,22 @@ const schema = new mongoose.Schema(
         'expired',
         'returned_to_supplier',
         'branch_transfer',
-        'manual_correction'
+        'manual_correction',
+        'customer_return',
+        'quarantine_release',
+        'quarantine_disposal',
+        'return_to_supplier'
       ],
       required: true
     },
-
-    quantityChanged: {
-      type: Number,
-      required: true
-    },
-
-    previousStock: {
-      type: Number,
-      required: true,
-      min: 0
-    },
-
-    newStock: {
-      type: Number,
-      required: true,
-      min: 0
-    },
-
-    reason: {
-      type: String,
-      required: true,
-      trim: true
-    },
-
-    branch: {
-      type: String,
-      default: 'Main Branch'
-    },
-
-    batchAllocations: {
-      type: [batchAllocationSchema],
-      default: []
-    }
+    quantityChanged: { type: Number, required: true },
+    previousStock: { type: Number, required: true, min: 0 },
+    newStock: { type: Number, required: true, min: 0 },
+    reason: { type: String, required: true, trim: true },
+    branch: { type: String, default: 'Main Branch' },
+    batchAllocations: { type: [batchAllocationSchema], default: [] }
   },
-  {
-    timestamps: true,
-    collection: 'stockMovements'
-  }
+  { timestamps: true, collection: 'stockMovements' }
 );
 
-export default mongoose.model(
-  'StockMovement',
-  schema
-);
+export default mongoose.model('StockMovement', schema);

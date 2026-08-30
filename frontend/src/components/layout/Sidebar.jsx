@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 
 import {
+  AlertTriangle,
   Boxes,
   CalendarClock,
   ClipboardList,
@@ -9,6 +10,7 @@ import {
   LayoutDashboard,
   LogOut,
   Package,
+  RotateCcw,
   ScanLine,
   Settings,
   ShieldAlert,
@@ -87,6 +89,18 @@ const groups = [
         label: 'Stock movements',
         path: '/stock-movements',
         icon: ClipboardList,
+        roles: ['admin', 'manager']
+      },
+      {
+        label: 'Returns',
+        path: '/returns',
+        icon: RotateCcw,
+        roles: ['admin', 'manager']
+      },
+      {
+        label: 'Quarantine',
+        path: '/quarantine',
+        icon: AlertTriangle,
         roles: ['admin', 'manager']
       },
       {

@@ -26,6 +26,8 @@ import ReportsPage from './pages/ReportsPage';
 import AccountsPage from './pages/AccountsPage';
 import SettingsPage from './pages/SettingsPage';
 import AuditLogsPage from './pages/AuditLogsPage';
+import ReturnsPage from './pages/ReturnsPage';
+import QuarantinePage from './pages/QuarantinePage';
 
 const MANAGEMENT_ROLES = [
   'admin',
@@ -124,6 +126,16 @@ export default function App() {
               path="reports"
               element={<ReportsPage />}
             />
+
+            <Route
+              path="returns"
+              element={<ReturnsPage />}
+            />
+
+            <Route
+              path="quarantine"
+              element={<QuarantinePage />}
+            />
           </Route>
 
           {/* Admin only */}
@@ -166,6 +178,11 @@ export default function App() {
             <Route
               path="sales"
               element={<SalesPage />}
+            />
+
+            <Route
+              path="sales/:id/returns"
+              element={<ReturnsPage />}
             />
 
             <Route

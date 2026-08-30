@@ -1,6 +1,9 @@
 import Product from '../models/Product.js';
 import StockMovement from '../models/StockMovement.js';
 import LowStockAlert from '../models/LowStockAlert.js';
+import Notification from '../models/Notification.js';
+import Account from '../models/Account.js';
+
 import { writeAudit } from '../utils/audit.js';
 
 import {
@@ -15,6 +18,106 @@ import {
 import {
   sendPushToAccount
 } from './push.service.js';
+
+function formatUnits(quantity) {
+  const value = Number(quantity) || 0;
+
+  return `${value} unit${value === 1 ? '' : 's'}`;
+}
+
+async function notifyStockAdded({
+  product,
+  movement,
+  account,
+  io
+}) {
+  const recipients = await Account.find({
+    role: { $in: ['admin', 'manager'] },
+    status: 'active'
+  }).select('_id fullName role');
+
+  if (!recipients.length) {
+    return {
+      notifications: [],
+      pushResults: []
+    };
+  }
+
+  const quantityAdded = Number(
+    movement.quantityChanged || 0
+  );
+
+  const currentStock = Number(
+    movement.newStock ?? product.currentStock ?? 0
+  );
+
+  const title = 'Stock added';
+
+  const message =
+    `${product.name}: ${formatUnits(quantityAdded)} added. ` +
+    `Current stock: ${formatUnits(currentStock)}.`;
+
+  const notificationData = {
+    event: 'stock_added',
+    productId: product._id.toString(),
+    productName: product.name,
+    movementId: movement._id.toString(),
+    quantityAdded,
+    previousStock: Number(movement.previousStock || 0),
+    currentStock,
+    branch: movement.branch || product.branch || 'Main Branch',
+    addedBy: {
+      id: account._id.toString(),
+      fullName: account.fullName,
+      role: account.role
+    }
+  };
+
+  const notifications = await Notification.insertMany(
+    recipients.map(recipient => ({
+      account: recipient._id,
+      type: 'stock_added',
+      title,
+      message,
+      data: notificationData
+    }))
+  );
+
+  const socketPayload = {
+    type: 'stock_added',
+    title,
+    message,
+    data: notificationData,
+    createdAt: new Date().toISOString()
+  };
+
+  io?.emit('stockAdded', socketPayload);
+
+  const pushResults = await Promise.allSettled(
+    recipients.map(recipient =>
+      sendPushToAccount(recipient._id, {
+        title,
+        body: message,
+        url: '/inventory',
+        tag: `stock-added-${movement._id.toString()}`
+      })
+    )
+  );
+
+  pushResults.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      console.error(
+        `Stock-added push notification failed for ${recipients[index]._id}:`,
+        result.reason
+      );
+    }
+  });
+
+  return {
+    notifications,
+    pushResults
+  };
+}
 
 export async function createOrUpdateAlert(
   product,
@@ -181,11 +284,6 @@ export async function applyMovement({
       }
     ];
   } else if (change < 0) {
-    /*
-     * Stock deductions use FEFO:
-     * nearest expiration date first,
-     * then oldest received batch.
-     */
     batchAllocations = await allocateBatchesFEFO({
       product,
       quantity: Math.abs(change)
@@ -234,6 +332,25 @@ export async function applyMovement({
     batchAllocations
   });
 
+  let stockAddedNotificationResult = null;
+
+  if (movementType === 'stock_in') {
+    try {
+      stockAddedNotificationResult =
+        await notifyStockAdded({
+          product,
+          movement,
+          account,
+          io
+        });
+    } catch (notificationError) {
+      console.error(
+        'Stock-added notification processing failed:',
+        notificationError
+      );
+    }
+  }
+
   await writeAudit({
     req,
     account,
@@ -258,6 +375,9 @@ export async function applyMovement({
     product,
     movement,
     receivedBatch,
-    batchAllocations
+    batchAllocations,
+    stockAddedNotifications: stockAddedNotificationResult
+      ? stockAddedNotificationResult.notifications.length
+      : 0
   };
 }

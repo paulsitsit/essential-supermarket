@@ -41,7 +41,7 @@ function isPositiveStockIncrease(
   );
 }
 
-async function notifyStockAdded({
+export async function notifyStockAdded({
   product,
   movement,
   account,

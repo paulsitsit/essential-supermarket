@@ -1,19 +1,27 @@
 import Product from '../models/Product.js';
 import ProductBatch from '../models/ProductBatch.js';
+import StockMovement from '../models/StockMovement.js';
+
 import { writeAudit } from '../utils/audit.js';
 
 import {
   createBatchNumber,
-  normalizeExpirationDate,
-  updateBatchExpiration
+  normalizeExpirationDate
 } from '../services/batch.service.js';
 
 import {
   syncExpirationAlertForBatch
 } from '../services/expirationAlert.service.js';
 
+import {
+  createOrUpdateAlert,
+  notifyStockAdded
+} from '../services/inventory.service.js';
+
 export async function getBatchesByBarcode(req, res) {
-  const barcode = String(req.params.barcode || '').trim().toUpperCase();
+  const barcode = String(req.params.barcode || '')
+    .trim()
+    .toUpperCase();
 
   if (!barcode) {
     return res.status(400).json({
@@ -48,7 +56,9 @@ export async function getBatchesByBarcode(req, res) {
 }
 
 export async function getBatchesByProductId(req, res) {
-  const product = await Product.findById(req.params.productId).populate('category supplier', 'name');
+  const product = await Product.findById(
+    req.params.productId
+  ).populate('category supplier', 'name');
 
   if (!product || product.isArchived) {
     return res.status(404).json({
@@ -94,7 +104,8 @@ export async function receiveStockBatch(req, res) {
 
   if (!product || product.isArchived) {
     return res.status(404).json({
-      message: 'Product not found. Create the product before receiving stock.'
+      message:
+        'Product not found. Create the product before receiving stock.'
     });
   }
 
@@ -120,11 +131,13 @@ export async function receiveStockBatch(req, res) {
 
   if (existingBatch) {
     return res.status(409).json({
-      message: 'This batch number already exists for the product'
+      message:
+        'This batch number already exists for the product'
     });
   }
 
-  const normalizedExpiration = normalizeExpirationDate(expirationDate);
+  const normalizedExpiration =
+    normalizeExpirationDate(expirationDate);
 
   const receivedAt = receivedDate
     ? new Date(receivedDate)
@@ -152,8 +165,6 @@ export async function receiveStockBatch(req, res) {
   product.currentStock = previousStock + receivedQuantity;
   await product.save();
 
-  const { default: StockMovement } = await import('../models/StockMovement.js');
-
   const movement = await StockMovement.create({
     product: product._id,
     account: req.account._id,
@@ -173,21 +184,35 @@ export async function receiveStockBatch(req, res) {
     ]
   });
 
-  const { createOrUpdateAlert } = await import('../services/inventory.service.js');
+  const io = req.app.get('io');
 
   await createOrUpdateAlert(
     product,
     req.account,
     req,
-    req.app.get('io')
+    io
   );
 
   await syncExpirationAlertForBatch(
     batch,
     req.account,
     req,
-    req.app.get('io')
+    io
   );
+
+  try {
+    await notifyStockAdded({
+      product,
+      movement,
+      account: req.account,
+      io
+    });
+  } catch (notificationError) {
+    console.error(
+      'Stock-added notification processing failed after batch receive:',
+      notificationError
+    );
+  }
 
   await writeAudit({
     req,
@@ -203,14 +228,14 @@ export async function receiveStockBatch(req, res) {
     }
   });
 
-  req.app.get('io')?.emit('stockUpdated', {
+  io?.emit('stockUpdated', {
     product,
     movement
   });
 
-  req.app.get('io')?.emit('productUpdated', product);
+  io?.emit('productUpdated', product);
 
-  req.app.get('io')?.emit('batchUpdated', {
+  io?.emit('batchUpdated', {
     productId: product._id.toString(),
     batch
   });
@@ -235,11 +260,15 @@ export async function updateBatch(req, res) {
   const updates = {};
 
   if (req.body.expirationDate !== undefined) {
-    updates.expirationDate = normalizeExpirationDate(req.body.expirationDate);
+    updates.expirationDate = normalizeExpirationDate(
+      req.body.expirationDate
+    );
   }
 
   if (req.body.batchNumber !== undefined) {
-    const value = String(req.body.batchNumber || '').trim();
+    const value = String(
+      req.body.batchNumber || ''
+    ).trim();
 
     if (!value) {
       return res.status(400).json({
@@ -251,7 +280,9 @@ export async function updateBatch(req, res) {
   }
 
   if (req.body.receivedDate !== undefined) {
-    const receivedDate = new Date(req.body.receivedDate);
+    const receivedDate = new Date(
+      req.body.receivedDate
+    );
 
     if (Number.isNaN(receivedDate.getTime())) {
       return res.status(400).json({
@@ -271,7 +302,8 @@ export async function updateBatch(req, res) {
 
     if (duplicate) {
       return res.status(409).json({
-        message: 'This batch number already exists for the product'
+        message:
+          'This batch number already exists for the product'
       });
     }
   }
@@ -313,7 +345,8 @@ export async function listExpiringSoonBatches(req, res) {
     days > 365
   ) {
     return res.status(400).json({
-      message: 'days must be a whole number between 1 and 365'
+      message:
+        'days must be a whole number between 1 and 365'
     });
   }
 
@@ -331,7 +364,10 @@ export async function listExpiringSoonBatches(req, res) {
       $lte: until
     }
   })
-    .populate('product', 'name barcode sku unitType isArchived')
+    .populate(
+      'product',
+      'name barcode sku unitType isArchived'
+    )
     .sort({
       expirationDate: 1,
       receivedDate: 1
@@ -358,7 +394,12 @@ export async function traceBatch(req, res) {
   }
 
   const batches = await ProductBatch.find({
-    batchNumber: { $regex: new RegExp(`^${batchNumber.trim()}$`, 'i') }
+    batchNumber: {
+      $regex: new RegExp(
+        `^${batchNumber.trim()}$`,
+        'i'
+      )
+    }
   })
     .populate('product', 'name barcode sku')
     .sort({ createdAt: -1 })
@@ -366,18 +407,20 @@ export async function traceBatch(req, res) {
 
   if (!batches.length) {
     return res.status(404).json({
-      message: 'No batches found with that number'
+      message:
+        'No batches found with that number'
     });
   }
 
-  const batchIds = batches.map(b => b._id);
+  const batchIds = batches.map(batch => batch._id);
 
-  const { default: Sale } = await import('../models/Sale.js');
-  const { default: StockMovement } = await import('../models/StockMovement.js');
+  const { default: Sale } =
+    await import('../models/Sale.js');
 
-  // Sales that used this batch
   const sales = await Sale.find({
-    'items.batchAllocations.batch': { $in: batchIds }
+    'items.batchAllocations.batch': {
+      $in: batchIds
+    }
   })
     .populate('cashier', 'fullName role email')
     .populate('items.product', 'name barcode')
@@ -389,31 +432,63 @@ export async function traceBatch(req, res) {
   for (const sale of sales) {
     for (const item of sale.items || []) {
       const allocations = item.batchAllocations || [];
-      const relevant = allocations.filter(a => {
-        const batchRef = a.batch?._id || a.batch;
-        if (!batchRef) return false;
-        const batchIdStr = batchRef.toString?.();
-        return batchIds.some(id => id.toString() === batchIdStr);
-      });
 
-      if (!relevant.length) continue;
+      const relevant = allocations.filter(
+        allocation => {
+          const batchRef =
+            allocation.batch?._id || allocation.batch;
 
-      for (const alloc of relevant) {
-        const batchObj = alloc.batch || {};
-        const batchIdStr = (batchObj._id || batchObj)?.toString?.();
-        const matchedBatch = batches.find(b => b._id.toString() === batchIdStr);
+          if (!batchRef) {
+            return false;
+          }
 
-        if (!matchedBatch) continue;
+          const batchIdString = batchRef.toString?.();
+
+          return batchIds.some(
+            id => id.toString() === batchIdString
+          );
+        }
+      );
+
+      if (!relevant.length) {
+        continue;
+      }
+
+      for (const allocation of relevant) {
+        const batchObject = allocation.batch || {};
+
+        const batchIdString =
+          (
+            batchObject._id ||
+            batchObject
+          )?.toString?.();
+
+        const matchedBatch = batches.find(
+          batch =>
+            batch._id.toString() === batchIdString
+        );
+
+        if (!matchedBatch) {
+          continue;
+        }
 
         saleRows.push({
           saleId: sale._id,
           saleDate: sale.createdAt,
           cashier: sale.cashier,
-          productName: item.product?.name || item.name || 'Deleted product',
-          productBarcode: item.product?.barcode || item.barcode || '',
-          quantity: alloc.quantity,
+          productName:
+            item.product?.name ||
+            item.name ||
+            'Deleted product',
+          productBarcode:
+            item.product?.barcode ||
+            item.barcode ||
+            '',
+          quantity: allocation.quantity,
           unitPrice: item.unitPrice,
-          subtotal: (alloc.quantity || 0) * (item.unitPrice || 0),
+          subtotal:
+            (allocation.quantity || 0) *
+            (item.unitPrice || 0),
           batchNumber: matchedBatch.batchNumber,
           batchId: matchedBatch._id
         });
@@ -421,35 +496,54 @@ export async function traceBatch(req, res) {
     }
   }
 
-  // Movements referencing this batch
   const movements = await StockMovement.find({
-    'batchAllocations.batch': { $in: batchIds }
+    'batchAllocations.batch': {
+      $in: batchIds
+    }
   })
     .populate('account', 'fullName role')
     .populate('product', 'name barcode')
     .sort({ createdAt: -1 })
     .lean();
 
-  const movementRows = movements.map(m => {
-    const allocs = m.batchAllocations || [];
-    const relevant = allocs.filter(a => {
-      const batchRef = a.batch?._id || a.batch;
-      if (!batchRef) return false;
-      const batchIdStr = batchRef.toString?.();
-      return batchIds.some(id => id.toString() === batchIdStr);
-    });
+  const movementRows = movements.map(movement => {
+    const allocations =
+      movement.batchAllocations || [];
 
-    const qty = relevant.reduce((sum, a) => sum + (a.quantity || 0), 0);
+    const relevant = allocations.filter(
+      allocation => {
+        const batchRef =
+          allocation.batch?._id || allocation.batch;
+
+        if (!batchRef) {
+          return false;
+        }
+
+        const batchIdString = batchRef.toString?.();
+
+        return batchIds.some(
+          id => id.toString() === batchIdString
+        );
+      }
+    );
+
+    const quantity = relevant.reduce(
+      (total, allocation) =>
+        total + (allocation.quantity || 0),
+      0
+    );
 
     return {
-      movementId: m._id,
-      date: m.createdAt,
-      product: m.product?.name || 'Deleted product',
-      movementType: m.movementType,
-      quantityChanged: m.quantityChanged,
-      batchQuantity: qty,
-      reason: m.reason,
-      account: m.account?.fullName || 'System'
+      movementId: movement._id,
+      date: movement.createdAt,
+      product:
+        movement.product?.name || 'Deleted product',
+      movementType: movement.movementType,
+      quantityChanged: movement.quantityChanged,
+      batchQuantity: quantity,
+      reason: movement.reason,
+      account:
+        movement.account?.fullName || 'System'
     };
   });
 
@@ -462,58 +556,78 @@ export async function traceBatch(req, res) {
 
 export async function damageBatch(req, res) {
   const { id } = req.params;
+
   const {
-    action,        // 'damaged' | 'destroyed'
+    action,
     quantity,
     reason = 'Damaged stock'
   } = req.body;
 
-  if (!action || !['damaged', 'destroyed'].includes(action)) {
+  if (
+    !action ||
+    !['damaged', 'destroyed'].includes(action)
+  ) {
     return res.status(400).json({
-      message: "Action must be 'damaged' or 'destroyed'"
+      message:
+        "Action must be 'damaged' or 'destroyed'"
     });
   }
 
   const batch = await ProductBatch.findById(id);
+
   if (!batch) {
     return res.status(404).json({
       message: 'Batch not found'
     });
   }
 
-  const qty = Number(quantity);
-  if (!Number.isFinite(qty) || qty <= 0) {
+  const quantityValue = Number(quantity);
+
+  if (
+    !Number.isFinite(quantityValue) ||
+    quantityValue <= 0
+  ) {
     return res.status(400).json({
-      message: 'Quantity must be greater than zero'
+      message:
+        'Quantity must be greater than zero'
     });
   }
 
-  if (qty > batch.quantity) {
+  if (quantityValue > batch.quantity) {
     return res.status(400).json({
-      message: 'Quantity exceeds current batch quantity'
+      message:
+        'Quantity exceeds current batch quantity'
     });
   }
 
   const product = await Product.findById(batch.product);
+
   if (!product || product.isArchived) {
     return res.status(404).json({
       message: 'Product not found'
     });
   }
 
-  // Start transaction to keep batch + product + movement consistent
   const session = await ProductBatch.startSession();
+
   session.startTransaction();
 
   try {
-    const previousBatchQty = batch.quantity;
-    batch.quantity -= qty;
+    const previousBatchQuantity = batch.quantity;
 
-    const previousStock = Number(product.currentStock || 0);
-    const newStock = previousStock - qty;
+    batch.quantity -= quantityValue;
+
+    const previousStock = Number(
+      product.currentStock || 0
+    );
+
+    const newStock =
+      previousStock - quantityValue;
 
     if (newStock < 0) {
-      throw new Error('Stock cannot become negative');
+      throw new Error(
+        'Stock cannot become negative'
+      );
     }
 
     product.currentStock = newStock;
@@ -521,51 +635,60 @@ export async function damageBatch(req, res) {
     await batch.save({ session });
     await product.save({ session });
 
-    const { default: StockMovement } = await import('../models/StockMovement.js');
-
     const movement = await StockMovement.create(
-      [{
-        product: product._id,
-        account: req.account._id,
-        movementType: action, // 'damaged' or 'destroyed'
-        quantityChanged: -qty,
-        previousStock,
-        newStock,
-        reason,
-        branch: product.branch,
-        batchAllocations: [
-          {
-            batch: batch._id,
-            batchNumber: batch.batchNumber,
-            expirationDate: batch.expirationDate,
-            quantity: qty
-          }
-        ]
-      }],
+      [
+        {
+          product: product._id,
+          account: req.account._id,
+          movementType: action,
+          quantityChanged: -quantityValue,
+          previousStock,
+          newStock,
+          reason,
+          branch: product.branch,
+          batchAllocations: [
+            {
+              batch: batch._id,
+              batchNumber: batch.batchNumber,
+              expirationDate: batch.expirationDate,
+              quantity: quantityValue
+            }
+          ]
+        }
+      ],
       { session }
     );
 
     await session.commitTransaction();
 
-    // Post-commit side effects (alerts, sockets)
-    const { createOrUpdateAlert } = await import('../services/inventory.service.js');
-    const { syncExpirationAlertForBatch } = await import('../services/expirationAlert.service.js');
+    const io = req.app.get('io');
 
-    await createOrUpdateAlert(product, req.account, req, req.app.get('io'));
-    await syncExpirationAlertForBatch(batch, req.account, req, req.app.get('io'));
+    await createOrUpdateAlert(
+      product,
+      req.account,
+      req,
+      io
+    );
 
-    req.app.get('io')?.emit('stockUpdated', {
+    await syncExpirationAlertForBatch(
+      batch,
+      req.account,
+      req,
+      io
+    );
+
+    io?.emit('stockUpdated', {
       product,
       movement: movement[0]
     });
 
-    req.app.get('io')?.emit('productUpdated', product);
-    req.app.get('io')?.emit('batchUpdated', {
+    io?.emit('productUpdated', product);
+
+    io?.emit('batchUpdated', {
       productId: product._id.toString(),
       batch
     });
 
-    const { writeAudit } = await import('../utils/audit.js');
     await writeAudit({
       req,
       account: req.account,
@@ -574,9 +697,9 @@ export async function damageBatch(req, res) {
       metadata: {
         productId: product._id.toString(),
         batchNumber: batch.batchNumber,
-        quantity: qty,
-        previousBatchQty,
-        newBatchQty: batch.quantity,
+        quantity: quantityValue,
+        previousBatchQuantity,
+        newBatchQuantity: batch.quantity,
         reason
       }
     });
@@ -587,9 +710,9 @@ export async function damageBatch(req, res) {
       product,
       movement: movement[0]
     });
-  } catch (err) {
+  } catch (error) {
     await session.abortTransaction();
-    throw err;
+    throw error;
   } finally {
     session.endSession();
   }
@@ -597,12 +720,14 @@ export async function damageBatch(req, res) {
 
 export async function adjustBatchQuantity(req, res) {
   const { id } = req.params;
+
   const {
     actualQuantity,
     reason = 'Stock adjustment'
   } = req.body;
 
   const batch = await ProductBatch.findById(id);
+
   if (!batch) {
     return res.status(404).json({
       message: 'Batch not found'
@@ -610,23 +735,31 @@ export async function adjustBatchQuantity(req, res) {
   }
 
   const actual = Number(actualQuantity);
-  if (!Number.isInteger(actual) || actual < 0) {
+
+  if (
+    !Number.isInteger(actual) ||
+    actual < 0
+  ) {
     return res.status(400).json({
-      message: 'Actual quantity must be a non-negative whole number'
+      message:
+        'Actual quantity must be a non-negative whole number'
     });
   }
 
   const product = await Product.findById(batch.product);
+
   if (!product || product.isArchived) {
     return res.status(404).json({
       message: 'Product not found'
     });
   }
 
-  const currentBatchQty = batch.quantity;
-  const diff = actual - currentBatchQty; // can be negative or positive
+  const currentBatchQuantity = batch.quantity;
 
-  if (diff === 0) {
+  const difference =
+    actual - currentBatchQuantity;
+
+  if (difference === 0) {
     return res.json({
       message: 'No change required',
       batch,
@@ -634,16 +767,21 @@ export async function adjustBatchQuantity(req, res) {
     });
   }
 
-  // Start transaction
   const session = await ProductBatch.startSession();
+
   session.startTransaction();
 
   try {
-    const previousStock = Number(product.currentStock || 0);
-    const newStock = previousStock + diff;
+    const previousStock = Number(
+      product.currentStock || 0
+    );
+
+    const newStock = previousStock + difference;
 
     if (newStock < 0) {
-      throw new Error('Stock cannot become negative');
+      throw new Error(
+        'Stock cannot become negative'
+      );
     }
 
     batch.quantity = actual;
@@ -652,51 +790,76 @@ export async function adjustBatchQuantity(req, res) {
     await batch.save({ session });
     await product.save({ session });
 
-    const { default: StockMovement } = await import('../models/StockMovement.js');
-
     const movement = await StockMovement.create(
-      [{
-        product: product._id,
-        account: req.account._id,
-        movementType: 'stock_adjustment',
-        quantityChanged: diff,
-        previousStock,
-        newStock,
-        reason: reason || 'Stock adjustment',
-        branch: product.branch,
-        batchAllocations: [
-          {
-            batch: batch._id,
-            batchNumber: batch.batchNumber,
-            expirationDate: batch.expirationDate,
-            quantity: Math.abs(diff)
-          }
-        ]
-      }],
+      [
+        {
+          product: product._id,
+          account: req.account._id,
+          movementType: 'stock_adjustment',
+          quantityChanged: difference,
+          previousStock,
+          newStock,
+          reason: reason || 'Stock adjustment',
+          branch: product.branch,
+          batchAllocations: [
+            {
+              batch: batch._id,
+              batchNumber: batch.batchNumber,
+              expirationDate: batch.expirationDate,
+              quantity: Math.abs(difference)
+            }
+          ]
+        }
+      ],
       { session }
     );
 
     await session.commitTransaction();
 
-    // Post-commit side effects
-    const { createOrUpdateAlert } = await import('../services/inventory.service.js');
-    const { syncExpirationAlertForBatch } = await import('../services/expirationAlert.service.js');
+    const io = req.app.get('io');
 
-    await createOrUpdateAlert(product, req.account, req, req.app.get('io'));
-    await syncExpirationAlertForBatch(batch, req.account, req, req.app.get('io'));
+    await createOrUpdateAlert(
+      product,
+      req.account,
+      req,
+      io
+    );
 
-    req.app.get('io')?.emit('stockUpdated', {
+    await syncExpirationAlertForBatch(
+      batch,
+      req.account,
+      req,
+      io
+    );
+
+    if (difference > 0) {
+      try {
+        await notifyStockAdded({
+          product,
+          movement: movement[0],
+          account: req.account,
+          io
+        });
+      } catch (notificationError) {
+        console.error(
+          'Stock-added notification processing failed after batch adjustment:',
+          notificationError
+        );
+      }
+    }
+
+    io?.emit('stockUpdated', {
       product,
       movement: movement[0]
     });
 
-    req.app.get('io')?.emit('productUpdated', product);
-    req.app.get('io')?.emit('batchUpdated', {
+    io?.emit('productUpdated', product);
+
+    io?.emit('batchUpdated', {
       productId: product._id.toString(),
       batch
     });
 
-    const { writeAudit } = await import('../utils/audit.js');
     await writeAudit({
       req,
       account: req.account,
@@ -705,9 +868,10 @@ export async function adjustBatchQuantity(req, res) {
       metadata: {
         productId: product._id.toString(),
         batchNumber: batch.batchNumber,
-        previousBatchQty: currentBatchQty,
-        newBatchQty: actual,
-        diff,
+        previousBatchQuantity:
+          currentBatchQuantity,
+        newBatchQuantity: actual,
+        difference,
         reason
       }
     });
@@ -718,22 +882,23 @@ export async function adjustBatchQuantity(req, res) {
       product,
       movement: movement[0]
     });
-  } catch (err) {
+  } catch (error) {
     await session.abortTransaction();
-    throw err;
+    throw error;
   } finally {
     session.endSession();
   }
 }
 
 export async function listBatches(req, res) {
-  const { default: ProductBatch } = await import('../models/ProductBatch.js');
-
   const batches = await ProductBatch.find({
     quantity: { $gt: 0 }
   })
     .populate('product', 'name barcode sku')
-    .sort({ expirationDate: 1, receivedDate: 1 })
+    .sort({
+      expirationDate: 1,
+      receivedDate: 1
+    })
     .lean();
 
   res.json(batches);

@@ -4,7 +4,7 @@ import Sale from '../models/Sale.js';
 import Product from '../models/Product.js';
 import ProductBatch from '../models/ProductBatch.js';
 import StockMovement from '../models/StockMovement.js';
-import { createAuditLog } from '../utils/audit.utils.js';
+import { createAuditLog } from '../utils/audit.js';
 
 export async function listReturns(req, res) {
   try {

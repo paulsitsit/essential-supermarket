@@ -39,9 +39,13 @@ const app = express();
 app.set('trust proxy', 1);
 
 /*
- * Allowed origins:
- * - Vercel website (from CLIENT_URL)
- * - Capacitor Android app (https://localhost and http://localhost)
+ * CLIENT_URL can contain multiple comma-separated domains.
+ *
+ * Render environment variable example:
+ * CLIENT_URL=https://essential-supermarket.vercel.app
+ *
+ * For previews or additional frontend deployments:
+ * CLIENT_URL=https://essential-supermarket.vercel.app,https://your-preview.vercel.app
  */
 const allowedOrigins = [
   ...(
@@ -52,40 +56,80 @@ const allowedOrigins = [
     .map(origin => origin.trim())
     .filter(Boolean),
 
+  'http://localhost:5173',
+  'http://localhost:3000',
   'https://localhost',
   'http://localhost'
 ];
 
+const corsOptions = {
+  origin(origin, callback) {
+    /*
+     * Allow requests without an Origin header:
+     * - curl/Postman
+     * - server-to-server calls
+     * - some Capacitor/mobile requests
+     */
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    console.warn(`Blocked CORS request from origin: ${origin}`);
+
+    return callback(
+      new Error(`Origin is not allowed by CORS: ${origin}`)
+    );
+  },
+
+  /*
+   * PATCH is required for:
+   * PATCH /api/quarantine/:id/dispose
+   * PATCH /api/quarantine/:id/returnToSupplier
+   * PATCH /api/quarantine/:id/release
+   */
+  methods: [
+    'GET',
+    'POST',
+    'PUT',
+    'PATCH',
+    'DELETE',
+    'OPTIONS'
+  ],
+
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization'
+  ],
+
+  credentials: true,
+
+  optionsSuccessStatus: 204
+};
+
+/*
+ * Must come before every API route.
+ * This adds the CORS headers for normal API requests.
+ */
+app.use(cors(corsOptions));
+
+/*
+ * Explicitly handles browser preflight OPTIONS requests.
+ * PATCH requests with Authorization headers trigger preflight.
+ *
+ * Use a RegExp instead of '*' for Express compatibility.
+ */
+app.options(/.*/, cors(corsOptions));
+
 app.use(helmet());
-
-// CORS configuration
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps or curl) if needed
-      if (!origin) {
-        return callback(null, true);
-      }
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      console.warn(
-        `Blocked CORS request from origin: ${origin}`
-      );
-
-      return callback(new Error('Origin is not allowed by CORS'));
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
-  })
-);
 
 app.use(express.json({ limit: '2mb' }));
 app.use(morgan('dev'));
 app.use(compressResponses);
+
 app.use('/api', apiLimiter);
 
 app.get('/api/health', (req, res) => {
@@ -108,13 +152,11 @@ app.use(
 
 app.use('/api/dashboard', dashboardRoutes);
 
-// Low-stock alerts
 app.use(
   '/api/low-stock-alerts',
   alertRoutes
 );
 
-// Expiration alerts
 app.use(
   '/api/expiration-alerts',
   expirationAlertRoutes
@@ -127,12 +169,10 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/audit-logs', auditRoutes);
 app.use('/api/reports/export', exportRoutes);
 
-// Sales / POS checkout
 app.use('/api/sales', salesRoutes);
 app.use('/api/batches', batchRoutes);
 app.use('/api/push', pushRoutes);
 
-// Returns and quarantine
 app.use('/api/returns', returnsRoutes);
 app.use('/api/quarantine', quarantineRoutes);
 

@@ -85,7 +85,15 @@ const saleSchema = new mongoose.Schema(
       required: true
     },
 
-    items: [saleItemSchema],
+    items: {
+      type: [saleItemSchema],
+      required: true,
+      validate: {
+        validator: value =>
+          Array.isArray(value) && value.length > 0,
+        message: 'A sale must contain at least one item'
+      }
+    },
 
     totalAmount: {
       type: Number,
@@ -93,21 +101,35 @@ const saleSchema = new mongoose.Schema(
       min: 0
     },
 
+    refundedAmount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+
+    netAmount: {
+      type: Number,
+      default: null,
+      min: 0
+    },
+
     paymentMethod: {
       type: String,
-      enum: [
-        'cash',
-        'card',
-        'gcash',
-        'paymaya'
-      ],
+      enum: ['cash', 'card', 'gcash', 'paymaya'],
       default: 'cash'
+    },
+
+    branch: {
+      type: String,
+      default: 'Main Branch',
+      trim: true
     },
 
     status: {
       type: String,
       enum: [
         'completed',
+        'partially_refunded',
         'refunded',
         'voided'
       ],
@@ -132,10 +154,22 @@ const saleSchema = new mongoose.Schema(
   }
 );
 
+saleSchema.pre('validate', function (next) {
+  const totalAmount = Number(this.totalAmount || 0);
+  const refundedAmount = Number(this.refundedAmount || 0);
+
+  if (this.isNew && this.netAmount == null) {
+    this.netAmount = Math.max(
+      totalAmount - refundedAmount,
+      0
+    );
+  }
+
+  next();
+});
+
 saleSchema.index({ createdAt: -1 });
 saleSchema.index({ cashier: 1, createdAt: -1 });
+saleSchema.index({ status: 1, createdAt: -1 });
 
-export default mongoose.model(
-  'Sale',
-  saleSchema
-);
+export default mongoose.model('Sale', saleSchema);

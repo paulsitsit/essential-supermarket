@@ -246,6 +246,95 @@ export async function getReturn(req, res) {
   }
 }
 
+export async function getSaleReturnBalance(req, res) {
+  try {
+    const { saleId } = req.params;
+
+    if (!mongoose.isValidObjectId(saleId)) {
+      return res.status(400).json({
+        error: 'Invalid sale ID'
+      });
+    }
+
+    const sale = await Sale.findById(saleId)
+      .populate('cashier', 'fullName role')
+      .lean();
+
+    if (!sale) {
+      return res.status(404).json({
+        error: 'Sale not found'
+      });
+    }
+
+    const previousReturns = await SaleReturn.find({
+      sale: sale._id
+    })
+      .select('items.saleItemIndex items.quantity')
+      .lean();
+
+    const returnedBySaleItem =
+      buildPreviousReturnTotals(previousReturns);
+
+    const items = (sale.items || []).map((saleItem, index) => {
+      const soldQuantity = Number(saleItem.quantity || 0);
+
+      const returnedQuantity =
+        returnedBySaleItem.get(String(index)) || 0;
+
+      const remainingReturnable = Math.max(
+        soldQuantity - returnedQuantity,
+        0
+      );
+
+      return {
+        saleItemIndex: index,
+        product: saleItem.product,
+        name: saleItem.name,
+        barcode: saleItem.barcode || '',
+        unitPrice: Number(saleItem.unitPrice || 0),
+        subtotal: Number(saleItem.subtotal || 0),
+        soldQuantity,
+        returnedQuantity,
+        remainingReturnable,
+        fullyReturned: remainingReturnable === 0,
+        batchAllocations: saleItem.batchAllocations || []
+      };
+    });
+
+    res.json({
+      sale: {
+        _id: sale._id,
+        reference: getSaleReference(sale),
+        createdAt: sale.createdAt,
+        totalAmount: Number(sale.totalAmount || 0),
+        refundedAmount: Number(sale.refundedAmount || 0),
+        netAmount:
+          sale.netAmount !== undefined && sale.netAmount !== null
+            ? Number(sale.netAmount)
+            : Math.max(
+                Number(sale.totalAmount || 0) -
+                  Number(sale.refundedAmount || 0),
+                0
+              ),
+        paymentMethod: sale.paymentMethod || 'cash',
+        status: sale.status || 'completed',
+        cashier: sale.cashier
+          ? {
+              fullName: sale.cashier.fullName || '—',
+              role: sale.cashier.role || ''
+            }
+          : null
+      },
+
+      items
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: err.message || 'Unable to load sale return balance'
+    });
+  }
+}
+
 export async function createReturn(req, res) {
   const session = await mongoose.startSession();
 

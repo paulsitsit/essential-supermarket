@@ -1,39 +1,139 @@
-import { useState } from 'react';
-import { X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { AlertCircle, CheckCircle2, LoaderCircle, X } from 'lucide-react';
 import client from '../../api/client';
 import { getErrorMessage } from '../../utils/errors';
 import { peso } from '../../utils/format';
 
-export default function ReturnSaleModal({ sale, onClose, onSuccess }) {
+function quantityBadgeClass(value) {
+  if (value <= 0) return 'quantity-negative';
+  return 'quantity-positive';
+}
+
+export default function ReturnSaleModal({
+  sale,
+  onClose,
+  onSuccess
+}) {
+  const [balanceData, setBalanceData] = useState(null);
   const [selected, setSelected] = useState([]);
   const [reason, setReason] = useState('');
+  const [loadingBalance, setLoadingBalance] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  function addItem(index) {
-    const item = sale.items[index];
+  async function loadBalance() {
+    if (!sale?._id) return;
 
-    setSelected(previous => [
-      ...previous,
-      {
-        saleItemIndex: index,
-        quantity: 1,
-        condition: 'resellable',
-        reason: ''
-      }
-    ]);
+    setLoadingBalance(true);
+    setError('');
+
+    try {
+      const response = await client.get(
+        `/returns/sale/${sale._id}/balance`
+      );
+
+      const data = response.data;
+
+      setBalanceData(data);
+
+      setSelected(previous =>
+        previous.filter(selectedItem => {
+          const balanceItem = (data.items || []).find(
+            item =>
+              item.saleItemIndex ===
+              selectedItem.saleItemIndex
+          );
+
+          return balanceItem?.remainingReturnable > 0;
+        })
+      );
+    } catch (err) {
+      setError(
+        getErrorMessage(
+          err,
+          'Unable to load returnable item quantities.'
+        )
+      );
+    } finally {
+      setLoadingBalance(false);
+    }
+  }
+
+  useEffect(() => {
+    loadBalance();
+  }, [sale?._id]);
+
+  const balanceItems = balanceData?.items || [];
+
+  function getBalanceItem(index) {
+    return balanceItems.find(
+      item => item.saleItemIndex === index
+    );
+  }
+
+  function getSelectedItem(index) {
+    return selected.find(
+      item => item.saleItemIndex === index
+    );
+  }
+
+  function addItem(balanceItem) {
+    if (!balanceItem || balanceItem.remainingReturnable <= 0) {
+      return;
+    }
+
+    setSelected(previous => {
+      const alreadySelected = previous.some(
+        item =>
+          item.saleItemIndex ===
+          balanceItem.saleItemIndex
+      );
+
+      if (alreadySelected) return previous;
+
+      return [
+        ...previous,
+        {
+          saleItemIndex: balanceItem.saleItemIndex,
+          quantity: 1,
+          condition: 'resellable',
+          reason: ''
+        }
+      ];
+    });
   }
 
   function removeItem(index) {
     setSelected(previous =>
-      previous.filter(item => item.saleItemIndex !== index)
+      previous.filter(
+        item => item.saleItemIndex !== index
+      )
     );
   }
 
   function updateSelectedItem(index, field, value) {
     setSelected(previous =>
       previous.map(item => {
-        if (item.saleItemIndex !== index) return item;
+        if (item.saleItemIndex !== index) {
+          return item;
+        }
+
+        const balanceItem = getBalanceItem(index);
+
+        if (field === 'quantity') {
+          const requestedQuantity = Number(value) || 1;
+
+          const maximumQuantity =
+            balanceItem?.remainingReturnable || 1;
+
+          return {
+            ...item,
+            quantity: Math.min(
+              Math.max(requestedQuantity, 1),
+              maximumQuantity
+            )
+          };
+        }
 
         return {
           ...item,
@@ -43,18 +143,30 @@ export default function ReturnSaleModal({ sale, onClose, onSuccess }) {
     );
   }
 
-  function getSelectedItem(index) {
-    return selected.find(item => item.saleItemIndex === index);
-  }
+  const totalRefund = useMemo(() => {
+    return selected.reduce((total, selectedItem) => {
+      const balanceItem = getBalanceItem(
+        selectedItem.saleItemIndex
+      );
 
-  const totalRefund = selected.reduce((total, selectedItem) => {
-    const saleItem = sale.items[selectedItem.saleItemIndex];
-    const quantity = Number(selectedItem.quantity) || 0;
+      if (!balanceItem) return total;
 
-    return total + quantity * saleItem.unitPrice;
-  }, 0);
+      const quantity =
+        Number(selectedItem.quantity) || 0;
+
+      return (
+        total +
+        quantity * Number(balanceItem.unitPrice || 0)
+      );
+    }, 0);
+  }, [selected, balanceItems]);
 
   async function handleSubmit() {
+    if (loadingBalance) {
+      setError('Please wait for return balances to load.');
+      return;
+    }
+
     if (!selected.length) {
       setError('Select at least one item to return.');
       return;
@@ -65,19 +177,32 @@ export default function ReturnSaleModal({ sale, onClose, onSuccess }) {
       return;
     }
 
-    const invalidQuantity = selected.some(selectedItem => {
-      const saleItem = sale.items[selectedItem.saleItemIndex];
+    const invalidItem = selected.find(selectedItem => {
+      const balanceItem = getBalanceItem(
+        selectedItem.saleItemIndex
+      );
+
       const quantity = Number(selectedItem.quantity);
 
       return (
+        !balanceItem ||
         !Number.isInteger(quantity) ||
         quantity < 1 ||
-        quantity > saleItem.quantity
+        quantity > balanceItem.remainingReturnable
       );
     });
 
-    if (invalidQuantity) {
-      setError('Each return quantity must be between 1 and the sold quantity.');
+    if (invalidItem) {
+      const balanceItem = getBalanceItem(
+        invalidItem.saleItemIndex
+      );
+
+      setError(
+        `${balanceItem?.name || 'Selected item'}: only ${
+          balanceItem?.remainingReturnable || 0
+        } unit(s) remain eligible for return.`
+      );
+
       return;
     }
 
@@ -97,21 +222,37 @@ export default function ReturnSaleModal({ sale, onClose, onSuccess }) {
       });
 
       onSuccess?.(response.data);
+
       onClose();
     } catch (err) {
-      setError(getErrorMessage(err, 'Unable to process the return.'));
+      setError(
+        getErrorMessage(
+          err,
+          'Unable to process the return.'
+        )
+      );
+
+      await loadBalance();
     } finally {
       setSubmitting(false);
     }
   }
 
+  const saleInfo = balanceData?.sale || sale;
+
   return (
     <div className="modal-backdrop">
-      <div className="modal-card" style={{ maxWidth: 980 }}>
+      <div
+        className="modal-card"
+        style={{ maxWidth: 1080 }}
+      >
         <div className="modal-header">
           <div>
             <p className="eyebrow">PROCESS RETURN</p>
-            <h3>Sale #{sale._id.slice(-8)}</h3>
+            <h3>
+              {saleInfo?.reference ||
+                `Sale #${sale._id.slice(-8).toUpperCase()}`}
+            </h3>
           </div>
 
           <button
@@ -128,168 +269,304 @@ export default function ReturnSaleModal({ sale, onClose, onSuccess }) {
         <div className="stock-summary">
           <div>
             <span>Sale date</span>
-            <strong>{new Date(sale.createdAt).toLocaleString()}</strong>
+            <strong>
+              {saleInfo?.createdAt
+                ? new Date(
+                    saleInfo.createdAt
+                  ).toLocaleString()
+                : '—'}
+            </strong>
           </div>
 
           <div>
             <span>Cashier</span>
-            <strong>{sale.cashier?.fullName || '—'}</strong>
+            <strong>
+              {saleInfo?.cashier?.fullName ||
+                sale.cashier?.fullName ||
+                '—'}
+            </strong>
           </div>
 
           <div>
             <span>Payment</span>
-            <strong>{sale.paymentMethod || 'cash'}</strong>
+            <strong>
+              {saleInfo?.paymentMethod ||
+                sale.paymentMethod ||
+                'cash'}
+            </strong>
           </div>
 
           <div>
             <span>Original total</span>
-            <strong>{peso(sale.totalAmount)}</strong>
+            <strong>
+              {peso(
+                saleInfo?.totalAmount ||
+                  sale.totalAmount
+              )}
+            </strong>
+          </div>
+
+          <div>
+            <span>Previously refunded</span>
+            <strong className="quantity-negative">
+              {peso(saleInfo?.refundedAmount || 0)}
+            </strong>
+          </div>
+
+          <div>
+            <span>Current net sale</span>
+            <strong>
+              {peso(
+                saleInfo?.netAmount ??
+                  saleInfo?.totalAmount ??
+                  sale.totalAmount
+              )}
+            </strong>
           </div>
         </div>
 
-        {error && <div className="form-error">{error}</div>}
+        {error && (
+          <div className="form-error">
+            <AlertCircle size={16} />
+            <span>{error}</span>
+          </div>
+        )}
 
         <div style={{ marginBottom: 12 }}>
-          <h4 style={{ marginBottom: 8 }}>Select returned items</h4>
+          <h4 style={{ marginBottom: 8 }}>
+            Select returned items
+          </h4>
 
-          <div className="table-wrap">
-            <table className="data-table" style={{ fontSize: 13 }}>
-              <thead>
-                <tr>
-                  <th>Select</th>
-                  <th>Product</th>
-                  <th>Sold qty</th>
-                  <th>Return qty</th>
-                  <th>Unit price</th>
-                  <th>Condition</th>
-                  <th>Item reason</th>
-                </tr>
-              </thead>
+          {loadingBalance ? (
+            <div className="page-loading">
+              <LoaderCircle
+                size={18}
+                className="spin-icon"
+              />
+              Loading returnable item quantities...
+            </div>
+          ) : (
+            <div className="table-wrap">
+              <table
+                className="data-table"
+                style={{ fontSize: 13 }}
+              >
+                <thead>
+                  <tr>
+                    <th>Select</th>
+                    <th>Product</th>
+                    <th>Sold</th>
+                    <th>Returned</th>
+                    <th>Available</th>
+                    <th>Return qty</th>
+                    <th>Unit price</th>
+                    <th>Condition</th>
+                    <th>Item reason</th>
+                  </tr>
+                </thead>
 
-              <tbody>
-                {(sale.items || []).map((item, index) => {
-                  const selectedItem = getSelectedItem(index);
+                <tbody>
+                  {balanceItems.map(balanceItem => {
+                    const selectedItem = getSelectedItem(
+                      balanceItem.saleItemIndex
+                    );
 
-                  return (
-                    <tr key={`${item.product?._id || item.name}-${index}`}>
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={Boolean(selectedItem)}
-                          disabled={submitting}
-                          onChange={event => {
-                            if (event.target.checked) {
-                              addItem(index);
-                            } else {
-                              removeItem(index);
-                            }
-                          }}
-                        />
-                      </td>
+                    const unavailable =
+                      balanceItem.remainingReturnable <= 0;
 
-                      <td>
-                        <strong>
-                          {item.name || item.product?.name || 'Deleted product'}
-                        </strong>
-
-                        <small className="table-subtext">
-                          {item.barcode || item.product?.barcode || '—'}
-                        </small>
-                      </td>
-
-                      <td>
-                        <strong>{item.quantity}</strong>
-                      </td>
-
-                      <td>
-                        {selectedItem ? (
+                    return (
+                      <tr
+                        key={`${balanceItem.product}-${balanceItem.saleItemIndex}`}
+                      >
+                        <td>
                           <input
-                            type="number"
-                            min="1"
-                            max={item.quantity}
-                            value={selectedItem.quantity}
-                            disabled={submitting}
-                            onChange={event =>
-                              updateSelectedItem(
-                                index,
-                                'quantity',
-                                event.target.value
-                              )
+                            type="checkbox"
+                            checked={Boolean(selectedItem)}
+                            disabled={
+                              submitting || unavailable
                             }
-                            style={{ width: 76 }}
+                            onChange={event => {
+                              if (event.target.checked) {
+                                addItem(balanceItem);
+                              } else {
+                                removeItem(
+                                  balanceItem.saleItemIndex
+                                );
+                              }
+                            }}
                           />
-                        ) : (
-                          '—'
-                        )}
-                      </td>
+                        </td>
 
-                      <td>{peso(item.unitPrice)}</td>
+                        <td>
+                          <strong>
+                            {balanceItem.name ||
+                              'Deleted product'}
+                          </strong>
 
-                      <td>
-                        {selectedItem ? (
-                          <select
-                            value={selectedItem.condition}
-                            disabled={submitting}
-                            onChange={event =>
-                              updateSelectedItem(
-                                index,
-                                'condition',
-                                event.target.value
-                              )
-                            }
+                          <small className="table-subtext">
+                            {balanceItem.barcode || '—'}
+                          </small>
+
+                          {unavailable && (
+                            <small
+                              className="table-subtext"
+                              style={{
+                                color: '#b91c1c',
+                                fontWeight: 700
+                              }}
+                            >
+                              Fully returned
+                            </small>
+                          )}
+                        </td>
+
+                        <td>
+                          <strong>
+                            {balanceItem.soldQuantity}
+                          </strong>
+                        </td>
+
+                        <td>
+                          <strong className="quantity-negative">
+                            {balanceItem.returnedQuantity}
+                          </strong>
+                        </td>
+
+                        <td>
+                          <strong
+                            className={quantityBadgeClass(
+                              balanceItem.remainingReturnable
+                            )}
                           >
-                            <option value="resellable">Resellable</option>
-                            <option value="damaged">Damaged</option>
-                            <option value="opened">Opened</option>
-                            <option value="expired">Expired</option>
-                            <option value="other">Other</option>
-                          </select>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
+                            {balanceItem.remainingReturnable}
+                          </strong>
+                        </td>
 
-                      <td>
-                        {selectedItem ? (
-                          <input
-                            type="text"
-                            placeholder="Optional details"
-                            value={selectedItem.reason}
-                            disabled={submitting}
-                            onChange={event =>
-                              updateSelectedItem(
-                                index,
-                                'reason',
-                                event.target.value
-                              )
-                            }
-                          />
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        <td>
+                          {selectedItem ? (
+                            <input
+                              type="number"
+                              min="1"
+                              max={
+                                balanceItem.remainingReturnable
+                              }
+                              value={selectedItem.quantity}
+                              disabled={submitting}
+                              onChange={event =>
+                                updateSelectedItem(
+                                  balanceItem.saleItemIndex,
+                                  'quantity',
+                                  event.target.value
+                                )
+                              }
+                              style={{ width: 76 }}
+                            />
+                          ) : unavailable ? (
+                            'Fully returned'
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+
+                        <td>
+                          {peso(balanceItem.unitPrice)}
+                        </td>
+
+                        <td>
+                          {selectedItem ? (
+                            <select
+                              value={
+                                selectedItem.condition
+                              }
+                              disabled={submitting}
+                              onChange={event =>
+                                updateSelectedItem(
+                                  balanceItem.saleItemIndex,
+                                  'condition',
+                                  event.target.value
+                                )
+                              }
+                            >
+                              <option value="resellable">
+                                Resellable
+                              </option>
+                              <option value="damaged">
+                                Damaged
+                              </option>
+                              <option value="opened">
+                                Opened
+                              </option>
+                              <option value="expired">
+                                Expired
+                              </option>
+                              <option value="other">
+                                Other
+                              </option>
+                            </select>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+
+                        <td>
+                          {selectedItem ? (
+                            <input
+                              type="text"
+                              placeholder="Optional details"
+                              value={selectedItem.reason}
+                              disabled={submitting}
+                              onChange={event =>
+                                updateSelectedItem(
+                                  balanceItem.saleItemIndex,
+                                  'reason',
+                                  event.target.value
+                                )
+                              }
+                            />
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
+
+        {!loadingBalance &&
+          balanceItems.length > 0 &&
+          balanceItems.every(
+            item => item.remainingReturnable <= 0
+          ) && (
+            <div className="success-message">
+              <CheckCircle2 size={16} />
+              All items from this sale have already been returned.
+            </div>
+          )}
 
         <div className="modal-form">
           <label>
-            <span>Overall return reason</span>
+            <span>Overall return reason *</span>
+
             <input
               type="text"
               value={reason}
-              disabled={submitting}
-              onChange={event => setReason(event.target.value)}
+              disabled={submitting || loadingBalance}
+              onChange={event =>
+                setReason(event.target.value)
+              }
               placeholder="Example: Wrong item purchased"
             />
           </label>
         </div>
 
-        <div className="stock-summary" style={{ marginTop: 16 }}>
+        <div
+          className="stock-summary"
+          style={{ marginTop: 16 }}
+        >
           <div>
             <span>Products selected</span>
             <strong>{selected.length}</strong>
@@ -317,9 +594,17 @@ export default function ReturnSaleModal({ sale, onClose, onSuccess }) {
             type="button"
             className="primary-btn"
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={
+              submitting ||
+              loadingBalance ||
+              balanceItems.every(
+                item => item.remainingReturnable <= 0
+              )
+            }
           >
-            {submitting ? 'Processing...' : 'Confirm return'}
+            {submitting
+              ? 'Processing...'
+              : 'Confirm return'}
           </button>
         </div>
       </div>

@@ -13,7 +13,7 @@ function ensureAdminOrManager(account, action) {
   }
 }
 
-function todayStart() {
+function getTodayStart() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return today;
@@ -28,27 +28,41 @@ export async function listQuarantine(req, res) {
       product
     } = req.query;
 
+    const safePage = Math.max(Number(page) || 1, 1);
+    const safeLimit = Math.min(
+      Math.max(Number(limit) || 20, 1),
+      100
+    );
+
     const query = {};
 
-    if (status) query.status = status;
-    if (product) query.product = product;
+    if (status) {
+      query.status = status;
+    }
+
+    if (product) {
+      query.product = product;
+    }
 
     const items = await QuarantineItem.find(query)
       .populate('product', 'name barcode currentStock branch')
       .populate('sourceReturn', 'sale totalRefund createdAt')
       .populate('disposedBy', 'fullName email role')
       .sort({ createdAt: -1 })
-      .limit(Number(limit))
-      .skip((Number(page) - 1) * Number(limit))
+      .limit(safeLimit)
+      .skip((safePage - 1) * safeLimit)
       .lean();
 
     const total = await QuarantineItem.countDocuments(query);
 
     res.json({
       items,
-      total,
-      page: Number(page),
-      limit: Number(limit)
+      pagination: {
+        page: safePage,
+        limit: safeLimit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / safeLimit))
+      }
     });
   } catch (err) {
     res.status(500).json({
@@ -61,7 +75,10 @@ export async function disposeItem(req, res) {
   const session = await mongoose.startSession();
 
   try {
-    ensureAdminOrManager(req.account, 'dispose quarantine items');
+    ensureAdminOrManager(
+      req.account,
+      'dispose quarantine items'
+    );
 
     const { notes = '' } = req.body;
     let updatedItem = null;
@@ -78,7 +95,7 @@ export async function disposeItem(req, res) {
 
       if (item.status !== 'pending_inspection') {
         const error = new Error(
-          'This quarantine item was already processed'
+          'This quarantine item has already been processed'
         );
         error.statusCode = 400;
         throw error;
@@ -133,7 +150,7 @@ export async function disposeItem(req, res) {
         productName: updatedItem.name,
         quantity: updatedItem.quantity,
         condition: updatedItem.condition,
-        reason: updatedItem.reason,
+        returnReason: updatedItem.reason,
         notes: updatedItem.dispositionNotes
       }
     });
@@ -175,7 +192,7 @@ export async function returnToSupplier(req, res) {
 
       if (item.status !== 'pending_inspection') {
         const error = new Error(
-          'This quarantine item was already processed'
+          'This quarantine item has already been processed'
         );
         error.statusCode = 400;
         throw error;
@@ -235,12 +252,14 @@ export async function returnToSupplier(req, res) {
     });
 
     res.json({
-      message: 'Quarantine item marked as returned to supplier',
+      message: 'Quarantine item returned to supplier successfully',
       item: updatedItem
     });
   } catch (err) {
     res.status(err.statusCode || 500).json({
-      error: err.message || 'Unable to return quarantine item to supplier'
+      error:
+        err.message ||
+        'Unable to return quarantine item to supplier'
     });
   } finally {
     await session.endSession();
@@ -263,7 +282,7 @@ export async function releaseToStock(req, res) {
 
     if (!mongoose.isValidObjectId(batchId)) {
       return res.status(400).json({
-        error: 'Choose a valid product batch before releasing stock'
+        error: 'Select a valid batch before releasing stock'
       });
     }
 
@@ -284,7 +303,7 @@ export async function releaseToStock(req, res) {
 
       if (item.status !== 'pending_inspection') {
         const error = new Error(
-          'This quarantine item was already processed'
+          'This quarantine item has already been processed'
         );
         error.statusCode = 400;
         throw error;
@@ -295,13 +314,13 @@ export async function releaseToStock(req, res) {
         product: item.product._id,
         $or: [
           { expirationDate: null },
-          { expirationDate: { $gte: todayStart() } }
+          { expirationDate: { $gte: getTodayStart() } }
         ]
       }).session(session);
 
       if (!batch) {
         const error = new Error(
-          'The selected batch is invalid, expired, or belongs to another product'
+          'Selected batch is invalid, expired, or belongs to another product'
         );
         error.statusCode = 400;
         throw error;
@@ -409,7 +428,9 @@ export async function releaseToStock(req, res) {
     });
   } catch (err) {
     res.status(err.statusCode || 500).json({
-      error: err.message || 'Unable to release quarantine item to stock'
+      error:
+        err.message ||
+        'Unable to release quarantine item to sellable stock'
     });
   } finally {
     await session.endSession();

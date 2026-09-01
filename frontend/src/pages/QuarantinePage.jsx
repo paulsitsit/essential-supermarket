@@ -18,7 +18,7 @@ function batchLabel(batch) {
     ? dateOnly(batch.expirationDate)
     : 'No expiry';
 
-  return `${batch.batchNumber || 'Unnamed batch'} — Stock: ${
+  return `${batch.batchNumber || 'Unnamed batch'} — Available: ${
     batch.quantity
   } — Expiry: ${expiry}`;
 }
@@ -120,7 +120,9 @@ export default function QuarantinePage() {
     const { item, type } = actionModal;
 
     if (type === 'release' && !selectedBatchId) {
-      setError('Select a valid batch before releasing this item.');
+      setError(
+        'Select a valid product batch before releasing this item.'
+      );
       return;
     }
 
@@ -176,7 +178,7 @@ export default function QuarantinePage() {
       setError(
         getErrorMessage(
           err,
-          'Unable to update the quarantine item.'
+          'Unable to update quarantine item.'
         )
       );
     } finally {
@@ -193,10 +195,10 @@ export default function QuarantinePage() {
 
   const actionDescription =
     actionModal?.type === 'dispose'
-      ? 'This marks the non-sellable item as disposed. Sellable inventory will not change.'
+      ? 'This marks the item as disposed. Product sellable stock will not change.'
       : actionModal?.type === 'supplier'
-      ? 'This marks the item as physically returned to the supplier. Sellable inventory will not change.'
-      : 'Choose the valid batch that will receive this item back into sellable inventory.';
+      ? 'This marks the item as returned to its supplier. Product sellable stock will not change.'
+      : 'Choose the valid product batch that will receive this item back into sellable inventory.';
 
   const confirmTitle =
     confirm?.type === 'dispose'
@@ -225,8 +227,8 @@ export default function QuarantinePage() {
           <p className="eyebrow">QUARANTINE</p>
           <h1>Quarantine items</h1>
           <p>
-            Inspect returned products before disposal,
-            supplier return, or release to stock.
+            Inspect returned products before disposal, supplier
+            return, or release to stock.
           </p>
         </div>
 
@@ -312,6 +314,7 @@ export default function QuarantinePage() {
                     </td>
 
                     <td>{item.reason || '—'}</td>
+
                     <td>{dateOnly(item.createdAt)}</td>
 
                     <td>
@@ -326,7 +329,7 @@ export default function QuarantinePage() {
                           <button
                             type="button"
                             className="row-icon danger-icon"
-                            title="Dispose"
+                            title="Dispose item"
                             onClick={() =>
                               openActionModal(item, 'dispose')
                             }
@@ -337,7 +340,7 @@ export default function QuarantinePage() {
                           <button
                             type="button"
                             className="row-icon"
-                            title="Return to supplier"
+                            title="Return item to supplier"
                             onClick={() =>
                               openActionModal(item, 'supplier')
                             }
@@ -348,7 +351,7 @@ export default function QuarantinePage() {
                           <button
                             type="button"
                             className="row-icon"
-                            title="Release to sellable stock"
+                            title="Release item to sellable stock"
                             onClick={() =>
                               openActionModal(item, 'release')
                             }
@@ -368,7 +371,7 @@ export default function QuarantinePage() {
         ) : (
           <EmptyState
             title="No quarantine items"
-            description="No items match the selected quarantine status."
+            description="No quarantine items match the selected status."
           />
         )}
       </GlassCard>
@@ -413,7 +416,7 @@ export default function QuarantinePage() {
               </div>
 
               <div>
-                <span>Current status</span>
+                <span>Status</span>
                 <strong>
                   {actionModal.item.status.replaceAll('_', ' ')}
                 </strong>
@@ -429,7 +432,7 @@ export default function QuarantinePage() {
 
                   {loadingBatches ? (
                     <div className="page-loading">
-                      Loading batches...
+                      Loading valid batches...
                     </div>
                   ) : (
                     <select
@@ -437,7 +440,9 @@ export default function QuarantinePage() {
                       onChange={event =>
                         setSelectedBatchId(event.target.value)
                       }
-                      disabled={actionLoading || !batches.length}
+                      disabled={
+                        actionLoading || !batches.length
+                      }
                     >
                       <option value="">
                         {batches.length
@@ -456,9 +461,9 @@ export default function QuarantinePage() {
 
                 {!loadingBatches && !batches.length && (
                   <div className="form-error">
-                    No valid active batch exists for this product.
-                    Receive stock or create a valid batch before
-                    releasing this item.
+                    No active non-expired batch exists for this
+                    product. Create or receive a valid batch before
+                    releasing this item to stock.
                   </div>
                 )}
               </div>
@@ -479,9 +484,9 @@ export default function QuarantinePage() {
                   disabled={actionLoading}
                   placeholder={
                     actionModal.type === 'dispose'
-                      ? 'Example: Expired product disposed according to store policy'
+                      ? 'Example: Product disposed according to store policy'
                       : actionModal.type === 'supplier'
-                      ? 'Example: Supplier return note #SR-001'
+                      ? 'Example: Supplier return reference #SR-001'
                       : 'Example: Packaging inspected and approved for resale'
                   }
                 />
@@ -537,7 +542,9 @@ export default function QuarantinePage() {
           }
           loading={actionLoading}
           onCancel={() => {
-            if (!actionLoading) setConfirm(null);
+            if (!actionLoading) {
+              setConfirm(null);
+            }
           }}
           onConfirm={processAction}
         />

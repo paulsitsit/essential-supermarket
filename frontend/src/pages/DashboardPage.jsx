@@ -8,7 +8,10 @@ import {
   ScanLine,
   TrendingDown,
   ShoppingCart,
-  Trophy
+  Trophy,
+  ArrowLeftFromLine,
+  ArrowRightFromLine,
+  Wallet
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
@@ -226,12 +229,36 @@ export default function DashboardPage() {
       link: '/sales'
     },
     {
-      label: 'Revenue Today',
+      label: 'Gross Sales Today',
       value: peso(totals.todayRevenue),
-      detail: 'Completed sales today',
-      icon: TrendingDown,
-      tone: 'green',
+      detail: 'Completed sales before refunds',
+      icon: ArrowRightFromLine,
+      tone: 'blue',
       link: '/sales'
+    },
+    {
+      label: 'Refunds Today',
+      value: peso(totals.todayRefunds),
+      detail: 'Value refunded via returns',
+      icon: ArrowLeftFromLine,
+      tone: 'red',
+      link: '/returns'
+    },
+    {
+      label: 'Net Revenue Today',
+      value: peso(totals.todayNetRevenue),
+      detail: 'Gross sales minus refunds',
+      icon: Wallet,
+      tone: 'green',
+      link: '/reports'
+    },
+    {
+      label: 'Returns Today',
+      value: totals.returnsToday || 0,
+      detail: 'Return records processed',
+      icon: AlertTriangle,
+      tone: 'amber',
+      link: '/returns'
     }
   ];
 
@@ -246,7 +273,7 @@ export default function DashboardPage() {
           </h1>
 
           <p>
-            A Web-Based Inventory Management System 
+            A Web-Based Inventory Management System
           </p>
 
           <p>
@@ -434,12 +461,12 @@ export default function DashboardPage() {
           </ResponsiveContainer>
         </GlassCard>
 
-        {/* Sales Activity - Blue Line Chart */}
+        {/* Sales Activity - Blue Line Chart (Net Revenue) */}
         <GlassCard className="stock-line-card">
           <div className="section-heading">
             <div>
               <h3>Sales Activity</h3>
-              <p>Revenue trend (last 7 days)</p>
+              <p>Net revenue trend (last 7 days)</p>
             </div>
 
             <span className="analytics-badge">
@@ -495,19 +522,19 @@ export default function DashboardPage() {
                   color: '#1e3a8a',
                   fontSize: '11px'
                 }}
-                formatter={(value, name) => [peso(value), 'Revenue']}
+                formatter={(value, name) => [peso(value), 'Net Revenue']}
               />
 
               <Area
                 type="monotone"
-                dataKey="revenue"
+                dataKey="netRevenue"
                 stroke="none"
                 fill="url(#salesLineFill)"
               />
 
               <Line
                 type="monotone"
-                dataKey="revenue"
+                dataKey="netRevenue"
                 stroke="#2563eb"
                 strokeWidth={2.5}
                 dot={false}

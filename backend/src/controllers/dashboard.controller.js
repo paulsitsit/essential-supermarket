@@ -3,6 +3,7 @@ import StockMovement from '../models/StockMovement.js';
 import LowStockAlert from '../models/LowStockAlert.js';
 import ExpirationAlert from '../models/ExpirationAlert.js';
 import Sale from '../models/Sale.js';
+import SaleReturn from '../models/SaleReturn.js';
 
 export async function summary(req, res) {
   const now = new Date();
@@ -10,7 +11,9 @@ export async function summary(req, res) {
   startOfDay.setHours(0, 0, 0, 0);
 
   const startOfWeek = new Date(startOfDay);
-  startOfWeek.setDate(startOfDay.getDate() - startOfDay.getDay());
+  startOfWeek.setDate(
+    startOfDay.getDate() - startOfDay.getDay()
+  );
 
   const [
     products,
@@ -205,6 +208,55 @@ export async function summary(req, res) {
     ])
   ]);
 
+  // Refunds and net revenue (all-time, today, this week)
+  const [
+    allTimeRefundsAgg,
+    todayRefundsAgg,
+    weekRefundsAgg,
+    returnsTodayCount
+  ] = await Promise.all([
+    SaleReturn.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalRefund: { $sum: '$totalRefund' }
+        }
+      }
+    ]),
+
+    SaleReturn.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startOfDay }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalRefund: { $sum: '$totalRefund' }
+        }
+      }
+    ]),
+
+    SaleReturn.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startOfWeek }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalRefund: { $sum: '$totalRefund' }
+        }
+      }
+    ]),
+
+    SaleReturn.countDocuments({
+      createdAt: { $gte: startOfDay }
+    })
+  ]);
+
   const allTime = allTimeSalesAgg[0] || {
     revenue: 0,
     itemsSold: 0,
@@ -220,6 +272,26 @@ export async function summary(req, res) {
     itemsSold: 0,
     transactions: 0
   };
+
+  const allTimeRefunds =
+    allTimeRefundsAgg[0]?.totalRefund || 0;
+  const todayRefunds =
+    todayRefundsAgg[0]?.totalRefund || 0;
+  const weekRefunds =
+    weekRefundsAgg[0]?.totalRefund || 0;
+
+  const allTimeNetRevenue = Math.max(
+    (allTime.revenue || 0) - allTimeRefunds,
+    0
+  );
+  const todayNetRevenue = Math.max(
+    (today.revenue || 0) - todayRefunds,
+    0
+  );
+  const weekNetRevenue = Math.max(
+    (week.revenue || 0) - weekRefunds,
+    0
+  );
 
   // Best seller this week (by quantity)
   const bestSellerAgg = await Sale.aggregate([
@@ -307,7 +379,7 @@ export async function summary(req, res) {
     };
   });
 
-  // Sales activity: last 7 days revenue
+  // Sales activity: last 7 days net revenue
   const salesByDayAgg = await Sale.aggregate([
     {
       $match: {
@@ -325,8 +397,30 @@ export async function summary(req, res) {
           month: { $month: '$createdAt' },
           day: { $dayOfMonth: '$createdAt' }
         },
-        revenue: { $sum: '$totalAmount' },
+        grossRevenue: { $sum: '$totalAmount' },
         transactions: { $sum: 1 }
+      }
+    },
+    { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } }
+  ]);
+
+  const refundsByDayAgg = await SaleReturn.aggregate([
+    {
+      $match: {
+        createdAt: {
+          $gte: last7Days[0].start,
+          $lt: last7Days[last7Days.length - 1].end
+        }
+      }
+    },
+    {
+      $group: {
+        _id: {
+          year: { $year: '$createdAt' },
+          month: { $month: '$createdAt' },
+          day: { $dayOfMonth: '$createdAt' }
+        },
+        totalRefund: { $sum: '$totalRefund' }
       }
     },
     { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } }
@@ -338,16 +432,32 @@ export async function summary(req, res) {
     salesByDayMap.set(key, row);
   }
 
+  const refundsByDayMap = new Map();
+  for (const row of refundsByDayAgg) {
+    const key = `${row._id.year}-${row._id.month}-${row._id.day}`;
+    refundsByDayMap.set(key, row.totalRefund || 0);
+  }
+
   const salesActivity = last7Days.map(d => {
     const key = `${d.date.getFullYear()}-${d.date.getMonth() + 1}-${d.date.getDate()}`;
-    const row = salesByDayMap.get(key) || {
-      revenue: 0,
+    const salesRow = salesByDayMap.get(key) || {
+      grossRevenue: 0,
       transactions: 0
     };
+    const refundsTotal =
+      refundsByDayMap.get(key) || 0;
+
+    const netRevenue = Math.max(
+      (salesRow.grossRevenue || 0) - refundsTotal,
+      0
+    );
+
     return {
       label: d.label,
-      revenue: row.revenue || 0,
-      transactions: row.transactions || 0
+      grossRevenue: salesRow.grossRevenue || 0,
+      refunds: refundsTotal,
+      netRevenue,
+      transactions: salesRow.transactions || 0
     };
   });
 
@@ -363,7 +473,7 @@ export async function summary(req, res) {
       expirationAlerts,
       defectiveProducts,
 
-      // Sales totals
+      // Sales totals (gross)
       allTimeRevenue: allTime.revenue || 0,
       allTimeItemsSold: allTime.itemsSold || 0,
       allTimeTransactions: allTime.transactions || 0,
@@ -374,7 +484,20 @@ export async function summary(req, res) {
 
       weekRevenue: week.revenue || 0,
       weekItemsSold: week.itemsSold || 0,
-      weekTransactions: week.transactions || 0
+      weekTransactions: week.transactions || 0,
+
+      // Refunds and net revenue
+      allTimeRefunds,
+      allTimeNetRevenue,
+
+      todayRefunds,
+      todayNetRevenue,
+
+      weekRefunds,
+      weekNetRevenue,
+
+      // Returns count
+      returnsToday: returnsTodayCount || 0
     },
     movementTypes,
     categoryData,
@@ -434,27 +557,30 @@ export async function getExpirySummary(req, res) {
     expirationDate: { $ne: null }
   };
 
-  const { default: ProductBatch } = await import('../models/ProductBatch.js');
+  const { default: ProductBatch } = await import(
+    '../models/ProductBatch.js'
+  );
 
-  const [count0to7, count8to14, count15to30] = await Promise.all([
-    // 0–7 days
-    ProductBatch.countDocuments({
-      ...baseQuery,
-      expirationDate: { $gte: today, $lte: plus7 }
-    }),
+  const [count0to7, count8to14, count15to30] =
+    await Promise.all([
+      // 0–7 days
+      ProductBatch.countDocuments({
+        ...baseQuery,
+        expirationDate: { $gte: today, $lte: plus7 }
+      }),
 
-    // 8–14 days
-    ProductBatch.countDocuments({
-      ...baseQuery,
-      expirationDate: { $gt: plus7, $lte: plus14 }
-    }),
+      // 8–14 days
+      ProductBatch.countDocuments({
+        ...baseQuery,
+        expirationDate: { $gt: plus7, $lte: plus14 }
+      }),
 
-    // 15–30 days
-    ProductBatch.countDocuments({
-      ...baseQuery,
-      expirationDate: { $gt: plus14, $lte: plus30 }
-    })
-  ]);
+      // 15–30 days
+      ProductBatch.countDocuments({
+        ...baseQuery,
+        expirationDate: { $gt: plus14, $lte: plus30 }
+      })
+    ]);
 
   // Optional: top 5 most urgent batches (earliest expiry)
   const urgentBatches = await ProductBatch.find({
@@ -470,7 +596,9 @@ export async function getExpirySummary(req, res) {
     const product = b.product || {};
     const exp = new Date(b.expirationDate);
     const diff = exp.getTime() - today.getTime();
-    const daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    const daysLeft = Math.ceil(
+      diff / (1000 * 60 * 60 * 24)
+    );
 
     return {
       batchId: b._id,

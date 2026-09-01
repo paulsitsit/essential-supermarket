@@ -15,6 +15,41 @@ import {
   syncExpirationAlertsForProduct
 } from '../services/expirationAlert.service.js';
 
+async function generateReceiptNumber(session) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const datePart = `${year}${month}${day}`;
+
+  let attempt = 0;
+  const maxAttempts = 10;
+
+  while (attempt < maxAttempts) {
+    const sequence = await Sale.countDocuments({
+      receiptNumber: {
+        $regex: `^RCP-${datePart}-`
+      }
+    }).session(session);
+
+    const sequenceNumber = String(sequence + 1).padStart(4, '0');
+    const candidate = `RCP-${datePart}-${sequenceNumber}`;
+
+    const exists = await Sale.findOne({
+      receiptNumber: candidate
+    }).session(session);
+
+    if (!exists) {
+      return candidate;
+    }
+
+    attempt++;
+  }
+
+  const fallback = `RCP-${datePart}-${Date.now().toString().slice(-4)}`;
+  return fallback;
+}
+
 export async function listSales(req, res) {
   const {
     page = 1,
@@ -224,9 +259,12 @@ export async function createSale(req, res) {
       totalAmount += subtotal;
     }
 
+    const receiptNumber = await generateReceiptNumber(session);
+
     const createdSale = await Sale.create(
       [{
         cashier: req.account._id,
+        receiptNumber,
         items: saleItems,
         totalAmount,
         paymentMethod,

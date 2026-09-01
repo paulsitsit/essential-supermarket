@@ -7,7 +7,6 @@ import {
   X
 } from 'lucide-react';
 import client from '../api/client';
-import ConfirmDialog from '../components/common/ConfirmDialog';
 import EmptyState from '../components/common/EmptyState';
 import GlassCard from '../components/common/GlassCard';
 import { getErrorMessage } from '../utils/errors';
@@ -23,20 +22,31 @@ function batchLabel(batch) {
   } — Expiry: ${expiry}`;
 }
 
+function actionTitle(type) {
+  if (type === 'dispose') return 'Dispose quarantine item';
+  if (type === 'supplier') return 'Return item to supplier';
+  return 'Release item to sellable stock';
+}
+
+function actionButtonLabel(type, loading) {
+  if (loading) return 'Processing...';
+  if (type === 'dispose') return 'Dispose item';
+  if (type === 'supplier') return 'Return to supplier';
+  return 'Release to stock';
+}
+
 export default function QuarantinePage() {
   const [items, setItems] = useState([]);
   const [status, setStatus] = useState('pending_inspection');
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
 
   const [actionModal, setActionModal] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
   const [notes, setNotes] = useState('');
   const [batches, setBatches] = useState([]);
   const [loadingBatches, setLoadingBatches] = useState(false);
   const [selectedBatchId, setSelectedBatchId] = useState('');
-
-  const [confirm, setConfirm] = useState(null);
 
   async function loadItems() {
     setLoading(true);
@@ -61,33 +71,39 @@ export default function QuarantinePage() {
     loadItems();
   }, [status]);
 
-  function closeActionModal() {
-    if (actionLoading) return;
-
+  function resetActionState() {
     setActionModal(null);
     setNotes('');
     setBatches([]);
     setSelectedBatchId('');
+    setLoadingBatches(false);
+  }
+
+  function closeActionModal() {
+    if (actionLoading) return;
+    resetActionState();
   }
 
   async function openActionModal(item, type) {
     setError('');
     setNotes('');
-    setSelectedBatchId('');
     setBatches([]);
+    setSelectedBatchId('');
 
-    setActionModal({
-      item,
-      type
-    });
+    setActionModal({ item, type });
 
     if (type !== 'release') return;
+
+    const productId = item.product?._id || item.product;
+
+    if (!productId) {
+      setError('This quarantine item has no linked product.');
+      return;
+    }
 
     setLoadingBatches(true);
 
     try {
-      const productId = item.product?._id || item.product;
-
       const response = await client.get(
         `/batches/product/${productId}`
       );
@@ -98,51 +114,37 @@ export default function QuarantinePage() {
       const validBatches = (response.data.batches || []).filter(batch => {
         if (!batch.expirationDate) return true;
 
-        const expiry = new Date(batch.expirationDate);
-        expiry.setHours(0, 0, 0, 0);
+        const expiration = new Date(batch.expirationDate);
+        expiration.setHours(0, 0, 0, 0);
 
-        return expiry >= today;
+        return expiration >= today;
       });
 
       setBatches(validBatches);
+
+      if (validBatches.length === 1) {
+        setSelectedBatchId(validBatches[0]._id);
+      }
     } catch (err) {
       setError(
-        getErrorMessage(err, 'Unable to load product batches.')
+        getErrorMessage(err, 'Unable to load batches for this product.')
       );
     } finally {
       setLoadingBatches(false);
     }
   }
 
-  function prepareAction() {
-    if (!actionModal) return;
+  async function submitAction(event) {
+    event.preventDefault();
+
+    if (!actionModal || actionLoading) return;
 
     const { item, type } = actionModal;
 
     if (type === 'release' && !selectedBatchId) {
-      setError(
-        'Select a valid product batch before releasing this item.'
-      );
+      setError('Select a valid product batch before releasing stock.');
       return;
     }
-
-    setConfirm({
-      item,
-      type,
-      notes,
-      batchId: selectedBatchId
-    });
-  }
-
-  async function processAction() {
-    if (!confirm) return;
-
-    const {
-      item,
-      type,
-      notes: actionNotes,
-      batchId
-    } = confirm;
 
     const endpoint =
       type === 'dispose'
@@ -151,34 +153,30 @@ export default function QuarantinePage() {
         ? `/quarantine/${item._id}/returnToSupplier`
         : `/quarantine/${item._id}/release`;
 
+    const payload =
+      type === 'release'
+        ? {
+            batchId: selectedBatchId,
+            notes: notes.trim()
+          }
+        : {
+            notes: notes.trim()
+          };
+
     setActionLoading(true);
     setError('');
 
     try {
-      const payload =
-        type === 'release'
-          ? {
-              notes: actionNotes.trim(),
-              batchId
-            }
-          : {
-              notes: actionNotes.trim()
-            };
-
       await client.patch(endpoint, payload);
 
-      setConfirm(null);
-      setActionModal(null);
-      setNotes('');
-      setBatches([]);
-      setSelectedBatchId('');
+      resetActionState();
 
       await loadItems();
     } catch (err) {
       setError(
         getErrorMessage(
           err,
-          'Unable to update quarantine item.'
+          'Unable to update the quarantine item. Please try again.'
         )
       );
     } finally {
@@ -186,39 +184,8 @@ export default function QuarantinePage() {
     }
   }
 
-  const actionTitle =
-    actionModal?.type === 'dispose'
-      ? 'Dispose quarantine item'
-      : actionModal?.type === 'supplier'
-      ? 'Return item to supplier'
-      : 'Release item to sellable stock';
-
-  const actionDescription =
-    actionModal?.type === 'dispose'
-      ? 'This marks the item as disposed. Product sellable stock will not change.'
-      : actionModal?.type === 'supplier'
-      ? 'This marks the item as returned to its supplier. Product sellable stock will not change.'
-      : 'Choose the valid product batch that will receive this item back into sellable inventory.';
-
-  const confirmTitle =
-    confirm?.type === 'dispose'
-      ? 'Confirm disposal'
-      : confirm?.type === 'supplier'
-      ? 'Confirm supplier return'
-      : 'Confirm release to stock';
-
-  const confirmDescription =
-    confirm?.type === 'dispose'
-      ? `Dispose ${confirm?.item?.quantity || 0} unit(s) of ${
-          confirm?.item?.name || 'this item'
-        }?`
-      : confirm?.type === 'supplier'
-      ? `Mark ${confirm?.item?.quantity || 0} unit(s) of ${
-          confirm?.item?.name || 'this item'
-        } as returned to the supplier?`
-      : `Release ${confirm?.item?.quantity || 0} unit(s) of ${
-          confirm?.item?.name || 'this item'
-        } to sellable stock?`;
+  const selectedItem = actionModal?.item;
+  const selectedType = actionModal?.type;
 
   return (
     <div>
@@ -228,7 +195,7 @@ export default function QuarantinePage() {
           <h1>Quarantine items</h1>
           <p>
             Inspect returned products before disposal, supplier
-            return, or release to stock.
+            return, or release to sellable stock.
           </p>
         </div>
 
@@ -314,12 +281,11 @@ export default function QuarantinePage() {
                     </td>
 
                     <td>{item.reason || '—'}</td>
-
                     <td>{dateOnly(item.createdAt)}</td>
 
                     <td>
                       <span className="movement-pill">
-                        {item.status.replaceAll('_', ' ')}
+                        {String(item.status || '').replaceAll('_', ' ')}
                       </span>
                     </td>
 
@@ -378,11 +344,14 @@ export default function QuarantinePage() {
 
       {actionModal && (
         <div className="modal-backdrop">
-          <div className="modal-card compact-modal">
+          <form
+            className="modal-card compact-modal"
+            onSubmit={submitAction}
+          >
             <div className="modal-header">
               <div>
                 <p className="eyebrow">QUARANTINE ACTION</p>
-                <h3>{actionTitle}</h3>
+                <h3>{actionTitle(selectedType)}</h3>
               </div>
 
               <button
@@ -390,7 +359,7 @@ export default function QuarantinePage() {
                 className="icon-btn"
                 onClick={closeActionModal}
                 disabled={actionLoading}
-                aria-label="Close action modal"
+                aria-label="Close quarantine action"
               >
                 <X size={20} />
               </button>
@@ -400,35 +369,56 @@ export default function QuarantinePage() {
               <div>
                 <span>Product</span>
                 <strong>
-                  {actionModal.item.product?.name ||
-                    actionModal.item.name}
+                  {selectedItem.product?.name || selectedItem.name}
                 </strong>
               </div>
 
               <div>
                 <span>Quantity</span>
-                <strong>{actionModal.item.quantity}</strong>
+                <strong>{selectedItem.quantity}</strong>
               </div>
 
               <div>
                 <span>Condition</span>
-                <strong>{actionModal.item.condition}</strong>
+                <strong>{selectedItem.condition}</strong>
               </div>
 
               <div>
-                <span>Status</span>
+                <span>Current status</span>
                 <strong>
-                  {actionModal.item.status.replaceAll('_', ' ')}
+                  {String(selectedItem.status || '').replaceAll(
+                    '_',
+                    ' '
+                  )}
                 </strong>
               </div>
             </div>
 
-            <p>{actionDescription}</p>
+            {selectedType === 'dispose' && (
+              <p>
+                This will mark the item as disposed. It does not
+                increase sellable inventory.
+              </p>
+            )}
 
-            {actionModal.type === 'release' && (
+            {selectedType === 'supplier' && (
+              <p>
+                This will mark the item as returned to the supplier.
+                It does not increase sellable inventory.
+              </p>
+            )}
+
+            {selectedType === 'release' && (
+              <p>
+                Choose a valid, non-expired batch before placing this
+                item back into sellable inventory.
+              </p>
+            )}
+
+            {selectedType === 'release' && (
               <div className="modal-form">
                 <label>
-                  <span>Select receiving batch *</span>
+                  <span>Receiving batch *</span>
 
                   {loadingBatches ? (
                     <div className="page-loading">
@@ -441,13 +431,14 @@ export default function QuarantinePage() {
                         setSelectedBatchId(event.target.value)
                       }
                       disabled={
-                        actionLoading || !batches.length
+                        actionLoading || batches.length === 0
                       }
+                      required
                     >
                       <option value="">
                         {batches.length
                           ? 'Choose a valid non-expired batch'
-                          : 'No valid batches available'}
+                          : 'No valid batch available'}
                       </option>
 
                       {batches.map(batch => (
@@ -459,11 +450,11 @@ export default function QuarantinePage() {
                   )}
                 </label>
 
-                {!loadingBatches && !batches.length && (
+                {!loadingBatches && batches.length === 0 && (
                   <div className="form-error">
-                    No active non-expired batch exists for this
-                    product. Create or receive a valid batch before
-                    releasing this item to stock.
+                    No active, non-expired batch is available for this
+                    product. Create or receive a batch before releasing
+                    stock.
                   </div>
                 )}
               </div>
@@ -472,7 +463,7 @@ export default function QuarantinePage() {
             <div className="modal-form" style={{ marginTop: 14 }}>
               <label>
                 <span>
-                  {actionModal.type === 'supplier'
+                  {selectedType === 'supplier'
                     ? 'Supplier return reference / notes'
                     : 'Notes'}
                 </span>
@@ -483,9 +474,9 @@ export default function QuarantinePage() {
                   onChange={event => setNotes(event.target.value)}
                   disabled={actionLoading}
                   placeholder={
-                    actionModal.type === 'dispose'
+                    selectedType === 'dispose'
                       ? 'Example: Product disposed according to store policy'
-                      : actionModal.type === 'supplier'
+                      : selectedType === 'supplier'
                       ? 'Example: Supplier return reference #SR-001'
                       : 'Example: Packaging inspected and approved for resale'
                   }
@@ -504,50 +495,27 @@ export default function QuarantinePage() {
               </button>
 
               <button
-                type="button"
+                type="submit"
                 className={
-                  actionModal.type === 'dispose'
+                  selectedType === 'dispose'
                     ? 'danger-btn'
                     : 'primary-btn'
                 }
-                onClick={prepareAction}
                 disabled={
                   actionLoading ||
                   loadingBatches ||
-                  (actionModal.type === 'release' &&
-                    (!selectedBatchId || !batches.length))
+                  (selectedType === 'release' &&
+                    (!selectedBatchId || batches.length === 0))
                 }
               >
-                {actionModal.type === 'dispose'
-                  ? 'Continue disposal'
-                  : actionModal.type === 'supplier'
-                  ? 'Continue supplier return'
-                  : 'Continue release'}
+                {actionButtonLabel(
+                  selectedType,
+                  actionLoading
+                )}
               </button>
             </div>
-          </div>
+          </form>
         </div>
-      )}
-
-      {confirm && (
-        <ConfirmDialog
-          title={confirmTitle}
-          description={confirmDescription}
-          confirmText={
-            confirm.type === 'dispose'
-              ? 'Dispose'
-              : confirm.type === 'supplier'
-              ? 'Return to supplier'
-              : 'Release to stock'
-          }
-          loading={actionLoading}
-          onCancel={() => {
-            if (!actionLoading) {
-              setConfirm(null);
-            }
-          }}
-          onConfirm={processAction}
-        />
       )}
     </div>
   );

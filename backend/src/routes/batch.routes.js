@@ -19,63 +19,73 @@ const router = Router();
 
 router.use(protect);
 
-// List all active batches
+/*
+ * Staff may scan and read batch/product information,
+ * but cannot change stock quantities.
+ */
+
+// List active batches
 router.get(
   '/',
   allowRoles('admin', 'manager', 'staff'),
   listBatches
 );
 
-// Expiring soon (used by your Expiring Soon page)
+// Expiring batches
 router.get(
   '/expiring-soon',
   allowRoles('admin', 'manager', 'staff'),
   listExpiringSoonBatches
 );
 
-// Trace / recall
+// Batch trace / recall lookup
 router.get(
   '/trace/:batchNumber',
   allowRoles('admin', 'manager', 'staff'),
   traceBatch
 );
 
-// By barcode
+// Scanner barcode lookup
 router.get(
   '/barcode/:barcode',
   allowRoles('admin', 'manager', 'staff'),
   getBatchesByBarcode
 );
 
-// By product ID
+// Product batch lookup
 router.get(
   '/product/:productId',
   allowRoles('admin', 'manager', 'staff'),
   getBatchesByProductId
 );
 
-// Receive stock into a new batch
+/*
+ * Inventory-changing actions:
+ * Admin and Manager only.
+ */
+
+// Receive a new stock batch
 router.post(
   '/receive',
-  allowRoles('admin', 'manager', 'staff'),
+  allowRoles('admin', 'manager'),
   receiveStockBatch
 );
 
-// Update batch (e.g. expiration date)
+// Update batch metadata, such as expiry date
 router.put(
   '/:id',
   allowRoles('admin', 'manager'),
   updateBatch
 );
 
-// Damage / destroy batch
+// Remove damaged/destroyed inventory
 router.post(
   '/:id/damage',
   allowRoles('admin', 'manager'),
   damageBatch
 );
 
-// Adjust batch quantity (stocktake)
+// Change physical batch quantity after stocktake
 router.post(
   '/:id/adjust',
   allowRoles('admin', 'manager'),

@@ -10,7 +10,7 @@ import { getErrorMessage } from '../../utils/errors';
 import { peso } from '../../utils/format';
 
 function quantityBadgeClass(value) {
-  if (value <= 0) {
+  if (Number(value || 0) <= 0) {
     return 'quantity-negative';
   }
 
@@ -46,6 +46,10 @@ export default function ReturnSaleModal({
 
       setBalanceData(data);
 
+      /*
+       * If a sale was returned elsewhere while this modal is open,
+       * remove any selected product that is no longer returnable.
+       */
       setSelected(previous =>
         previous.filter(selectedItem => {
           const balanceItem = (data.items || []).find(
@@ -54,7 +58,9 @@ export default function ReturnSaleModal({
               selectedItem.saleItemIndex
           );
 
-          return balanceItem?.remainingReturnable > 0;
+          return Number(
+            balanceItem?.remainingReturnable || 0
+          ) > 0;
         })
       );
     } catch (err) {
@@ -143,15 +149,8 @@ export default function ReturnSaleModal({
         }
 
         /*
-         * Allow the field to be blank while the user is editing.
-         *
-         * Example:
-         * Current value: 1
-         * User deletes it: ''
-         * User types: 50
-         *
-         * Validation still happens when input loses focus
-         * and again when Confirm return is clicked.
+         * Let the user fully delete the initial "1" so they can
+         * type "50", "25", or any other desired whole quantity.
          */
         if (value === '') {
           return {
@@ -161,43 +160,25 @@ export default function ReturnSaleModal({
         }
 
         /*
-         * Only whole-number typed values are accepted.
-         * HTML number inputs can still provide values such as
-         * "2.5", "-", or "e", so protect the state here.
+         * Only allow digit characters. This rejects decimals,
+         * negative values, exponent syntax, and non-number text.
          */
         if (!/^\d+$/.test(value)) {
           return item;
         }
 
-        const requestedQuantity = Number(value);
-        const balanceItem = getBalanceItem(index);
-        const maximumQuantity = Number(
-          balanceItem?.remainingReturnable || 0
-        );
-
-        if (
-          !Number.isInteger(requestedQuantity) ||
-          requestedQuantity < 0
-        ) {
-          return item;
-        }
-
         /*
-         * Do not force a minimum of 1 while typing.
-         * The onBlur handler and submit validation will
-         * correct 0 or blank values safely.
+         * Preserve the typed quantity while editing. The blur handler
+         * and final submission validation enforce the permitted range.
+         *
+         * Example:
+         * Sold: 60
+         * Available: 60
+         * User can erase 1 then type 50.
          */
         return {
           ...item,
-          quantity:
-            maximumQuantity > 0
-              ? String(
-                  Math.min(
-                    requestedQuantity,
-                    maximumQuantity
-                  )
-                )
-              : ''
+          quantity: value
         };
       })
     );
@@ -211,7 +192,7 @@ export default function ReturnSaleModal({
       return;
     }
 
-    const currentQuantity = Number(
+    const enteredQuantity = Number(
       selectedItem.quantity
     );
 
@@ -220,18 +201,23 @@ export default function ReturnSaleModal({
     );
 
     const correctedQuantity =
-      Number.isInteger(currentQuantity) &&
-      currentQuantity >= 1
+      Number.isInteger(enteredQuantity) &&
+      enteredQuantity >= 1
         ? Math.min(
-            currentQuantity,
+            enteredQuantity,
             maximumQuantity
           )
         : 1;
 
-    updateSelectedItem(
-      index,
-      'quantity',
-      String(correctedQuantity)
+    setSelected(previous =>
+      previous.map(item =>
+        item.saleItemIndex === index
+          ? {
+              ...item,
+              quantity: String(correctedQuantity)
+            }
+          : item
+      )
     );
   }
 
@@ -249,9 +235,14 @@ export default function ReturnSaleModal({
         selectedItem.quantity
       );
 
+      const availableQuantity = Number(
+        balanceItem.remainingReturnable || 0
+      );
+
       if (
         !Number.isInteger(quantity) ||
-        quantity < 1
+        quantity < 1 ||
+        quantity > availableQuantity
       ) {
         return total;
       }
@@ -286,7 +277,9 @@ export default function ReturnSaleModal({
         selectedItem.saleItemIndex
       );
 
-      const quantity = Number(selectedItem.quantity);
+      const quantity = Number(
+        selectedItem.quantity
+      );
 
       return (
         !balanceItem ||
@@ -555,9 +548,7 @@ export default function ReturnSaleModal({
                         <td>
                           <strong
                             className={quantityBadgeClass(
-                              Number(
-                                balanceItem.remainingReturnable || 0
-                              )
+                              balanceItem.remainingReturnable
                             )}
                           >
                             {balanceItem.remainingReturnable}

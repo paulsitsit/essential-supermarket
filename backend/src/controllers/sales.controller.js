@@ -61,13 +61,38 @@ export async function listSales(req, res) {
   const {
     page = 1,
     limit = 20,
-    status
+    status,
+    search
   } = req.query;
 
   const filter = {};
 
   if (status) {
     filter.status = status;
+  }
+
+  const searchText = String(search || '').trim();
+
+  if (searchText) {
+    const escapedSearch = searchText.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      '\\$&'
+    );
+
+    filter.$or = [
+      {
+        receiptNumber: {
+          $regex: escapedSearch,
+          $options: 'i'
+        }
+      },
+      {
+        saleNumber: {
+          $regex: escapedSearch,
+          $options: 'i'
+        }
+      }
+    ];
   }
 
   const safePage = Math.max(Number(page) || 1, 1);
@@ -85,7 +110,8 @@ export async function listSales(req, res) {
     )
     .sort({ createdAt: -1 })
     .limit(safeLimit)
-    .skip((safePage - 1) * safeLimit);
+    .skip((safePage - 1) * safeLimit)
+    .lean();
 
   const total = await Sale.countDocuments(filter);
 
@@ -101,6 +127,49 @@ export async function listSales(req, res) {
       )
     }
   });
+}
+
+export async function getSaleByReceiptNumber(req, res) {
+  try {
+    const receiptNumber = decodeURIComponent(
+      String(req.params.receiptNumber || '')
+    )
+      .trim()
+      .toUpperCase();
+
+    if (!receiptNumber) {
+      return res.status(400).json({
+        error: 'Receipt number is required'
+      });
+    }
+
+    const sale = await Sale.findOne({
+      receiptNumber
+    })
+      .populate('cashier', 'fullName role')
+      .populate('items.product', 'name barcode currentStock')
+      .populate(
+        'items.batchAllocations.batch',
+        'batchNumber expirationDate quantity'
+      )
+      .lean();
+
+    if (!sale) {
+      return res.status(404).json({
+        error: `No sale was found for receipt ${receiptNumber}`
+      });
+    }
+
+    res.json({
+      sale
+    });
+  } catch (err) {
+    res.status(500).json({
+      error:
+        err.message ||
+        'Unable to look up the receipt'
+    });
+  }
 }
 
 export async function createSale(req, res) {

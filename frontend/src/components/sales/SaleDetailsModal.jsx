@@ -18,7 +18,10 @@ export default function SaleDetailsModal({ sale, onClose, account }) {
           <div className="modal-header">
             <div>
               <p className="eyebrow">SALE DETAILS</p>
-              <h3>Sale #{sale._id.slice(-8)}</h3>
+              <h3>
+                {sale.receiptNumber ||
+                  `Sale #${sale._id.slice(-8)}`}
+              </h3>
             </div>
 
             <button
@@ -32,6 +35,13 @@ export default function SaleDetailsModal({ sale, onClose, account }) {
           </div>
 
           <div className="stock-summary" style={{ marginBottom: 12 }}>
+            <div>
+              <span>Receipt number</span>
+              <strong className="mono-text">
+                {sale.receiptNumber || '—'}
+              </strong>
+            </div>
+
             <div>
               <span>Date</span>
               <strong>{dateTime(sale.createdAt)}</strong>

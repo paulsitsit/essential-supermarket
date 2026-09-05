@@ -329,7 +329,7 @@ export async function createSale(req, res) {
             {
               product: product._id,
               account: req.account._id,
-              movementType: 'stock_adjustment',
+              movementType: 'sale',
               quantityChanged: -quantity,
               previousStock,
               newStock,

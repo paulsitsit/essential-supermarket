@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-    <string name="app_name">Essential Supermarket</string>
-    <string name="title_activity_main">Essential Supermarket</string>
-    <string name="package_name">com.essentialsupermarket.app</string>
-    <string name="custom_url_scheme">com.essentialsupermarket.app</string>
-</resources>

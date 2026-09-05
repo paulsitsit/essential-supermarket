@@ -178,6 +178,5 @@ saleSchema.pre('validate', function (next) {
 saleSchema.index({ createdAt: -1 });
 saleSchema.index({ cashier: 1, createdAt: -1 });
 saleSchema.index({ status: 1, createdAt: -1 });
-saleSchema.index({ receiptNumber: 1 });
 
 export default mongoose.model('Sale', saleSchema);

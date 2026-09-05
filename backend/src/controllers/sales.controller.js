@@ -15,39 +15,46 @@ import {
   syncExpirationAlertsForProduct
 } from '../services/expirationAlert.service.js';
 
+function getReceiptDatePart(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}${month}${day}`;
+}
+
 async function generateReceiptNumber(session) {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const datePart = `${year}${month}${day}`;
+  const datePart = getReceiptDatePart();
+  const prefix = `ES-MAIN-${datePart}-`;
 
-  let attempt = 0;
-  const maxAttempts = 10;
-
-  while (attempt < maxAttempts) {
-    const sequence = await Sale.countDocuments({
-      receiptNumber: {
-        $regex: `^RCP-${datePart}-`
-      }
-    }).session(session);
-
-    const sequenceNumber = String(sequence + 1).padStart(4, '0');
-    const candidate = `RCP-${datePart}-${sequenceNumber}`;
-
-    const exists = await Sale.findOne({
-      receiptNumber: candidate
-    }).session(session);
-
-    if (!exists) {
-      return candidate;
+  const latestSale = await Sale.findOne({
+    receiptNumber: {
+      $regex: `^${prefix}`
     }
+  })
+    .sort({
+      receiptNumber: -1
+    })
+    .select('receiptNumber')
+    .session(session)
+    .lean();
 
-    attempt++;
+  let nextSequence = 1;
+
+  if (latestSale?.receiptNumber) {
+    const previousSequence = Number(
+      latestSale.receiptNumber.split('-').pop()
+    );
+
+    if (
+      Number.isInteger(previousSequence) &&
+      previousSequence >= 0
+    ) {
+      nextSequence = previousSequence + 1;
+    }
   }
 
-  const fallback = `RCP-${datePart}-${Date.now().toString().slice(-4)}`;
-  return fallback;
+  return `${prefix}${String(nextSequence).padStart(6, '0')}`;
 }
 
 export async function listSales(req, res) {
@@ -63,6 +70,12 @@ export async function listSales(req, res) {
     filter.status = status;
   }
 
+  const safePage = Math.max(Number(page) || 1, 1);
+  const safeLimit = Math.min(
+    Math.max(Number(limit) || 20, 1),
+    100
+  );
+
   const sales = await Sale.find(filter)
     .populate('cashier', 'fullName role')
     .populate('items.product', 'name barcode')
@@ -71,21 +84,20 @@ export async function listSales(req, res) {
       'batchNumber expirationDate'
     )
     .sort({ createdAt: -1 })
-    .limit(Number(limit))
-    .skip(
-      (Number(page) - 1) * Number(limit)
-    );
+    .limit(safeLimit)
+    .skip((safePage - 1) * safeLimit);
 
   const total = await Sale.countDocuments(filter);
 
   res.json({
     sales,
     pagination: {
-      page: Number(page),
-      limit: Number(limit),
+      page: safePage,
+      limit: safeLimit,
       total,
-      pages: Math.ceil(
-        total / Number(limit)
+      pages: Math.max(
+        1,
+        Math.ceil(total / safeLimit)
       )
     }
   });
@@ -112,6 +124,21 @@ export async function createSale(req, res) {
     });
   }
 
+  const allowedPaymentMethods = [
+    'cash',
+    'card',
+    'gcash',
+    'paymaya'
+  ];
+
+  if (
+    !allowedPaymentMethods.includes(paymentMethod)
+  ) {
+    return res.status(400).json({
+      message: 'Invalid payment method'
+    });
+  }
+
   const io = req.app.get('io');
   const session = await Product.startSession();
 
@@ -121,8 +148,6 @@ export async function createSale(req, res) {
 
   try {
     session.startTransaction();
-
-    preparedItems = [];
 
     for (const item of items) {
       const product = await Product.findById(
@@ -141,18 +166,20 @@ export async function createSale(req, res) {
       const quantity = Number(item.quantity || 0);
 
       if (
-        !Number.isFinite(quantity) ||
+        !Number.isInteger(quantity) ||
         quantity <= 0
       ) {
         const error = new Error(
-          'Quantity must be greater than zero'
+          'Quantity must be a whole number greater than zero'
         );
 
         error.statusCode = 400;
         throw error;
       }
 
-      if (Number(product.currentStock || 0) < quantity) {
+      if (
+        Number(product.currentStock || 0) < quantity
+      ) {
         const error = new Error(
           `Insufficient stock for ${product.name}`
         );
@@ -229,17 +256,19 @@ export async function createSale(req, res) {
 
       const createdMovement =
         await StockMovement.create(
-          [{
-            product: product._id,
-            account: req.account._id,
-            movementType: 'stock_adjustment',
-            quantityChanged: -quantity,
-            previousStock,
-            newStock,
-            reason: 'POS sale',
-            branch: product.branch,
-            batchAllocations
-          }],
+          [
+            {
+              product: product._id,
+              account: req.account._id,
+              movementType: 'stock_adjustment',
+              quantityChanged: -quantity,
+              previousStock,
+              newStock,
+              reason: 'POS sale',
+              branch: product.branch,
+              batchAllocations
+            }
+          ],
           { session }
         );
 
@@ -259,17 +288,22 @@ export async function createSale(req, res) {
       totalAmount += subtotal;
     }
 
-    const receiptNumber = await generateReceiptNumber(session);
+    const receiptNumber = await generateReceiptNumber(
+      session
+    );
 
     const createdSale = await Sale.create(
-      [{
-        cashier: req.account._id,
-        receiptNumber,
-        items: saleItems,
-        totalAmount,
-        paymentMethod,
-        status: 'completed'
-      }],
+      [
+        {
+          cashier: req.account._id,
+          receiptNumber,
+          items: saleItems,
+          totalAmount,
+          paymentMethod,
+          branch: 'Main Branch',
+          status: 'completed'
+        }
+      ],
       { session }
     );
 
@@ -281,6 +315,7 @@ export async function createSale(req, res) {
       action: 'sale_completed',
       affectedRecord: sale._id.toString(),
       metadata: {
+        receiptNumber,
         totalAmount,
         itemCount: saleItems.length,
         stockMovementIds: stockMovements.map(
@@ -292,35 +327,32 @@ export async function createSale(req, res) {
 
     await session.commitTransaction();
 
-    /*
-     * The transaction has succeeded at this point.
-     * Return success to the client now.
-     */
+    const saleForReceipt = await Sale.findById(sale._id)
+      .populate('cashier', 'fullName role')
+      .populate('items.product', 'name barcode')
+      .populate(
+        'items.batchAllocations.batch',
+        'batchNumber expirationDate'
+      )
+      .lean();
+
     res.status(201).json({
-      sale,
+      message: 'Sale completed successfully',
+      receiptNumber: saleForReceipt.receiptNumber,
+      sale: saleForReceipt,
       movements: stockMovements
     });
 
-    /*
-     * Run non-critical work after responding.
-     * Any failure here must not change a completed sale
-     * into a 500 response.
-     */
     void runPostSaleEffects({
       preparedItems,
       account: req.account,
       req,
       io,
-      sale
+      sale: saleForReceipt
     });
   } catch (err) {
     console.error('Create sale error:', err);
 
-    /*
-     * Only abort an active transaction.
-     * Calling abortTransaction after commitTransaction causes:
-     * "Cannot call abortTransaction after calling commitTransaction".
-     */
     if (session.inTransaction()) {
       try {
         await session.abortTransaction();

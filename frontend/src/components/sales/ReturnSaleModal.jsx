@@ -1,11 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, CheckCircle2, LoaderCircle, X } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle2,
+  LoaderCircle,
+  X
+} from 'lucide-react';
 import client from '../../api/client';
 import { getErrorMessage } from '../../utils/errors';
 import { peso } from '../../utils/format';
 
 function quantityBadgeClass(value) {
-  if (value <= 0) return 'quantity-negative';
+  if (value <= 0) {
+    return 'quantity-negative';
+  }
+
   return 'quantity-positive';
 }
 
@@ -22,7 +30,9 @@ export default function ReturnSaleModal({
   const [error, setError] = useState('');
 
   async function loadBalance() {
-    if (!sale?._id) return;
+    if (!sale?._id) {
+      return;
+    }
 
     setLoadingBalance(true);
     setError('');
@@ -61,6 +71,8 @@ export default function ReturnSaleModal({
 
   useEffect(() => {
     loadBalance();
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sale?._id]);
 
   const balanceItems = balanceData?.items || [];
@@ -78,7 +90,10 @@ export default function ReturnSaleModal({
   }
 
   function addItem(balanceItem) {
-    if (!balanceItem || balanceItem.remainingReturnable <= 0) {
+    if (
+      !balanceItem ||
+      Number(balanceItem.remainingReturnable || 0) <= 0
+    ) {
       return;
     }
 
@@ -89,13 +104,15 @@ export default function ReturnSaleModal({
           balanceItem.saleItemIndex
       );
 
-      if (alreadySelected) return previous;
+      if (alreadySelected) {
+        return previous;
+      }
 
       return [
         ...previous,
         {
           saleItemIndex: balanceItem.saleItemIndex,
-          quantity: 1,
+          quantity: '1',
           condition: 'resellable',
           reason: ''
         }
@@ -118,28 +135,103 @@ export default function ReturnSaleModal({
           return item;
         }
 
-        const balanceItem = getBalanceItem(index);
-
-        if (field === 'quantity') {
-          const requestedQuantity = Number(value) || 1;
-
-          const maximumQuantity =
-            balanceItem?.remainingReturnable || 1;
-
+        if (field !== 'quantity') {
           return {
             ...item,
-            quantity: Math.min(
-              Math.max(requestedQuantity, 1),
-              maximumQuantity
-            )
+            [field]: value
           };
         }
 
+        /*
+         * Allow the field to be blank while the user is editing.
+         *
+         * Example:
+         * Current value: 1
+         * User deletes it: ''
+         * User types: 50
+         *
+         * Validation still happens when input loses focus
+         * and again when Confirm return is clicked.
+         */
+        if (value === '') {
+          return {
+            ...item,
+            quantity: ''
+          };
+        }
+
+        /*
+         * Only whole-number typed values are accepted.
+         * HTML number inputs can still provide values such as
+         * "2.5", "-", or "e", so protect the state here.
+         */
+        if (!/^\d+$/.test(value)) {
+          return item;
+        }
+
+        const requestedQuantity = Number(value);
+        const balanceItem = getBalanceItem(index);
+        const maximumQuantity = Number(
+          balanceItem?.remainingReturnable || 0
+        );
+
+        if (
+          !Number.isInteger(requestedQuantity) ||
+          requestedQuantity < 0
+        ) {
+          return item;
+        }
+
+        /*
+         * Do not force a minimum of 1 while typing.
+         * The onBlur handler and submit validation will
+         * correct 0 or blank values safely.
+         */
         return {
           ...item,
-          [field]: value
+          quantity:
+            maximumQuantity > 0
+              ? String(
+                  Math.min(
+                    requestedQuantity,
+                    maximumQuantity
+                  )
+                )
+              : ''
         };
       })
+    );
+  }
+
+  function correctQuantityOnBlur(index) {
+    const selectedItem = getSelectedItem(index);
+    const balanceItem = getBalanceItem(index);
+
+    if (!selectedItem || !balanceItem) {
+      return;
+    }
+
+    const currentQuantity = Number(
+      selectedItem.quantity
+    );
+
+    const maximumQuantity = Number(
+      balanceItem.remainingReturnable || 0
+    );
+
+    const correctedQuantity =
+      Number.isInteger(currentQuantity) &&
+      currentQuantity >= 1
+        ? Math.min(
+            currentQuantity,
+            maximumQuantity
+          )
+        : 1;
+
+    updateSelectedItem(
+      index,
+      'quantity',
+      String(correctedQuantity)
     );
   }
 
@@ -149,10 +241,20 @@ export default function ReturnSaleModal({
         selectedItem.saleItemIndex
       );
 
-      if (!balanceItem) return total;
+      if (!balanceItem) {
+        return total;
+      }
 
-      const quantity =
-        Number(selectedItem.quantity) || 0;
+      const quantity = Number(
+        selectedItem.quantity
+      );
+
+      if (
+        !Number.isInteger(quantity) ||
+        quantity < 1
+      ) {
+        return total;
+      }
 
       return (
         total +
@@ -163,7 +265,9 @@ export default function ReturnSaleModal({
 
   async function handleSubmit() {
     if (loadingBalance) {
-      setError('Please wait for return balances to load.');
+      setError(
+        'Please wait for return balances to load.'
+      );
       return;
     }
 
@@ -188,7 +292,8 @@ export default function ReturnSaleModal({
         !balanceItem ||
         !Number.isInteger(quantity) ||
         quantity < 1 ||
-        quantity > balanceItem.remainingReturnable
+        quantity >
+          Number(balanceItem.remainingReturnable || 0)
       );
     });
 
@@ -198,9 +303,9 @@ export default function ReturnSaleModal({
       );
 
       setError(
-        `${balanceItem?.name || 'Selected item'}: only ${
+        `${balanceItem?.name || 'Selected item'}: enter a whole-number quantity between 1 and ${
           balanceItem?.remainingReturnable || 0
-        } unit(s) remain eligible for return.`
+        }.`
       );
 
       return;
@@ -222,7 +327,6 @@ export default function ReturnSaleModal({
       });
 
       onSuccess?.(response.data);
-
       onClose();
     } catch (err) {
       setError(
@@ -240,6 +344,13 @@ export default function ReturnSaleModal({
 
   const saleInfo = balanceData?.sale || sale;
 
+  const allItemsFullyReturned =
+    balanceItems.length > 0 &&
+    balanceItems.every(
+      item =>
+        Number(item.remainingReturnable || 0) <= 0
+    );
+
   return (
     <div className="modal-backdrop">
       <div
@@ -248,10 +359,17 @@ export default function ReturnSaleModal({
       >
         <div className="modal-header">
           <div>
-            <p className="eyebrow">PROCESS RETURN</p>
+            <p className="eyebrow">
+              PROCESS RETURN
+            </p>
+
             <h3>
               {saleInfo?.reference ||
-                `Sale #${sale._id.slice(-8).toUpperCase()}`}
+                saleInfo?.receiptNumber ||
+                sale?.receiptNumber ||
+                `Sale #${sale._id
+                  .slice(-8)
+                  .toUpperCase()}`}
             </h3>
           </div>
 
@@ -334,7 +452,7 @@ export default function ReturnSaleModal({
 
         <div style={{ marginBottom: 12 }}>
           <h4 style={{ marginBottom: 8 }}>
-            Select returned items
+            Select products to return
           </h4>
 
           {loadingBalance ? (
@@ -372,7 +490,9 @@ export default function ReturnSaleModal({
                     );
 
                     const unavailable =
-                      balanceItem.remainingReturnable <= 0;
+                      Number(
+                        balanceItem.remainingReturnable || 0
+                      ) <= 0;
 
                     return (
                       <tr
@@ -435,7 +555,9 @@ export default function ReturnSaleModal({
                         <td>
                           <strong
                             className={quantityBadgeClass(
-                              balanceItem.remainingReturnable
+                              Number(
+                                balanceItem.remainingReturnable || 0
+                              )
                             )}
                           >
                             {balanceItem.remainingReturnable}
@@ -450,6 +572,8 @@ export default function ReturnSaleModal({
                               max={
                                 balanceItem.remainingReturnable
                               }
+                              step="1"
+                              inputMode="numeric"
                               value={selectedItem.quantity}
                               disabled={submitting}
                               onChange={event =>
@@ -457,6 +581,11 @@ export default function ReturnSaleModal({
                                   balanceItem.saleItemIndex,
                                   'quantity',
                                   event.target.value
+                                )
+                              }
+                              onBlur={() =>
+                                correctQuantityOnBlur(
+                                  balanceItem.saleItemIndex
                                 )
                               }
                               style={{ width: 76 }}
@@ -536,16 +665,12 @@ export default function ReturnSaleModal({
           )}
         </div>
 
-        {!loadingBalance &&
-          balanceItems.length > 0 &&
-          balanceItems.every(
-            item => item.remainingReturnable <= 0
-          ) && (
-            <div className="success-message">
-              <CheckCircle2 size={16} />
-              All items from this sale have already been returned.
-            </div>
-          )}
+        {!loadingBalance && allItemsFullyReturned && (
+          <div className="success-message">
+            <CheckCircle2 size={16} />
+            All items from this sale have already been returned.
+          </div>
+        )}
 
         <div className="modal-form">
           <label>
@@ -577,6 +702,19 @@ export default function ReturnSaleModal({
             <strong className="quantity-negative">
               {peso(totalRefund)}
             </strong>
+
+            <small
+              style={{
+                display: 'block',
+                marginTop: 4,
+                color: '#64748b',
+                fontSize: 11,
+                fontWeight: 400
+              }}
+            >
+              Refunds are calculated from selected
+              products and quantities.
+            </small>
           </div>
         </div>
 
@@ -597,9 +735,7 @@ export default function ReturnSaleModal({
             disabled={
               submitting ||
               loadingBalance ||
-              balanceItems.every(
-                item => item.remainingReturnable <= 0
-              )
+              allItemsFullyReturned
             }
           >
             {submitting

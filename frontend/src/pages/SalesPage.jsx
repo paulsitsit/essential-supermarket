@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  Camera,
   Eye,
   RefreshCw,
   Search,
@@ -9,6 +10,7 @@ import client from '../api/client';
 import GlassCard from '../components/common/GlassCard';
 import EmptyState from '../components/common/EmptyState';
 import SaleDetailsModal from '../components/sales/SaleDetailsModal';
+import ReceiptScannerModal from '../components/sales/ReceiptScannerModal';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '../utils/errors';
 import { dateTime, peso } from '../utils/format';
@@ -58,6 +60,8 @@ export default function SalesPage() {
 
   const [search, setSearch] = useState('');
   const [receiptNumber, setReceiptNumber] = useState('');
+  const [showReceiptScanner, setShowReceiptScanner] =
+    useState(false);
 
   async function load(resetPage = false) {
     setLoading(true);
@@ -136,6 +140,40 @@ export default function SalesPage() {
         matchedSale.receiptNumber ||
           normalizedReceipt
       );
+
+      setSelectedSale(matchedSale);
+    } catch (err) {
+      setError(
+        getErrorMessage(
+          err,
+          'No sale was found for that receipt.'
+        )
+      );
+    } finally {
+      setLookupLoading(false);
+    }
+  }
+
+  async function handleReceiptDetected(scannedReceiptNumber) {
+    setReceiptNumber(scannedReceiptNumber);
+    setShowReceiptScanner(false);
+
+    setLookupLoading(true);
+    setError('');
+
+    try {
+      const response = await client.get(
+        `/sales/receipt/${encodeURIComponent(
+          scannedReceiptNumber
+        )}`
+      );
+
+      const matchedSale = response.data?.sale;
+
+      if (!matchedSale) {
+        setError('No sale was found for that receipt.');
+        return;
+      }
 
       setSelectedSale(matchedSale);
     } catch (err) {
@@ -253,6 +291,19 @@ export default function SalesPage() {
               }}
             />
           </div>
+
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={() => {
+              setError('');
+              setShowReceiptScanner(true);
+            }}
+            disabled={lookupLoading}
+          >
+            <Camera size={16} />
+            Scan receipt QR
+          </button>
 
           <button
             type="button"
@@ -449,6 +500,13 @@ export default function SalesPage() {
           </div>
         )}
       </GlassCard>
+
+      {showReceiptScanner && (
+        <ReceiptScannerModal
+          onClose={() => setShowReceiptScanner(false)}
+          onReceiptDetected={handleReceiptDetected}
+        />
+      )}
 
       {selectedSale && (
         <SaleDetailsModal

@@ -23,7 +23,7 @@ import returnsRoutes from './routes/returns.routes.js';
 import salesRoutes from './routes/sales.routes.js';
 import stockMovementRoutes from './routes/stockMovement.routes.js';
 import supplierRoutes from './routes/supplier.routes.js';
-import stockLedgerRoutes from './routes/stockLedger.routes.js'; // ADD THIS
+import stockLedgerRoutes from './routes/stockLedger.routes.js';
 
 // Import middleware
 import { errorHandler } from './middleware/error.js';
@@ -32,7 +32,7 @@ import { protect } from './middleware/auth.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const app = express(); // <-- app must be initialized BEFORE using it
+const app = express();
 
 // Trust proxy for rate limiting
 app.set('trust proxy', 1);
@@ -40,9 +40,24 @@ app.set('trust proxy', 1);
 // Security headers
 app.use(helmet());
 
-// CORS
+// CORS - Allow both localhost and production
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://essential-supermarket.vercel.app'
+];
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 
@@ -74,7 +89,7 @@ app.use('/api/returns', returnsRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/stock-movements', stockMovementRoutes);
 app.use('/api/suppliers', supplierRoutes);
-app.use('/api/stock-ledger', stockLedgerRoutes); // ADD THIS LINE
+app.use('/api/stock-ledger', stockLedgerRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

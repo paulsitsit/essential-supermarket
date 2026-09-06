@@ -403,11 +403,12 @@ export async function createProduct(req, res) {
   if (
     Number(data.currentStock || 0) < 0 ||
     Number(data.reorderLevel || 0) < 0 ||
-    Number(data.costPrice || 0) < 0
+    Number(data.costPrice || 0) < 0 ||
+    Number(data.sellingPrice || 0) < 0
   ) {
     return res.status(400).json({
       message:
-        'Inventory values cannot be negative'
+        'Inventory values and prices cannot be negative'
     });
   }
 
@@ -502,7 +503,8 @@ export async function updateProduct(req, res) {
     'unitType',
     'branch',
     'reorderLevel',
-    'costPrice'
+    'costPrice',
+    'sellingPrice'
   ];
 
   const updates = Object.fromEntries(
@@ -574,6 +576,16 @@ export async function updateProduct(req, res) {
     return res.status(400).json({
       message:
         'Cost price cannot be negative'
+    });
+  }
+
+  if (
+    updates.sellingPrice !== undefined &&
+    Number(updates.sellingPrice) < 0
+  ) {
+    return res.status(400).json({
+      message:
+        'Selling price cannot be negative'
     });
   }
 

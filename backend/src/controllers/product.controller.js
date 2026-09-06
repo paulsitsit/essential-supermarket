@@ -4,6 +4,7 @@ import { writeAudit } from '../utils/audit.js';
 import {
   createOrUpdateAlert
 } from '../services/inventory.service.js';
+
 import ProductBatch from '../models/ProductBatch.js';
 
 import {
@@ -16,11 +17,19 @@ import {
 
 import ExpirationAlert from '../models/ExpirationAlert.js';
 
-import { generateInternalBarcode } from '../utils/barcode.js';
-import { generateUniqueSku } from '../utils/sku.js';
+import {
+  generateInternalBarcode
+} from '../utils/barcode.js';
+
+import {
+  generateUniqueSku
+} from '../utils/sku.js';
 
 import multer from 'multer';
-import { recognizeProductImage } from '../utils/huggingFaceClient.js';
+
+import {
+  recognizeProductImage
+} from '../utils/huggingFaceClient.js';
 
 const upload = multer({
   storage: multer.memoryStorage()
@@ -53,7 +62,9 @@ async function fetchOpenFoodFactsProduct(barcode) {
     }
   });
 
-  if (!response.ok) return null;
+  if (!response.ok) {
+    return null;
+  }
 
   const result = await response.json();
 
@@ -99,12 +110,20 @@ export async function listProducts(req, res) {
       ? {}
       : { isArchived: false };
 
-  if (status) filter.status = status;
-  if (category) filter.category = category;
-  if (supplier) filter.supplier = supplier;
+  if (status) {
+    filter.status = status;
+  }
+
+  if (category) {
+    filter.category = category;
+  }
+
+  if (supplier) {
+    filter.supplier = supplier;
+  }
 
   if (search) {
-    const escapedSearch = search.replace(
+    const escapedSearch = String(search).replace(
       /[.*+?^${}()|[\]\\]/g,
       '\\$&'
     );
@@ -142,6 +161,22 @@ export async function getProduct(req, res) {
   res.json(product);
 }
 
+/*
+ * POS-only product lookup.
+ *
+ * This is used by the separate Cashier POS application:
+ * GET /api/products/scan/:barcode
+ *
+ * The route controls access. It should allow:
+ * admin, manager, staff, cashier
+ *
+ * Do not return sensitive inventory information to Cashier:
+ * - costPrice
+ * - supplier
+ * - reorderLevel
+ * - full batch records
+ * - stock history
+ */
 export async function scanProduct(req, res) {
   const rawCode = String(
     req.params.barcode || ''
@@ -161,16 +196,58 @@ export async function scanProduct(req, res) {
       { sku: upperCode },
       { qrCode: rawCode },
       { qrCode: upperCode }
-    ]
-  }).populate('category supplier', 'name');
+    ],
+    isArchived: false
+  })
+    .select(
+      [
+        '_id',
+        'name',
+        'barcode',
+        'sku',
+        'qrCode',
+        'brand',
+        'category',
+        'sellingPrice',
+        'price',
+        'currentStock',
+        'unitType'
+      ].join(' ')
+    )
+    .populate('category', 'name')
+    .lean();
 
-  if (!product || product.isArchived) {
+  if (!product) {
     return res.status(404).json({
       message: 'Product not found'
     });
   }
 
-  res.json(product);
+  /*
+   * The POS needs the price and current stock only to show
+   * the cashier what is being sold. Final stock validation
+   * happens again in createSale() at checkout.
+   */
+  const sellingPrice = Number(
+    product.sellingPrice ??
+      product.price ??
+      0
+  );
+
+  res.json({
+    id: product._id,
+    name: product.name,
+    barcode: product.barcode || '',
+    sku: product.sku || '',
+    qrCode: product.qrCode || '',
+    brand: product.brand || '',
+    category: product.category?.name || '',
+    sellingPrice: Number.isFinite(sellingPrice)
+      ? sellingPrice
+      : 0,
+    currentStock: Number(product.currentStock || 0),
+    unitType: product.unitType || 'piece'
+  });
 }
 
 export async function getProductBatches(req, res) {
@@ -245,16 +322,6 @@ export async function lookupExternalProduct(req, res) {
 
 export async function recognizeProduct(req, res) {
   try {
-    console.log(
-      'recognizeProduct content type:',
-      req.headers['content-type']
-    );
-
-    console.log(
-      'recognizeProduct has file:',
-      Boolean(req.file)
-    );
-
     if (!req.file) {
       return res.status(400).json({
         message:
@@ -457,8 +524,11 @@ export async function updateProduct(req, res) {
       .trim()
       .toUpperCase();
 
-    if (value) updates.barcode = value;
-    else delete updates.barcode;
+    if (value) {
+      updates.barcode = value;
+    } else {
+      delete updates.barcode;
+    }
   }
 
   if (updates.sku !== undefined) {
@@ -468,8 +538,11 @@ export async function updateProduct(req, res) {
       .trim()
       .toUpperCase();
 
-    if (value) updates.sku = value;
-    else delete updates.sku;
+    if (value) {
+      updates.sku = value;
+    } else {
+      delete updates.sku;
+    }
   }
 
   if (updates.qrCode !== undefined) {
@@ -477,8 +550,11 @@ export async function updateProduct(req, res) {
       updates.qrCode || ''
     ).trim();
 
-    if (value) updates.qrCode = value;
-    else delete updates.qrCode;
+    if (value) {
+      updates.qrCode = value;
+    } else {
+      delete updates.qrCode;
+    }
   }
 
   if (

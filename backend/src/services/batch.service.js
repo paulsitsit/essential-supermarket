@@ -128,7 +128,12 @@ export async function createReceivedBatch({
     createdBy: account._id
   });
 
-  return batch;
+  // For ledger: new batch starts at 0, then becomes receivedQuantity
+  return {
+    ...batch.toObject(),
+    batchStockBefore: 0,
+    batchStockAfter: receivedQuantity
+  };
 }
 
 export async function allocateBatchesFEFO({
@@ -215,14 +220,21 @@ export async function allocateBatchesFEFO({
       remaining
     );
 
-    batch.quantity -= allocatedQuantity;
+    // Capture stock levels BEFORE update
+    const batchStockBefore = batch.quantity;
+    const batchStockAfter = batch.quantity - allocatedQuantity;
+
+    // Update batch quantity
+    batch.quantity = batchStockAfter;
     await batch.save();
 
     allocations.push({
       batch: batch._id,
       batchNumber: batch.batchNumber || '',
       expirationDate: batch.expirationDate || null,
-      quantity: allocatedQuantity
+      quantity: allocatedQuantity,
+      batchStockBefore,
+      batchStockAfter
     });
 
     remaining -= allocatedQuantity;

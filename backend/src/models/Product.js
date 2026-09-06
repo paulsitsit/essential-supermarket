@@ -77,7 +77,23 @@ const productSchema = new mongoose.Schema(
       default: 10
     },
 
+    /*
+     * Internal procurement price per unit.
+     * Used to calculate inventory value.
+     * Never expose this to Cashier/POS scan responses.
+     */
     costPrice: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
+
+    /*
+     * Public retail price per unit.
+     * Used by the POS checkout controller.
+     * Required before a product can be sold.
+     */
+    sellingPrice: {
       type: Number,
       min: 0,
       default: 0
@@ -136,7 +152,8 @@ productSchema.index({
 
 productSchema.pre('save', function (next) {
   this.inventoryValue =
-    this.currentStock * this.costPrice;
+    Number(this.currentStock || 0) *
+    Number(this.costPrice || 0);
 
   if (this.status !== 'damaged') {
     if (this.currentStock === 0) {

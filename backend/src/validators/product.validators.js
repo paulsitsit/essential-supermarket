@@ -127,6 +127,22 @@ export const productCreateRules = [
       'Cost price cannot be negative'
     ),
 
+  /*
+   * POS retail price.
+   * Zero is permitted for drafts/non-sellable products,
+   * but sales.controller.js rejects it at checkout.
+   */
+  body('sellingPrice')
+    .optional({
+      values: 'falsy'
+    })
+    .isFloat({
+      min: 0
+    })
+    .withMessage(
+      'Selling price cannot be negative'
+    ),
+
   body('expirationDate')
     .optional({
       values: 'falsy'

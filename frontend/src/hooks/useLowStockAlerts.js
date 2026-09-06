@@ -53,7 +53,7 @@ export default function useLowStockAlerts() {
         lowStockResponse,
         expirationResponse
       ] = await Promise.all([
-        client.get('/low-stock-alerts'),
+        client.get('/alerts'),
         client.get('/expiration-alerts')
       ]);
 
@@ -133,7 +133,7 @@ export default function useLowStockAlerts() {
     const endpoint =
       alertType === 'expiration'
         ? '/expiration-alerts'
-        : '/low-stock-alerts';
+        : '/alerts';
 
     await client.put(
       `${endpoint}/${id}/read`
@@ -160,7 +160,7 @@ export default function useLowStockAlerts() {
     const endpoint =
       alertType === 'expiration'
         ? '/expiration-alerts'
-        : '/low-stock-alerts';
+        : '/alerts';
 
     await client.put(
       `${endpoint}/${id}/resolve`

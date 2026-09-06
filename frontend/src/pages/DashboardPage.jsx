@@ -1,20 +1,27 @@
-import { useEffect, useState } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState
+} from 'react';
 import {
   AlertTriangle,
   ArrowDownToLine,
-  Boxes,
-  CalendarClock,
-  Package,
-  ScanLine,
-  TrendingDown,
-  ShoppingCart,
-  Trophy,
   ArrowLeftFromLine,
   ArrowRightFromLine,
+  Boxes,
+  CalendarClock,
+  ChevronDown,
+  Package,
+  ScanLine,
+  ShoppingCart,
+  TrendingDown,
+  Trophy,
   Wallet
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
+  Area,
   Bar,
   BarChart,
   CartesianGrid,
@@ -27,8 +34,7 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
-  YAxis,
-  Area
+  YAxis
 } from 'recharts';
 
 import client from '../api/client';
@@ -63,6 +69,21 @@ export default function DashboardPage() {
   const [stock, setStock] = useState(null);
   const [error, setError] = useState('');
 
+  /*
+   * Stat-card expansion state only exists during this page view.
+   * It intentionally resets when the page is reloaded.
+   */
+  const [statsExpanded, setStatsExpanded] = useState(false);
+
+  /*
+   * Number of cards that fit in the responsive first grid row.
+   * This updates when the viewport/grid width changes.
+   */
+  const [firstRowCount, setFirstRowCount] = useState(1);
+
+  const summaryGridRef = useRef(null);
+  const summaryMeasureRef = useRef(null);
+
   async function load() {
     try {
       const [summary, realtime] = await Promise.all([
@@ -90,6 +111,71 @@ export default function DashboardPage() {
       load();
     }
   }, [lastEvent]);
+
+  /*
+   * Measure the first visual row from an invisible copy of the
+   * responsive grid. This is more reliable than hard-coding 6,
+   * because the number of cards changes with screen width.
+   */
+  useLayoutEffect(() => {
+    const measureFirstRow = () => {
+      const measureGrid = summaryMeasureRef.current;
+
+      if (!measureGrid) {
+        return;
+      }
+
+      const children = Array.from(
+        measureGrid.children
+      );
+
+      if (!children.length) {
+        setFirstRowCount(1);
+        return;
+      }
+
+      const firstCardTop = Math.round(
+        children[0].getBoundingClientRect().top
+      );
+
+      const count = children.filter(card => {
+        const cardTop = Math.round(
+          card.getBoundingClientRect().top
+        );
+
+        return Math.abs(cardTop - firstCardTop) <= 2;
+      }).length;
+
+      setFirstRowCount(
+        Math.max(1, count)
+      );
+    };
+
+    measureFirstRow();
+
+    const resizeObserver =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(measureFirstRow)
+        : null;
+
+    if (summaryMeasureRef.current && resizeObserver) {
+      resizeObserver.observe(summaryMeasureRef.current);
+    }
+
+    window.addEventListener(
+      'resize',
+      measureFirstRow
+    );
+
+    return () => {
+      resizeObserver?.disconnect();
+
+      window.removeEventListener(
+        'resize',
+        measureFirstRow
+      );
+    };
+  }, [data]);
 
   if (error) {
     return (
@@ -262,6 +348,43 @@ export default function DashboardPage() {
     }
   ];
 
+  /*
+   * First-row cards stay visible at all times.
+   * Extra cards appear only while the stat section is expanded.
+   */
+  const visibleCards = statsExpanded
+    ? cards
+    : cards.slice(0, firstRowCount);
+
+  const hasHiddenCards =
+    cards.length > firstRowCount;
+
+  function renderSummaryCard(card) {
+    const Icon = card.icon;
+
+    return (
+      <Link
+        to={card.link}
+        className="summary-link"
+        key={card.label}
+      >
+        <GlassCard className="summary-card">
+          <div
+            className={`summary-icon tone-${card.tone}`}
+          >
+            <Icon size={21} />
+          </div>
+
+          <div>
+            <p>{card.label}</p>
+            <h2>{card.value}</h2>
+            <small>{card.detail}</small>
+          </div>
+        </GlassCard>
+      </Link>
+    );
+  }
+
   return (
     <div className="dashboard-page">
       <div className="page-heading">
@@ -277,7 +400,8 @@ export default function DashboardPage() {
           </p>
 
           <p>
-            with Real-Time Stock Monitoring and Automated Low-Stock Alerts for Supermarkets.
+            with Real-Time Stock Monitoring and Automated
+            Low-Stock Alerts for Supermarkets.
           </p>
         </div>
 
@@ -302,33 +426,61 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="summary-grid">
-        {cards.map(card => {
-          const Icon = card.icon;
-
-          return (
-            <Link
-              to={card.link}
-              className="summary-link"
-              key={card.label}
-            >
-              <GlassCard className="summary-card">
-                <div
-                  className={`summary-icon tone-${card.tone}`}
-                >
-                  <Icon size={21} />
-                </div>
-
-                <div>
-                  <p>{card.label}</p>
-                  <h2>{card.value}</h2>
-                  <small>{card.detail}</small>
-                </div>
-              </GlassCard>
-            </Link>
-          );
-        })}
+      {/* Hidden grid used only to measure first-row card count. */}
+      <div
+        ref={summaryMeasureRef}
+        className="summary-grid summary-grid-measure"
+        aria-hidden="true"
+      >
+        {cards.map(renderSummaryCard)}
       </div>
+
+      <section
+        className="summary-section"
+        aria-label="Dashboard statistics"
+      >
+        <div
+          ref={summaryGridRef}
+          className={`summary-grid summary-grid-collapsible ${
+            statsExpanded
+              ? 'summary-grid-expanded'
+              : 'summary-grid-collapsed'
+          }`}
+        >
+          {visibleCards.map(renderSummaryCard)}
+        </div>
+
+        {hasHiddenCards && (
+          <div className="summary-toggle-wrap">
+            <button
+              type="button"
+              className={`summary-toggle ${
+                statsExpanded
+                  ? 'summary-toggle-expanded'
+                  : ''
+              }`}
+              onClick={() =>
+                setStatsExpanded(
+                  previous => !previous
+                )
+              }
+              aria-expanded={statsExpanded}
+              aria-label={
+                statsExpanded
+                  ? 'Show fewer stats'
+                  : 'Show more stats'
+              }
+              title={
+                statsExpanded
+                  ? 'Show fewer stats'
+                  : 'Show more stats'
+              }
+            >
+              <ChevronDown size={20} />
+            </button>
+          </div>
+        )}
+      </section>
 
       {/* Best Seller Card */}
       <div className="stock-price-section">
@@ -374,6 +526,7 @@ export default function DashboardPage() {
                 <strong style={{ fontSize: 16 }}>
                   {bestSeller.name}
                 </strong>
+
                 <div
                   style={{
                     fontSize: 12,
@@ -395,22 +548,23 @@ export default function DashboardPage() {
         </GlassCard>
       </div>
 
-      {/* Weekly Activity (bar) and Sales Activity (line) side-by-side */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+          gridTemplateColumns:
+            'repeat(auto-fit, minmax(300px, 1fr))',
           gap: '16px',
           marginTop: '16px',
           marginBottom: '16px'
         }}
       >
-        {/* Weekly Activity - Green Bar Chart */}
         <GlassCard className="stock-line-card">
           <div className="section-heading">
             <div>
               <h3>Weekly Activity</h3>
-              <p>Inventory movement trend (last 7 days)</p>
+              <p>
+                Inventory movement trend (last 7 days)
+              </p>
             </div>
 
             <span className="analytics-badge">
@@ -418,10 +572,18 @@ export default function DashboardPage() {
             </span>
           </div>
 
-          <ResponsiveContainer width="100%" height={260}>
+          <ResponsiveContainer
+            width="100%"
+            height={260}
+          >
             <BarChart
               data={weeklyActivity}
-              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+              margin={{
+                top: 10,
+                right: 10,
+                left: 0,
+                bottom: 0
+              }}
             >
               <CartesianGrid
                 strokeDasharray="4 4"
@@ -431,20 +593,30 @@ export default function DashboardPage() {
 
               <XAxis
                 dataKey="label"
-                tick={{ fill: '#86a18c', fontSize: 10 }}
-                axisLine={{ stroke: 'rgba(22, 101, 52, 0.12)' }}
+                tick={{
+                  fill: '#86a18c',
+                  fontSize: 10
+                }}
+                axisLine={{
+                  stroke:
+                    'rgba(22, 101, 52, 0.12)'
+                }}
                 tickLine={false}
               />
 
               <YAxis
-                tick={{ fill: '#86a18c', fontSize: 10 }}
+                tick={{
+                  fill: '#86a18c',
+                  fontSize: 10
+                }}
                 axisLine={false}
                 tickLine={false}
               />
 
               <Tooltip
                 contentStyle={{
-                  border: '1px solid rgba(22, 101, 52, 0.12)',
+                  border:
+                    '1px solid rgba(22, 101, 52, 0.12)',
                   borderRadius: '10px',
                   background: '#ffffff',
                   color: '#285737',
@@ -461,12 +633,13 @@ export default function DashboardPage() {
           </ResponsiveContainer>
         </GlassCard>
 
-        {/* Sales Activity - Blue Line Chart (Net Revenue) */}
         <GlassCard className="stock-line-card">
           <div className="section-heading">
             <div>
               <h3>Sales Activity</h3>
-              <p>Net revenue trend (last 7 days)</p>
+              <p>
+                Net revenue trend (last 7 days)
+              </p>
             </div>
 
             <span className="analytics-badge">
@@ -474,10 +647,18 @@ export default function DashboardPage() {
             </span>
           </div>
 
-          <ResponsiveContainer width="100%" height={260}>
+          <ResponsiveContainer
+            width="100%"
+            height={260}
+          >
             <LineChart
               data={salesActivity}
-              margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+              margin={{
+                top: 10,
+                right: 10,
+                left: 0,
+                bottom: 0
+              }}
             >
               <defs>
                 <linearGradient
@@ -487,8 +668,16 @@ export default function DashboardPage() {
                   x2="0"
                   y2="1"
                 >
-                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.36} />
-                  <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.03} />
+                  <stop
+                    offset="0%"
+                    stopColor="#3b82f6"
+                    stopOpacity={0.36}
+                  />
+                  <stop
+                    offset="100%"
+                    stopColor="#3b82f6"
+                    stopOpacity={0.03}
+                  />
                 </linearGradient>
               </defs>
 
@@ -500,29 +689,44 @@ export default function DashboardPage() {
 
               <XAxis
                 dataKey="label"
-                tick={{ fill: '#64748b', fontSize: 10 }}
-                axisLine={{ stroke: 'rgba(59, 130, 246, 0.12)' }}
+                tick={{
+                  fill: '#64748b',
+                  fontSize: 10
+                }}
+                axisLine={{
+                  stroke:
+                    'rgba(59, 130, 246, 0.12)'
+                }}
                 tickLine={false}
               />
 
               <YAxis
-                tick={{ fill: '#64748b', fontSize: 10 }}
+                tick={{
+                  fill: '#64748b',
+                  fontSize: 10
+                }}
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={v =>
-                  v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v
+                tickFormatter={value =>
+                  value >= 1000
+                    ? `${(value / 1000).toFixed(0)}k`
+                    : value
                 }
               />
 
               <Tooltip
                 contentStyle={{
-                  border: '1px solid rgba(59, 130, 246, 0.12)',
+                  border:
+                    '1px solid rgba(59, 130, 246, 0.12)',
                   borderRadius: '10px',
                   background: '#ffffff',
                   color: '#1e3a8a',
                   fontSize: '11px'
                 }}
-                formatter={(value, name) => [peso(value), 'Net Revenue']}
+                formatter={value => [
+                  peso(value),
+                  'Net Revenue'
+                ]}
               />
 
               <Area
@@ -559,7 +763,10 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <ResponsiveContainer width="100%" height={260}>
+          <ResponsiveContainer
+            width="100%"
+            height={260}
+          >
             <PieChart>
               <Pie
                 data={categoryData}
@@ -602,7 +809,10 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <ResponsiveContainer width="100%" height={260}>
+          <ResponsiveContainer
+            width="100%"
+            height={260}
+          >
             <PieChart>
               <Pie
                 data={statusData}
@@ -650,9 +860,7 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="mini-info">
-                    <strong>
-                      {product.name}
-                    </strong>
+                    <strong>{product.name}</strong>
 
                     <small>
                       {product.barcode} ·{' '}
@@ -698,14 +906,11 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="mini-info">
-                    <strong>
-                      {product.name}
-                    </strong>
+                    <strong>{product.name}</strong>
 
                     <small>
-                      {product.currentStock}{' '}
-                      remaining · Reorder at{' '}
-                      {product.reorderLevel}
+                      {product.currentStock} remaining ·
+                      Reorder at {product.reorderLevel}
                     </small>
                   </div>
 

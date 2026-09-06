@@ -3063,3 +3063,121 @@ body,
     object-fit: contain;
   }
 }
+.summary-section {
+  position: relative;
+  margin-bottom: 18px;
+}
+
+.summary-grid-collapsible {
+  overflow: hidden;
+  transition: max-height 320ms ease;
+}
+
+/*
+ * The cards are dynamically limited in React while collapsed.
+ * This provides a smooth transition when extra rows appear.
+ */
+.summary-grid-expanded {
+  animation: summary-grid-expand 320ms ease both;
+}
+
+.summary-grid-collapsed {
+  animation: summary-grid-collapse 320ms ease both;
+}
+
+/*
+ * Invisible measuring grid:
+ * it uses the exact same responsive summary-grid layout,
+ * but does not affect the document layout or interaction.
+ */
+.summary-grid-measure {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  width: 100%;
+  height: auto;
+  overflow: hidden;
+  z-index: -1;
+}
+
+.summary-toggle-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.summary-toggle {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(22, 101, 52, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  color: #166534;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(22, 101, 52, 0.1);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.summary-toggle:hover {
+  background: #f0fdf4;
+  border-color: rgba(22, 163, 74, 0.42);
+  box-shadow: 0 6px 16px rgba(22, 101, 52, 0.16);
+}
+
+.summary-toggle:focus-visible {
+  outline: 3px solid rgba(34, 197, 94, 0.34);
+  outline-offset: 3px;
+}
+
+.summary-toggle svg {
+  transition: transform 240ms ease;
+}
+
+.summary-toggle-expanded svg {
+  transform: rotate(180deg);
+}
+
+@keyframes summary-grid-expand {
+  from {
+    opacity: 0.96;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes summary-grid-collapse {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0.96;
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .summary-grid-collapsible,
+  .summary-grid-expanded,
+  .summary-grid-collapsed,
+  .summary-toggle,
+  .summary-toggle svg {
+    animation: none;
+    transition: none;
+  }
+}

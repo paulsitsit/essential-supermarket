@@ -28,18 +28,26 @@ export function AuthProvider({ children }) {
   });
 
   const [loading, setLoading] = useState(
-    Boolean(localStorage.getItem('essential_token'))
+    Boolean(
+      localStorage.getItem('essential_token')
+    )
   );
 
   useEffect(() => {
     async function verify() {
-      if (!localStorage.getItem('essential_token')) {
+      const token = localStorage.getItem(
+        'essential_token'
+      );
+
+      if (!token) {
         setLoading(false);
         return;
       }
 
       try {
-        const { data } = await client.get('/auth/me');
+        const { data } = await client.get(
+          '/auth/me'
+        );
 
         setAccount(data.account);
 
@@ -48,8 +56,14 @@ export function AuthProvider({ children }) {
           JSON.stringify(data.account)
         );
       } catch {
-        localStorage.removeItem('essential_token');
-        localStorage.removeItem('essential_account');
+        localStorage.removeItem(
+          'essential_token'
+        );
+
+        localStorage.removeItem(
+          'essential_account'
+        );
+
         setAccount(null);
       } finally {
         setLoading(false);
@@ -62,7 +76,10 @@ export function AuthProvider({ children }) {
   async function login(email, password) {
     const { data } = await client.post(
       '/auth/login',
-      { email, password }
+      {
+        email,
+        password
+      }
     );
 
     localStorage.setItem(
@@ -78,24 +95,27 @@ export function AuthProvider({ children }) {
     setAccount(data.account);
 
     /*
-     * On Android: request notification permission and register
-     * the device with Firebase Cloud Messaging.
-     *
-     * In a normal web browser, the notification service skips
-     * this safely and does not affect website login.
+     * This remains safe for normal inventory users.
+     * A Cashier is removed immediately by LoginPage
+     * because Cashiers must use the separate POS site.
      */
     initializePushNotifications();
 
     return data.account;
   }
 
-  function logout() {
+  function logout({ redirect = true } = {}) {
     localStorage.removeItem('essential_token');
-    localStorage.removeItem('essential_account');
+
+    localStorage.removeItem(
+      'essential_account'
+    );
 
     setAccount(null);
 
-    window.location.href = '/login';
+    if (redirect) {
+      window.location.href = '/login';
+    }
   }
 
   const value = useMemo(

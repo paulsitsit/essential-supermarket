@@ -68,20 +68,9 @@ export default function DashboardPage() {
   const [data, setData] = useState(null);
   const [stock, setStock] = useState(null);
   const [error, setError] = useState('');
-
-  /*
-   * Stat-card expansion state only exists during this page view.
-   * It intentionally resets when the page is reloaded.
-   */
   const [statsExpanded, setStatsExpanded] = useState(false);
-
-  /*
-   * Number of cards that fit in the responsive first grid row.
-   * This updates when the viewport/grid width changes.
-   */
   const [firstRowCount, setFirstRowCount] = useState(1);
 
-  const summaryGridRef = useRef(null);
   const summaryMeasureRef = useRef(null);
 
   async function load() {
@@ -112,22 +101,15 @@ export default function DashboardPage() {
     }
   }, [lastEvent]);
 
-  /*
-   * Measure the first visual row from an invisible copy of the
-   * responsive grid. This is more reliable than hard-coding 6,
-   * because the number of cards changes with screen width.
-   */
   useLayoutEffect(() => {
-    const measureFirstRow = () => {
-      const measureGrid = summaryMeasureRef.current;
+    function measureFirstRow() {
+      const grid = summaryMeasureRef.current;
 
-      if (!measureGrid) {
+      if (!grid) {
         return;
       }
 
-      const children = Array.from(
-        measureGrid.children
-      );
+      const children = Array.from(grid.children);
 
       if (!children.length) {
         setFirstRowCount(1);
@@ -146,20 +128,18 @@ export default function DashboardPage() {
         return Math.abs(cardTop - firstCardTop) <= 2;
       }).length;
 
-      setFirstRowCount(
-        Math.max(1, count)
-      );
-    };
+      setFirstRowCount(Math.max(1, count));
+    }
 
     measureFirstRow();
 
-    const resizeObserver =
+    const observer =
       typeof ResizeObserver !== 'undefined'
         ? new ResizeObserver(measureFirstRow)
         : null;
 
-    if (summaryMeasureRef.current && resizeObserver) {
-      resizeObserver.observe(summaryMeasureRef.current);
+    if (summaryMeasureRef.current && observer) {
+      observer.observe(summaryMeasureRef.current);
     }
 
     window.addEventListener(
@@ -168,7 +148,7 @@ export default function DashboardPage() {
     );
 
     return () => {
-      resizeObserver?.disconnect();
+      observer?.disconnect();
 
       window.removeEventListener(
         'resize',
@@ -348,15 +328,11 @@ export default function DashboardPage() {
     }
   ];
 
-  /*
-   * First-row cards stay visible at all times.
-   * Extra cards appear only while the stat section is expanded.
-   */
   const visibleCards = statsExpanded
     ? cards
     : cards.slice(0, firstRowCount);
 
-  const hasHiddenCards =
+  const hasMoreCards =
     cards.length > firstRowCount;
 
   function renderSummaryCard(card) {
@@ -426,7 +402,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Hidden grid used only to measure first-row card count. */}
       <div
         ref={summaryMeasureRef}
         className="summary-grid summary-grid-measure"
@@ -440,7 +415,6 @@ export default function DashboardPage() {
         aria-label="Dashboard statistics"
       >
         <div
-          ref={summaryGridRef}
           className={`summary-grid summary-grid-collapsible ${
             statsExpanded
               ? 'summary-grid-expanded'
@@ -450,7 +424,7 @@ export default function DashboardPage() {
           {visibleCards.map(renderSummaryCard)}
         </div>
 
-        {hasHiddenCards && (
+        {hasMoreCards && (
           <div className="summary-toggle-wrap">
             <button
               type="button"
@@ -461,7 +435,7 @@ export default function DashboardPage() {
               }`}
               onClick={() =>
                 setStatsExpanded(
-                  previous => !previous
+                  current => !current
                 )
               }
               aria-expanded={statsExpanded}
@@ -482,72 +456,7 @@ export default function DashboardPage() {
         )}
       </section>
 
-      {/* Best Seller Card */}
-      <div className="stock-price-section">
-        <GlassCard className="stock-line-card">
-          <div className="section-heading">
-            <div>
-              <h3>Best Seller (This Week)</h3>
-              <p>Top product by quantity sold</p>
-            </div>
-
-            <span className="analytics-badge">
-              Last 7 days
-            </span>
-          </div>
-
-          {bestSeller ? (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '16px',
-                padding: '12px 0'
-              }}
-            >
-              <div
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 10,
-                  background:
-                    'linear-gradient(135deg, #fbbf24, #d97706)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#fff',
-                  fontSize: 20
-                }}
-              >
-                <Trophy size={24} />
-              </div>
-
-              <div style={{ flex: 1 }}>
-                <strong style={{ fontSize: 16 }}>
-                  {bestSeller.name}
-                </strong>
-
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: '#6b7280',
-                    marginTop: 4
-                  }}
-                >
-                  {bestSeller.barcode} ·{' '}
-                  {bestSeller.quantitySold} sold ·{' '}
-                  {peso(bestSeller.revenue)}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="empty-state">
-              No sales data yet for best seller.
-            </div>
-          )}
-        </GlassCard>
-      </div>
-
+      {/* Weekly Activity and Sales Activity Charts */}
       <div
         style={{
           display: 'grid',
@@ -754,6 +663,73 @@ export default function DashboardPage() {
         </GlassCard>
       </div>
 
+      {/* Best Seller is now below the activity charts */}
+      <div className="stock-price-section">
+        <GlassCard className="stock-line-card">
+          <div className="section-heading">
+            <div>
+              <h3>Best Seller (This Week)</h3>
+              <p>Top product by quantity sold</p>
+            </div>
+
+            <span className="analytics-badge">
+              Last 7 days
+            </span>
+          </div>
+
+          {bestSeller ? (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                padding: '12px 0'
+              }}
+            >
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 10,
+                  background:
+                    'linear-gradient(135deg, #fbbf24, #d97706)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fff',
+                  fontSize: 20
+                }}
+              >
+                <Trophy size={24} />
+              </div>
+
+              <div style={{ flex: 1 }}>
+                <strong style={{ fontSize: 16 }}>
+                  {bestSeller.name}
+                </strong>
+
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: '#6b7280',
+                    marginTop: 4
+                  }}
+                >
+                  {bestSeller.barcode} ·{' '}
+                  {bestSeller.quantitySold} sold ·{' '}
+                  {peso(bestSeller.revenue)}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="empty-state">
+              No sales data yet for best seller.
+            </div>
+          )}
+        </GlassCard>
+      </div>
+
+      {/* Category and Stock Status Charts */}
       <div className="chart-grid">
         <GlassCard className="chart-card">
           <div className="section-heading">
@@ -886,6 +862,7 @@ export default function DashboardPage() {
           <div className="section-heading">
             <div>
               <h3>Low-stock attention</h3>
+
               <p>
                 Products at or below reorder level
               </p>

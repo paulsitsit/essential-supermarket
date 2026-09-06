@@ -31,7 +31,16 @@ import {
   recognizeProductImage
 } from '../utils/huggingFaceClient.js';
 
-const MAX_IMAGE_SIZE_BYTES = 3 * 1024 * 1024;
+/*
+ * Maximum accepted original image file size.
+ *
+ * 5 MB is a reasonable limit when the image is converted to Base64
+ * and stored in Product.imageUrl in MongoDB.
+ *
+ * A 5 MB original image becomes roughly 6.7 MB after Base64 encoding,
+ * which remains below MongoDB's 16 MB maximum document size.
+ */
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 
 const allowedImageMimeTypes = [
   'image/jpeg',
@@ -58,6 +67,47 @@ const upload = multer({
     callback(null, true);
   }
 });
+
+/*
+ * Wrapper around Multer so upload-size and upload-type errors return
+ * clean client responses rather than generic 500 errors.
+ *
+ * The frontend submits the image under exactly this field name:
+ * image
+ */
+export function uploadProductImage(
+  req,
+  res,
+  next
+) {
+  upload.single('image')(req, res, error => {
+    if (!error) {
+      return next();
+    }
+
+    if (error instanceof multer.MulterError) {
+      if (error.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({
+          message:
+            'Image must be 5 MB or smaller. Please choose a smaller photo or reduce its size before uploading.'
+        });
+      }
+
+      return res.status(400).json({
+        message:
+          'Unable to upload the image. Please choose a JPG, PNG, or WebP image and try again.'
+      });
+    }
+
+    return res.status(
+      error.statusCode || 400
+    ).json({
+      message:
+        error.message ||
+        'Unable to upload the image.'
+    });
+  });
+}
 
 function getImageDataUrl(file) {
   if (!file?.buffer?.length) {
@@ -342,18 +392,15 @@ export async function lookupExternalProduct(req, res) {
 }
 
 /*
- * This route analyzes a photo only.
- * It does not save the photo to a product.
- *
- * The frontend retains the selected file, even when recognition
- * fails, then uploads it to /products/:id/image after creation.
+ * Analyzes a product image to suggest a name, brand, and description.
+ * It does not permanently save the image.
  */
 export async function recognizeProduct(req, res) {
   try {
     if (!req.file) {
       return res.status(400).json({
         message:
-          'No image file received. Choose a JPG, PNG, or WebP image under 3 MB and try again.'
+          'No image file received. Choose a JPG, PNG, or WebP image that is 5 MB or smaller and try again.'
       });
     }
 
@@ -393,18 +440,17 @@ export async function recognizeProduct(req, res) {
 }
 
 /*
- * Permanently attach an image to an existing product.
+ * Saves a permanent product image.
  *
- * Storage method:
- * - Image stored in MongoDB as a data URL in Product.imageUrl.
- * - This avoids Render local-disk loss after deployment/restart.
- * - Images are capped at 3 MB to protect MongoDB document size.
+ * The image is stored in MongoDB as a Base64 data URL in Product.imageUrl.
+ * A 5 MB original image becomes around 6.7 MB Base64, remaining below
+ * MongoDB's 16 MB document-size limit.
  */
 export async function saveProductImage(req, res) {
   if (!req.file) {
     return res.status(400).json({
       message:
-        'No image file received. Choose a JPG, PNG, or WebP image under 3 MB.'
+        'No image file received. Choose a JPG, PNG, or WebP image that is 5 MB or smaller.'
     });
   }
 
@@ -439,7 +485,8 @@ export async function saveProductImage(req, res) {
     metadata: {
       fileName: req.file.originalname || '',
       mimeType: req.file.mimetype || '',
-      sizeBytes: req.file.size || 0
+      sizeBytes: req.file.size || 0,
+      maxSizeBytes: MAX_IMAGE_SIZE_BYTES
     }
   });
 
@@ -810,6 +857,3 @@ export async function deleteProduct(req, res) {
     message: 'Product deleted'
   });
 }
-
-export const uploadProductImage =
-  upload.single('image');

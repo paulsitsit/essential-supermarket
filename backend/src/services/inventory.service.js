@@ -252,6 +252,8 @@ export async function createOrUpdateAlert(
 
 /**
  * Create stock ledger entries for each batch allocation
+ * CRITICAL: batchAllocations must include batchStockBefore and batchStockAfter
+ * from allocateBatchesFEFO or createReceivedBatch
  */
 async function createBatchLedgerEntries({
   product,
@@ -267,26 +269,26 @@ async function createBatchLedgerEntries({
 
   const ledgerEntries = await Promise.all(
     batchAllocations.map(async (allocation) => {
-      const batch = await ProductBatch.findById(allocation.batch);
+      // batchAllocations should already have batchStockBefore and batchStockAfter
+      // from the allocation logic
+      const batchStockBefore = allocation.batchStockBefore;
+      const batchStockAfter = allocation.batchStockAfter;
 
-      if (!batch) {
-        console.warn(`Batch ${allocation.batch} not found, skipping ledger entry`);
+      if (batchStockBefore === undefined || batchStockAfter === undefined) {
+        console.warn(
+          `Batch ${allocation.batch} missing stock before/after, skipping ledger entry`
+        );
         return null;
       }
 
-      const isStockIn = movementType === 'stock_in';
-      const quantityChange = isStockIn ? allocation.quantity : -allocation.quantity;
-      const batchStockBefore = batch.quantity;
-      const batchStockAfter = isStockIn
-        ? batch.quantity + allocation.quantity
-        : batch.quantity - allocation.quantity;
-
       const entry = await StockLedgerEntry.create({
         product: product._id,
-        batch: batch._id,
-        batchNumber: allocation.batchNumber || batch.batchNumber || '',
+        batch: allocation.batch,
+        batchNumber: allocation.batchNumber || '',
         movementType,
-        quantityChanged: quantityChange,
+        quantityChanged: allocation.movementType === 'stock_in'
+          ? allocation.quantity
+          : -allocation.quantity,
         batchStockBefore,
         batchStockAfter,
         reason,
@@ -370,18 +372,26 @@ export async function applyMovement({
     batchAllocations = [
       {
         batch: receivedBatch._id,
-        batchNumber:
-          receivedBatch.batchNumber || '',
-        expirationDate:
-          receivedBatch.expirationDate || null,
-        quantity: change
+        batchNumber: receivedBatch.batchNumber || '',
+        expirationDate: receivedBatch.expirationDate || null,
+        quantity: change,
+        movementType: 'stock_in',
+        batchStockBefore: 0,
+        batchStockAfter: change
       }
     ];
   } else if (change < 0) {
+    // allocateBatchesFEFO must return batchStockBefore and batchStockAfter
     batchAllocations = await allocateBatchesFEFO({
       product,
       quantity: Math.abs(change)
     });
+
+    // Add movementType to each allocation for ledger creation
+    batchAllocations = batchAllocations.map(allocation => ({
+      ...allocation,
+      movementType
+    }));
   }
 
   product.currentStock = newStock;
@@ -492,7 +502,9 @@ export async function applyMovement({
           batchId: allocation.batch.toString(),
           batchNumber: allocation.batchNumber,
           quantity: allocation.quantity,
-          expirationDate: allocation.expirationDate
+          expirationDate: allocation.expirationDate,
+          batchStockBefore: allocation.batchStockBefore,
+          batchStockAfter: allocation.batchStockAfter
         })
       )
     }

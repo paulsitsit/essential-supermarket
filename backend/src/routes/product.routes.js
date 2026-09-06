@@ -11,6 +11,7 @@ import {
   getProductBatches,
   lookupExternalProduct,
   recognizeProduct,
+  saveProductImage,
   uploadProductImage
 } from '../controllers/product.controller.js';
 
@@ -28,17 +29,6 @@ const router = Router();
 
 router.use(protect);
 
-/*
- * POS scanner lookup
- *
- * Cashiers may access only this read-only endpoint so they can:
- * - Scan a barcode or QR code
- * - Receive product name, sale price, and availability
- * - Add the product to the separate POS cart
- *
- * Keep this route before "/:id" so Express does not treat
- * "scan" as a product ID.
- */
 router.get(
   '/scan/:barcode',
   allowRoles(
@@ -50,28 +40,18 @@ router.get(
   scanProduct
 );
 
-/*
- * Inventory-management product list.
- * Cashier is intentionally excluded.
- */
 router.get(
   '/',
   allowRoles('admin', 'manager', 'staff'),
   listProducts
 );
 
-/*
- * External product lookup is for product setup, not checkout.
- */
 router.get(
   '/lookup/:barcode',
   allowRoles('admin', 'manager', 'staff'),
   lookupExternalProduct
 );
 
-/*
- * Image recognition is for inventory/product setup only.
- */
 router.post(
   '/recognize',
   allowRoles('admin', 'manager', 'staff'),
@@ -80,9 +60,20 @@ router.post(
 );
 
 /*
- * Batch details expose operational inventory data.
- * Cashier is intentionally excluded.
+ * Upload or replace a product photo after the product exists.
+ *
+ * Field name required by multer:
+ * image
  */
+router.post(
+  '/:id/image',
+  allowRoles('admin'),
+  productIdRules,
+  validateRequest,
+  uploadProductImage,
+  saveProductImage
+);
+
 router.get(
   '/:id/batches',
   allowRoles('admin', 'manager', 'staff'),
@@ -91,10 +82,6 @@ router.get(
   getProductBatches
 );
 
-/*
- * Direct product lookup is an inventory endpoint.
- * Cashier should only use /scan/:barcode from POS.
- */
 router.get(
   '/:id',
   allowRoles('admin', 'manager', 'staff'),
@@ -103,9 +90,6 @@ router.get(
   getProduct
 );
 
-/*
- * Product management is Admin only.
- */
 router.post(
   '/',
   allowRoles('admin'),

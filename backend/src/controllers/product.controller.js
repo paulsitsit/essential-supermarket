@@ -31,9 +31,49 @@ import {
   recognizeProductImage
 } from '../utils/huggingFaceClient.js';
 
+const MAX_IMAGE_SIZE_BYTES = 3 * 1024 * 1024;
+
+const allowedImageMimeTypes = [
+  'image/jpeg',
+  'image/png',
+  'image/webp'
+];
+
 const upload = multer({
-  storage: multer.memoryStorage()
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: MAX_IMAGE_SIZE_BYTES
+  },
+  fileFilter: (req, file, callback) => {
+    if (!allowedImageMimeTypes.includes(file.mimetype)) {
+      const error = new Error(
+        'Only JPG, PNG, and WebP image files are allowed.'
+      );
+
+      error.statusCode = 400;
+
+      return callback(error);
+    }
+
+    callback(null, true);
+  }
 });
+
+function getImageDataUrl(file) {
+  if (!file?.buffer?.length) {
+    return '';
+  }
+
+  const mimeType = allowedImageMimeTypes.includes(
+    file.mimetype
+  )
+    ? file.mimetype
+    : 'image/jpeg';
+
+  const base64 = file.buffer.toString('base64');
+
+  return `data:${mimeType};base64,${base64}`;
+}
 
 async function fetchOpenFoodFactsProduct(barcode) {
   const fields = [
@@ -161,22 +201,6 @@ export async function getProduct(req, res) {
   res.json(product);
 }
 
-/*
- * POS-only product lookup.
- *
- * This is used by the separate Cashier POS application:
- * GET /api/products/scan/:barcode
- *
- * The route controls access. It should allow:
- * admin, manager, staff, cashier
- *
- * Do not return sensitive inventory information to Cashier:
- * - costPrice
- * - supplier
- * - reorderLevel
- * - full batch records
- * - stock history
- */
 export async function scanProduct(req, res) {
   const rawCode = String(
     req.params.barcode || ''
@@ -208,6 +232,7 @@ export async function scanProduct(req, res) {
         'qrCode',
         'brand',
         'category',
+        'imageUrl',
         'sellingPrice',
         'price',
         'currentStock',
@@ -223,11 +248,6 @@ export async function scanProduct(req, res) {
     });
   }
 
-  /*
-   * The POS needs the price and current stock only to show
-   * the cashier what is being sold. Final stock validation
-   * happens again in createSale() at checkout.
-   */
   const sellingPrice = Number(
     product.sellingPrice ??
       product.price ??
@@ -241,6 +261,7 @@ export async function scanProduct(req, res) {
     sku: product.sku || '',
     qrCode: product.qrCode || '',
     brand: product.brand || '',
+    imageUrl: product.imageUrl || '',
     category: product.category?.name || '',
     sellingPrice: Number.isFinite(sellingPrice)
       ? sellingPrice
@@ -320,12 +341,19 @@ export async function lookupExternalProduct(req, res) {
   }
 }
 
+/*
+ * This route analyzes a photo only.
+ * It does not save the photo to a product.
+ *
+ * The frontend retains the selected file, even when recognition
+ * fails, then uploads it to /products/:id/image after creation.
+ */
 export async function recognizeProduct(req, res) {
   try {
     if (!req.file) {
       return res.status(400).json({
         message:
-          'No image file received. Please choose a JPG or PNG image under a few MB and try again.'
+          'No image file received. Choose a JPG, PNG, or WebP image under 3 MB and try again.'
       });
     }
 
@@ -334,7 +362,7 @@ export async function recognizeProduct(req, res) {
     if (!imageBuffer || imageBuffer.length === 0) {
       return res.status(400).json({
         message:
-          'Uploaded image is empty. Please try again with a different file.'
+          'Uploaded image is empty. Please try another file.'
       });
     }
 
@@ -343,12 +371,12 @@ export async function recognizeProduct(req, res) {
 
     return res.status(200).json({
       source: 'huggingface-vision',
-      matched: Boolean(product.productName),
-      productName: product.productName || '',
-      brand: product.brand || '',
-      category: product.category || '',
-      variant: product.variant || '',
-      description: product.description || ''
+      matched: Boolean(product?.productName),
+      productName: product?.productName || '',
+      brand: product?.brand || '',
+      category: product?.category || '',
+      variant: product?.variant || '',
+      description: product?.description || ''
     });
   } catch (error) {
     console.error(
@@ -357,10 +385,73 @@ export async function recognizeProduct(req, res) {
     );
 
     return res.status(502).json({
-      message: 'Unable to analyze the image',
+      message:
+        'Unable to analyze the image. The photo is still available to attach when you save the product.',
       error: error.message || 'Unknown error'
     });
   }
+}
+
+/*
+ * Permanently attach an image to an existing product.
+ *
+ * Storage method:
+ * - Image stored in MongoDB as a data URL in Product.imageUrl.
+ * - This avoids Render local-disk loss after deployment/restart.
+ * - Images are capped at 3 MB to protect MongoDB document size.
+ */
+export async function saveProductImage(req, res) {
+  if (!req.file) {
+    return res.status(400).json({
+      message:
+        'No image file received. Choose a JPG, PNG, or WebP image under 3 MB.'
+    });
+  }
+
+  const product = await Product.findById(
+    req.params.id
+  );
+
+  if (!product || product.isArchived) {
+    return res.status(404).json({
+      message: 'Product not found'
+    });
+  }
+
+  const imageUrl = getImageDataUrl(req.file);
+
+  if (!imageUrl) {
+    return res.status(400).json({
+      message:
+        'The uploaded image could not be processed.'
+    });
+  }
+
+  product.imageUrl = imageUrl;
+
+  await product.save();
+
+  await writeAudit({
+    req,
+    account: req.account,
+    action: 'product_image_uploaded',
+    affectedRecord: product._id.toString(),
+    metadata: {
+      fileName: req.file.originalname || '',
+      mimeType: req.file.mimetype || '',
+      sizeBytes: req.file.size || 0
+    }
+  });
+
+  req.app.get('io')?.emit(
+    'productUpdated',
+    product
+  );
+
+  res.json({
+    message: 'Product image saved',
+    product
+  });
 }
 
 export async function createProduct(req, res) {

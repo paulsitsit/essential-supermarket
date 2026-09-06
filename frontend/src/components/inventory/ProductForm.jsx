@@ -1,13 +1,26 @@
-import { useEffect, useState } from 'react';
+import {
+  useEffect,
+  useState
+} from 'react';
 import {
   CheckCircle2,
+  ImagePlus,
   ScanLine,
+  Trash2,
   X
 } from 'lucide-react';
 
 import client from '../../api/client';
 import { getErrorMessage } from '../../utils/errors';
 import CameraScanner from '../scanner/CameraScanner';
+
+const MAX_IMAGE_SIZE_BYTES = 3 * 1024 * 1024;
+
+const ALLOWED_IMAGE_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp'
+];
 
 const emptyForm = {
   name: '',
@@ -245,8 +258,30 @@ export default function ProductForm({
   const [recognitionError, setRecognitionError] =
     useState('');
 
+  /*
+   * Keep the actual selected File in state so that it survives
+   * failed image recognition and can be uploaded after the product
+   * receives a real MongoDB ID.
+   */
+  const [selectedImageFile, setSelectedImageFile] =
+    useState(null);
+
+  /*
+   * Used only to show a local preview before saving. It may be a
+   * blob URL for a new photo or a saved image URL when editing.
+   */
+  const [imagePreviewUrl, setImagePreviewUrl] =
+    useState(
+      initialProduct?.imageUrl || ''
+    );
+
   useEffect(() => {
     setForm(getInitialForm(initialProduct));
+
+    setSelectedImageFile(null);
+    setImagePreviewUrl(
+      initialProduct?.imageUrl || ''
+    );
   }, [initialProduct]);
 
   useEffect(() => {
@@ -258,6 +293,17 @@ export default function ProductForm({
     }
   }, [form.barcode, form.qrCode]);
 
+  useEffect(() => {
+    return () => {
+      if (
+        imagePreviewUrl &&
+        imagePreviewUrl.startsWith('blob:')
+      ) {
+        URL.revokeObjectURL(imagePreviewUrl);
+      }
+    };
+  }, [imagePreviewUrl]);
+
   function change(key, value) {
     setForm(current => ({
       ...current,
@@ -268,6 +314,66 @@ export default function ProductForm({
   function clearScanMessage() {
     setScanMessage('');
     setScanError('');
+  }
+
+  function releaseLocalPreview() {
+    if (
+      imagePreviewUrl &&
+      imagePreviewUrl.startsWith('blob:')
+    ) {
+      URL.revokeObjectURL(imagePreviewUrl);
+    }
+  }
+
+  /*
+   * Attach the image before recognition. This is the critical change:
+   * fruits, meat, vegetables, and other non-barcoded products retain
+   * their photo even if the AI cannot identify a name.
+   */
+  function selectProductImage(file) {
+    if (!file) {
+      return false;
+    }
+
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setRecognitionError(
+        'Choose a JPG, PNG, or WebP image.'
+      );
+      return false;
+    }
+
+    if (file.size > MAX_IMAGE_SIZE_BYTES) {
+      setRecognitionError(
+        'Image must be 3 MB or smaller.'
+      );
+      return false;
+    }
+
+    releaseLocalPreview();
+
+    const previewUrl = URL.createObjectURL(file);
+
+    setSelectedImageFile(file);
+    setImagePreviewUrl(previewUrl);
+    setRecognitionError('');
+
+    return true;
+  }
+
+  function removeSelectedImage() {
+    releaseLocalPreview();
+
+    setSelectedImageFile(null);
+    setImagePreviewUrl(
+      initialProduct?.imageUrl || ''
+    );
+
+    setRecognitionError('');
+    setScanMessage(
+      initialProduct?.imageUrl
+        ? 'The newly selected image was removed. The existing product image remains unchanged.'
+        : 'Selected product photo removed.'
+    );
   }
 
   async function lookupScannedCode(code) {
@@ -367,6 +473,12 @@ export default function ProductForm({
   }
 
   async function recognizeFromPhoto(file) {
+    const imageSelected = selectProductImage(file);
+
+    if (!imageSelected) {
+      return;
+    }
+
     setRecognizing(true);
     setRecognitionError('');
     clearScanMessage();
@@ -385,9 +497,13 @@ export default function ProductForm({
         response.data
       );
 
-      if (!recognized.name.trim()) {
-        setRecognitionError(
-          'The exact product name could not be read. Please take a clear photo of the front label, including the brand and product name.'
+      /*
+       * Recognition failure is not a blocking error. The photo stays
+       * attached, allowing manual product entry for fresh goods.
+       */
+      if (!recognized.name?.trim()) {
+        setScanMessage(
+          'Photo attached. No exact product name was recognized. Enter the product name manually, then register the product.'
         );
 
         return;
@@ -406,26 +522,22 @@ export default function ProductForm({
           ]
             .filter(Boolean)
             .join(' — ') ||
-          current.description,
-        imageUrl:
-          recognized.imageUrl ||
-          current.imageUrl
+          current.description
       }));
 
       setScanMessage(
-        `Product identified as “${recognized.name.trim()}”. Review the fields before saving.`
+        `Photo attached. Product identified as “${recognized.name.trim()}”. Review the fields before saving.`
       );
     } catch (err) {
       if (err.code === 'ERR_CANCELED') {
         return;
       }
 
-      setRecognitionError(
-        err.response?.data?.message ||
-          getErrorMessage(
-            err,
-            'Failed to recognize product from photo'
-          )
+      /*
+       * Keep the image even if the recognition provider is unavailable.
+       */
+      setScanMessage(
+        'Photo attached. Recognition was unavailable, so enter the product details manually and save the product.'
       );
     } finally {
       setRecognizing(false);
@@ -505,8 +617,14 @@ export default function ProductForm({
           form.supplier || undefined,
         brand: form.brand.trim(),
         description: form.description.trim(),
+
+        /*
+         * Keep manually entered or externally sourced image URLs.
+         * A selected camera/gallery file is uploaded separately below.
+         */
         imageUrl:
           form.imageUrl?.trim() || undefined,
+
         unitType: form.unitType,
         branch: form.branch.trim(),
         currentStock,
@@ -517,15 +635,39 @@ export default function ProductForm({
           form.expirationDate || undefined
       };
 
+      let savedProduct;
+
       if (initialProduct?._id) {
-        await client.put(
+        const response = await client.put(
           `/products/${initialProduct._id}`,
           payload
         );
+
+        savedProduct = response.data;
       } else {
-        await client.post(
+        const response = await client.post(
           '/products',
           payload
+        );
+
+        savedProduct = response.data;
+      }
+
+      /*
+       * Upload the camera/gallery photo only after product creation.
+       * The backend stores it on Product.imageUrl.
+       */
+      if (selectedImageFile && savedProduct?._id) {
+        const imageFormData = new FormData();
+
+        imageFormData.append(
+          'image',
+          selectedImageFile
+        );
+
+        await client.post(
+          `/products/${savedProduct._id}/image`,
+          imageFormData
         );
       }
 
@@ -645,15 +787,17 @@ export default function ProductForm({
           <div style={{ marginTop: 16 }}>
             <div className="product-scan-heading">
               <div className="product-scan-icon">
-                <ScanLine size={20} />
+                <ImagePlus size={20} />
               </div>
 
               <div>
                 <h3>Picture product</h3>
 
                 <p>
-                  Take a clear photo of the front label.
-                  The exact brand and product name will be extracted.
+                  Take a photo of fruits, meat, vegetables,
+                  fresh goods, or packaged products. The image
+                  will be attached to the product even when no
+                  barcode, QR code, or label can be recognized.
                 </p>
               </div>
             </div>
@@ -671,10 +815,10 @@ export default function ProductForm({
 
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   capture="environment"
                   disabled={
-                    recognizing || scanning
+                    recognizing || scanning || busy
                   }
                   style={{ display: 'none' }}
                   onChange={event => {
@@ -695,9 +839,9 @@ export default function ProductForm({
 
                 <input
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   disabled={
-                    recognizing || scanning
+                    recognizing || scanning || busy
                   }
                   style={{ display: 'none' }}
                   onChange={event => {
@@ -713,6 +857,64 @@ export default function ProductForm({
                 />
               </label>
             </div>
+
+            {imagePreviewUrl && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  marginTop: 14,
+                  padding: 10,
+                  border:
+                    '1px solid rgba(22, 163, 74, 0.2)',
+                  borderRadius: 10,
+                  background:
+                    'rgba(240, 253, 244, 0.72)'
+                }}
+              >
+                <img
+                  src={imagePreviewUrl}
+                  alt="Selected product preview"
+                  style={{
+                    width: 76,
+                    height: 76,
+                    objectFit: 'cover',
+                    borderRadius: 8,
+                    border:
+                      '1px solid rgba(22, 101, 52, 0.16)'
+                  }}
+                />
+
+                <div style={{ flex: 1 }}>
+                  <strong
+                    style={{
+                      display: 'block',
+                      fontSize: 13
+                    }}
+                  >
+                    Product photo attached
+                  </strong>
+
+                  <small className="table-subtext">
+                    {selectedImageFile
+                      ? `${selectedImageFile.name} — it will be saved when this product is registered.`
+                      : 'Existing product image'}
+                  </small>
+                </div>
+
+                <button
+                  type="button"
+                  className="row-icon danger-icon"
+                  onClick={removeSelectedImage}
+                  title="Remove selected product photo"
+                  aria-label="Remove selected product photo"
+                  disabled={recognizing || busy}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            )}
 
             {recognizing && (
               <div
@@ -751,7 +953,7 @@ export default function ProductForm({
                   event.target.value
                 )
               }
-              placeholder="e.g. Alcoplus Ethyl Alcohol"
+              placeholder="e.g. Fresh Banana, Chicken Breast, Alcoplus Ethyl Alcohol"
             />
           </label>
 
@@ -778,7 +980,7 @@ export default function ProductForm({
             Barcode
 
             <span className="field-hint">
-              Leave blank to generate
+              Leave blank to generate an internal barcode
             </span>
 
             <input
@@ -820,12 +1022,16 @@ export default function ProductForm({
                   event.target.value
                 )
               }
-              placeholder="Brand name"
+              placeholder="Brand name or farm/supplier name"
             />
           </label>
 
           <label className="span-two">
             Product image URL
+
+            <span className="field-hint">
+              Optional. A camera or gallery photo overrides this URL when saved.
+            </span>
 
             <input
               value={form.imageUrl || ''}
@@ -835,7 +1041,7 @@ export default function ProductForm({
                   event.target.value
                 )
               }
-              placeholder="Automatically filled when available"
+              placeholder="Optional external image URL"
             />
           </label>
 
@@ -851,7 +1057,7 @@ export default function ProductForm({
                 )
               }
               rows="3"
-              placeholder="Product description or ingredients"
+              placeholder="Product description, cut, grade, ingredients, or notes"
             />
           </label>
         </div>

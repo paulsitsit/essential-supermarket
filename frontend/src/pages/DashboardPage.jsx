@@ -68,8 +68,26 @@ export default function DashboardPage() {
   const [data, setData] = useState(null);
   const [stock, setStock] = useState(null);
   const [error, setError] = useState('');
+
+  /*
+   * Desktop/tablet only:
+   * false = show just the first responsive row of cards.
+   * true = show all cards.
+   */
   const [statsExpanded, setStatsExpanded] = useState(false);
+
+  /*
+   * Measured dynamically from the responsive grid so "first row"
+   * means the actual number of cards that fit at the current width.
+   */
   const [firstRowCount, setFirstRowCount] = useState(1);
+
+  /*
+   * Mobile is 767px and below.
+   * On mobile all dashboard stat cards are shown automatically,
+   * with no expand/collapse dropdown.
+   */
+  const [isMobile, setIsMobile] = useState(false);
 
   const summaryMeasureRef = useRef(null);
 
@@ -101,6 +119,39 @@ export default function DashboardPage() {
     }
   }, [lastEvent]);
 
+  /*
+   * Watches the mobile breakpoint.
+   * This updates immediately if the user rotates a device or resizes
+   * the browser window while the dashboard is open.
+   */
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(
+      '(max-width: 767px)'
+    );
+
+    function updateMobileState() {
+      setIsMobile(mediaQuery.matches);
+    }
+
+    updateMobileState();
+
+    mediaQuery.addEventListener(
+      'change',
+      updateMobileState
+    );
+
+    return () => {
+      mediaQuery.removeEventListener(
+        'change',
+        updateMobileState
+      );
+    };
+  }, []);
+
+  /*
+   * Uses an invisible copy of the same grid to count the cards in
+   * its first responsive row. No fixed number of cards is assumed.
+   */
   useLayoutEffect(() => {
     function measureFirstRow() {
       const grid = summaryMeasureRef.current;
@@ -328,11 +379,21 @@ export default function DashboardPage() {
     }
   ];
 
-  const visibleCards = statsExpanded
-    ? cards
-    : cards.slice(0, firstRowCount);
+  /*
+   * Mobile: all cards are always visible.
+   * Desktop/tablet: first row is visible while collapsed.
+   */
+  const visibleCards =
+    isMobile || statsExpanded
+      ? cards
+      : cards.slice(0, firstRowCount);
 
+  /*
+   * The chevron exists only above the mobile breakpoint, and only
+   * if there are cards outside the first visible row.
+   */
   const hasMoreCards =
+    !isMobile &&
     cards.length > firstRowCount;
 
   function renderSummaryCard(card) {
@@ -402,6 +463,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Hidden grid used only to find first-row card count. */}
       <div
         ref={summaryMeasureRef}
         className="summary-grid summary-grid-measure"
@@ -456,7 +518,7 @@ export default function DashboardPage() {
         )}
       </section>
 
-      {/* Weekly Activity and Sales Activity Charts */}
+      {/* Weekly Activity and Sales Activity */}
       <div
         style={{
           display: 'grid',
@@ -663,7 +725,7 @@ export default function DashboardPage() {
         </GlassCard>
       </div>
 
-      {/* Best Seller is now below the activity charts */}
+      {/* Best Seller below activity charts */}
       <div className="stock-price-section">
         <GlassCard className="stock-line-card">
           <div className="section-heading">
@@ -729,7 +791,7 @@ export default function DashboardPage() {
         </GlassCard>
       </div>
 
-      {/* Category and Stock Status Charts */}
+      {/* Category and stock-status charts */}
       <div className="chart-grid">
         <GlassCard className="chart-card">
           <div className="section-heading">
@@ -778,7 +840,6 @@ export default function DashboardPage() {
           <div className="section-heading">
             <div>
               <h3>Current Stock Status</h3>
-
               <p>
                 Normal, low-stock, and unavailable products
               </p>

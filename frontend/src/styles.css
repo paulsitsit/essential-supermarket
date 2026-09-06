@@ -3181,3 +3181,13 @@ body,
     transition: none;
   }
 }
+@media (max-width: 767px) {
+  .summary-toggle-wrap {
+    display: none;
+  }
+
+  .summary-grid-collapsible {
+    overflow: visible;
+    max-height: none;
+  }
+}

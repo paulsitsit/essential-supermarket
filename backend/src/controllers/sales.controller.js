@@ -17,8 +17,12 @@ import {
 
 function getReceiptDatePart(date = new Date()) {
   const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(
+    date.getMonth() + 1
+  ).padStart(2, '0');
+  const day = String(
+    date.getDate()
+  ).padStart(2, '0');
 
   return `${year}${month}${day}`;
 }
@@ -43,7 +47,9 @@ async function generateReceiptNumber(session) {
 
   if (latestSale?.receiptNumber) {
     const previousSequence = Number(
-      latestSale.receiptNumber.split('-').pop()
+      latestSale.receiptNumber
+        .split('-')
+        .pop()
     );
 
     if (
@@ -55,6 +61,23 @@ async function generateReceiptNumber(session) {
   }
 
   return `${prefix}${String(nextSequence).padStart(6, '0')}`;
+}
+
+function getProductSellingPrice(product) {
+  /*
+   * Only use a public retail/selling price.
+   * Never fall back to costPrice: it is internal,
+   * may expose sensitive data, and is not a checkout price.
+   */
+  const price = Number(
+    product.sellingPrice ??
+      product.price ??
+      0
+  );
+
+  return Number.isFinite(price)
+    ? price
+    : 0;
 }
 
 export async function listSales(req, res) {
@@ -71,7 +94,9 @@ export async function listSales(req, res) {
     filter.status = status;
   }
 
-  const searchText = String(search || '').trim();
+  const searchText = String(
+    search || ''
+  ).trim();
 
   if (searchText) {
     const escapedSearch = searchText.replace(
@@ -95,7 +120,11 @@ export async function listSales(req, res) {
     ];
   }
 
-  const safePage = Math.max(Number(page) || 1, 1);
+  const safePage = Math.max(
+    Number(page) || 1,
+    1
+  );
+
   const safeLimit = Math.min(
     Math.max(Number(limit) || 20, 1),
     100
@@ -129,7 +158,10 @@ export async function listSales(req, res) {
   });
 }
 
-export async function getSaleByReceiptNumber(req, res) {
+export async function getSaleByReceiptNumber(
+  req,
+  res
+) {
   try {
     const receiptNumber = decodeURIComponent(
       String(req.params.receiptNumber || '')
@@ -147,7 +179,10 @@ export async function getSaleByReceiptNumber(req, res) {
       receiptNumber
     })
       .populate('cashier', 'fullName role')
-      .populate('items.product', 'name barcode currentStock')
+      .populate(
+        'items.product',
+        'name barcode currentStock'
+      )
       .populate(
         'items.batchAllocations.batch',
         'batchNumber expirationDate quantity'
@@ -218,6 +253,10 @@ export async function createSale(req, res) {
   try {
     session.startTransaction();
 
+    /*
+     * Validate the complete cart first.
+     * The product database decides the price—not the POS request.
+     */
     for (const item of items) {
       const product = await Product.findById(
         item.productId
@@ -257,16 +296,16 @@ export async function createSale(req, res) {
         throw error;
       }
 
-      const unitPrice = Number(
-        item.unitPrice ?? product.costPrice
-      );
+      /*
+       * Ignore item.unitPrice from the client entirely.
+       * A cashier/browser must never control POS pricing.
+       */
+      const unitPrice =
+        getProductSellingPrice(product);
 
-      if (
-        !Number.isFinite(unitPrice) ||
-        unitPrice < 0
-      ) {
+      if (unitPrice <= 0) {
         const error = new Error(
-          `Invalid unit price for ${product.name}`
+          `${product.name} does not have a valid selling price. Ask an Admin or Manager to set the selling price before completing a POS sale.`
         );
 
         error.statusCode = 400;
@@ -285,6 +324,7 @@ export async function createSale(req, res) {
 
     const saleItems = [];
     stockMovements = [];
+
     let totalAmount = 0;
 
     for (const item of preparedItems) {
@@ -342,6 +382,7 @@ export async function createSale(req, res) {
         );
 
       item.movement = createdMovement[0];
+
       stockMovements.push(createdMovement[0]);
 
       saleItems.push({
@@ -357,6 +398,15 @@ export async function createSale(req, res) {
       totalAmount += subtotal;
     }
 
+    if (totalAmount <= 0) {
+      const error = new Error(
+        'The sale total must be greater than zero.'
+      );
+
+      error.statusCode = 400;
+      throw error;
+    }
+
     const receiptNumber = await generateReceiptNumber(
       session
     );
@@ -369,7 +419,7 @@ export async function createSale(req, res) {
           items: saleItems,
           totalAmount,
           paymentMethod,
-          branch: 'Main Branch',
+          branch: req.account.branch || 'Main Branch',
           status: 'completed'
         }
       ],
@@ -396,7 +446,9 @@ export async function createSale(req, res) {
 
     await session.commitTransaction();
 
-    const saleForReceipt = await Sale.findById(sale._id)
+    const saleForReceipt = await Sale.findById(
+      sale._id
+    )
       .populate('cashier', 'fullName role')
       .populate('items.product', 'name barcode')
       .populate(
@@ -434,8 +486,12 @@ export async function createSale(req, res) {
     }
 
     if (!res.headersSent) {
-      return res.status(err.statusCode || 500).json({
-        message: err.message || 'Unable to complete sale'
+      return res.status(
+        err.statusCode || 500
+      ).json({
+        message:
+          err.message ||
+          'Unable to complete sale'
       });
     }
   } finally {
@@ -498,7 +554,10 @@ async function runPostSaleEffects({
         );
       }
 
-      io?.emit('productUpdated', freshProduct);
+      io?.emit(
+        'productUpdated',
+        freshProduct
+      );
 
       io?.emit('stockUpdated', {
         product: freshProduct,

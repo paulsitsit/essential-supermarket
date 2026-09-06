@@ -1,5 +1,7 @@
 import Product from '../models/Product.js';
 import StockMovement from '../models/StockMovement.js';
+import StockLedgerEntry from '../models/StockLedgerEntry.js';
+import ProductBatch from '../models/ProductBatch.js';
 import LowStockAlert from '../models/LowStockAlert.js';
 import Notification from '../models/Notification.js';
 import Account from '../models/Account.js';
@@ -248,6 +250,59 @@ export async function createOrUpdateAlert(
   return null;
 }
 
+/**
+ * Create stock ledger entries for each batch allocation
+ */
+async function createBatchLedgerEntries({
+  product,
+  batchAllocations,
+  movementType,
+  reason,
+  account,
+  movement
+}) {
+  if (!batchAllocations || batchAllocations.length === 0) {
+    return [];
+  }
+
+  const ledgerEntries = await Promise.all(
+    batchAllocations.map(async (allocation) => {
+      const batch = await ProductBatch.findById(allocation.batch);
+
+      if (!batch) {
+        console.warn(`Batch ${allocation.batch} not found, skipping ledger entry`);
+        return null;
+      }
+
+      const isStockIn = movementType === 'stock_in';
+      const quantityChange = isStockIn ? allocation.quantity : -allocation.quantity;
+      const batchStockBefore = batch.quantity;
+      const batchStockAfter = isStockIn
+        ? batch.quantity + allocation.quantity
+        : batch.quantity - allocation.quantity;
+
+      const entry = await StockLedgerEntry.create({
+        product: product._id,
+        batch: batch._id,
+        batchNumber: allocation.batchNumber || batch.batchNumber || '',
+        movementType,
+        quantityChanged: quantityChange,
+        batchStockBefore,
+        batchStockAfter,
+        reason,
+        referenceType: movement.referenceType || 'manual',
+        referenceId: movement.referenceId || null,
+        performedBy: account._id,
+        branch: product.branch || 'Main Branch'
+      });
+
+      return entry;
+    })
+  );
+
+  return ledgerEntries.filter(entry => entry !== null);
+}
+
 export async function applyMovement({
   productId,
   account,
@@ -258,7 +313,9 @@ export async function applyMovement({
   batchNumber,
   receivedDate,
   req,
-  io
+  io,
+  referenceType = 'manual',
+  referenceId = null
 }) {
   const product = await Product.findById(productId);
 
@@ -339,7 +396,19 @@ export async function applyMovement({
     newStock,
     reason,
     branch: product.branch,
-    batchAllocations
+    batchAllocations,
+    referenceType,
+    referenceId
+  });
+
+  // Create batch-level ledger entries
+  const ledgerEntries = await createBatchLedgerEntries({
+    product,
+    batchAllocations,
+    movementType,
+    reason,
+    account,
+    movement
   });
 
   await createOrUpdateAlert(
@@ -366,7 +435,8 @@ export async function applyMovement({
   io?.emit('batchUpdated', {
     productId: product._id.toString(),
     receivedBatch,
-    batchAllocations
+    batchAllocations,
+    ledgerEntries: ledgerEntries.map(e => e._id)
   });
 
   const shouldNotifyStockAdded =
@@ -381,7 +451,8 @@ export async function applyMovement({
     quantityChanged: change,
     previousStock,
     newStock,
-    shouldNotifyStockAdded
+    shouldNotifyStockAdded,
+    ledgerEntriesCreated: ledgerEntries.length
   });
 
   let stockAddedNotificationResult = null;
@@ -415,6 +486,7 @@ export async function applyMovement({
       movementType,
       stockAddedNotificationTriggered:
         shouldNotifyStockAdded,
+      ledgerEntriesCreated: ledgerEntries.length,
       batchAllocations: batchAllocations.map(
         allocation => ({
           batchId: allocation.batch.toString(),
@@ -431,6 +503,7 @@ export async function applyMovement({
     movement,
     receivedBatch,
     batchAllocations,
+    ledgerEntries,
     stockAddedNotifications:
       stockAddedNotificationResult
         ? stockAddedNotificationResult.notifications.length

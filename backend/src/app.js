@@ -23,7 +23,11 @@ import batchRoutes from './routes/batch.routes.js';
 import pushRoutes from './routes/push.routes.js';
 import returnsRoutes from './routes/returns.routes.js';
 import quarantineRoutes from './routes/quarantine.routes.js';
+import stockLedgerRoutes from './routes/stockLedger.routes.js';
 
+// ... existing imports
+
+app.use('/api/stock-ledger', stockLedgerRoutes);
 import {
   apiLimiter,
   compressResponses

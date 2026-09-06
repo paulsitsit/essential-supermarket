@@ -46,34 +46,14 @@ const schema = new mongoose.Schema(
     movementType: {
       type: String,
       enum: [
-        /*
-         * Normal inventory receipt.
-         */
         'stock_in',
-
-        /*
-         * Normal POS checkout. Quantity is negative.
-         */
         'sale',
-
-        /*
-         * Physical-count or administrative stock change.
-         * Admin / Manager only.
-         */
         'stock_adjustment',
-
-        /*
-         * Inventory loss/disposal operations.
-         */
         'damaged',
         'expired',
         'returned_to_supplier',
         'branch_transfer',
         'manual_correction',
-
-        /*
-         * Customer return and quarantine workflow.
-         */
         'customer_return',
         'quarantine_release',
         'quarantine_disposal',
@@ -114,6 +94,19 @@ const schema = new mongoose.Schema(
     batchAllocations: {
       type: [batchAllocationSchema],
       default: []
+    },
+
+    // NEW: Reference to source document for traceability
+    referenceType: {
+      type: String,
+      enum: ['sale', 'return', 'adjustment', 'purchase_order', 'transfer', 'manual'],
+      default: 'manual'
+    },
+
+    referenceId: {
+      type: String,
+      default: null,
+      index: true
     }
   },
   {
@@ -122,17 +115,35 @@ const schema = new mongoose.Schema(
   }
 );
 
-schema.index({
-  product: 1,
-  createdAt: -1
+// Prevent updates to critical fields (immutable ledger)
+schema.pre('findOneAndUpdate', function(next) {
+  const update = this.getUpdate();
+  const protectedFields = [
+    'product',
+    'account',
+    'movementType',
+    'quantityChanged',
+    'previousStock',
+    'newStock',
+    'batchAllocations',
+    'referenceType',
+    'referenceId'
+  ];
+
+  protectedFields.forEach(field => {
+    if (update[field]) {
+      delete update[field];
+    }
+    if (update.$set && update.$set[field]) {
+      delete update.$set[field];
+    }
+  });
+
+  next();
 });
 
-schema.index({
-  movementType: 1,
-  createdAt: -1
-});
+schema.index({ product: 1, createdAt: -1 });
+schema.index({ movementType: 1, createdAt: -1 });
+schema.index({ referenceType: 1, referenceId: 1 });
 
-export default mongoose.model(
-  'StockMovement',
-  schema
-);
+export default mongoose.model('StockMovement', schema);

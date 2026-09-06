@@ -1,186 +1,92 @@
-import 'express-async-errors';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+// Import routes
 import authRoutes from './routes/auth.routes.js';
-import productRoutes from './routes/product.routes.js';
-import movementRoutes from './routes/stockMovement.routes.js';
-import dashboardRoutes from './routes/dashboard.routes.js';
-
-import alertRoutes from './routes/alert.routes.js';
-import expirationAlertRoutes from './routes/expirationAlert.routes.js';
-
-import categoryRoutes from './routes/category.routes.js';
-import supplierRoutes from './routes/supplier.routes.js';
 import accountRoutes from './routes/account.routes.js';
-import reportRoutes from './routes/report.routes.js';
+import alertRoutes from './routes/alert.routes.js';
 import auditRoutes from './routes/audit.routes.js';
-import exportRoutes from './routes/export.routes.js';
-import salesRoutes from './routes/sales.routes.js';
 import batchRoutes from './routes/batch.routes.js';
+import categoryRoutes from './routes/category.routes.js';
+import dashboardRoutes from './routes/dashboard.routes.js';
+import expirationAlertRoutes from './routes/expirationAlert.routes.js';
+import exportRoutes from './routes/export.routes.js';
+import productRoutes from './routes/product.routes.js';
 import pushRoutes from './routes/push.routes.js';
-import returnsRoutes from './routes/returns.routes.js';
 import quarantineRoutes from './routes/quarantine.routes.js';
-import stockLedgerRoutes from './routes/stockLedger.routes.js';
+import reportRoutes from './routes/report.routes.js';
+import returnsRoutes from './routes/returns.routes.js';
+import salesRoutes from './routes/sales.routes.js';
+import stockMovementRoutes from './routes/stockMovement.routes.js';
+import supplierRoutes from './routes/supplier.routes.js';
+import stockLedgerRoutes from './routes/stockLedger.routes.js'; // ADD THIS
 
-// ... existing imports
+// Import middleware
+import { errorHandler } from './middleware/error.js';
+import { protect } from './middleware/auth.js';
 
-app.use('/api/stock-ledger', stockLedgerRoutes);
-import {
-  apiLimiter,
-  compressResponses
-} from './middleware/security.js';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-import {
-  notFound,
-  errorHandler
-} from './middleware/error.js';
+const app = express(); // <-- app must be initialized BEFORE using it
 
-const app = express();
-
+// Trust proxy for rate limiting
 app.set('trust proxy', 1);
 
-/*
- * CLIENT_URL can contain multiple comma-separated domains.
- *
- * Render environment variable example:
- * CLIENT_URL=https://essential-supermarket.vercel.app
- *
- * For previews or additional frontend deployments:
- * CLIENT_URL=https://essential-supermarket.vercel.app,https://your-preview.vercel.app
- */
-const allowedOrigins = [
-  ...(
-    process.env.CLIENT_URL ||
-    'http://localhost:5173'
-  )
-    .split(',')
-    .map(origin => origin.trim())
-    .filter(Boolean),
-
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'https://localhost',
-  'http://localhost'
-];
-
-const corsOptions = {
-  origin(origin, callback) {
-    /*
-     * Allow requests without an Origin header:
-     * - curl/Postman
-     * - server-to-server calls
-     * - some Capacitor/mobile requests
-     */
-    if (!origin) {
-      return callback(null, true);
-    }
-
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
-    console.warn(`Blocked CORS request from origin: ${origin}`);
-
-    return callback(
-      new Error(`Origin is not allowed by CORS: ${origin}`)
-    );
-  },
-
-  /*
-   * PATCH is required for:
-   * PATCH /api/quarantine/:id/dispose
-   * PATCH /api/quarantine/:id/returnToSupplier
-   * PATCH /api/quarantine/:id/release
-   */
-  methods: [
-    'GET',
-    'POST',
-    'PUT',
-    'PATCH',
-    'DELETE',
-    'OPTIONS'
-  ],
-
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization'
-  ],
-
-  credentials: true,
-
-  optionsSuccessStatus: 204
-};
-
-/*
- * Must come before every API route.
- * This adds the CORS headers for normal API requests.
- */
-app.use(cors(corsOptions));
-
-/*
- * Explicitly handles browser preflight OPTIONS requests.
- * PATCH requests with Authorization headers trigger preflight.
- *
- * Use a RegExp instead of '*' for Express compatibility.
- */
-app.options(/.*/, cors(corsOptions));
-
+// Security headers
 app.use(helmet());
 
-app.use(express.json({ limit: '2mb' }));
+// CORS
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true
+}));
+
+// Body parsing
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Logging
 app.use(morgan('dev'));
-app.use(compressResponses);
 
-app.use('/api', apiLimiter);
+// Static files for exports
+app.use('/exports', express.static(path.join(__dirname, '../exports')));
 
-app.get('/api/health', (req, res) => {
-  res.json({
-    ok: true,
-    service: 'EssentialSupermarket API',
-    database: app.get('databaseMode') || 'starting',
-    timestamp: new Date().toISOString()
-  });
+// API Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/accounts', accountRoutes);
+app.use('/api/alerts', alertRoutes);
+app.use('/api/audits', auditRoutes);
+app.use('/api/batches', batchRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/expiration-alerts', expirationAlertRoutes);
+app.use('/api/exports', exportRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/push', pushRoutes);
+app.use('/api/quarantine', quarantineRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/returns', returnsRoutes);
+app.use('/api/sales', salesRoutes);
+app.use('/api/stock-movements', stockMovementRoutes);
+app.use('/api/suppliers', supplierRoutes);
+app.use('/api/stock-ledger', stockLedgerRoutes); // ADD THIS LINE
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
 });
 
-app.use('/api/auth', authRoutes);
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ message: 'Route not found' });
+});
 
-app.use('/api/products', productRoutes);
-
-app.use(
-  '/api/stock-movements',
-  movementRoutes
-);
-
-app.use('/api/dashboard', dashboardRoutes);
-
-app.use(
-  '/api/low-stock-alerts',
-  alertRoutes
-);
-
-app.use(
-  '/api/expiration-alerts',
-  expirationAlertRoutes
-);
-
-app.use('/api/categories', categoryRoutes);
-app.use('/api/suppliers', supplierRoutes);
-app.use('/api/accounts', accountRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/audit-logs', auditRoutes);
-app.use('/api/reports/export', exportRoutes);
-
-app.use('/api/sales', salesRoutes);
-app.use('/api/batches', batchRoutes);
-app.use('/api/push', pushRoutes);
-
-app.use('/api/returns', returnsRoutes);
-app.use('/api/quarantine', quarantineRoutes);
-
-app.use(notFound);
+// Error handler (must be last)
 app.use(errorHandler);
 
 export default app;

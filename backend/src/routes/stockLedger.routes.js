@@ -6,13 +6,13 @@ import {
   getBatchVarianceController,
   getProductVariancesController
 } from '../controllers/stockLedger.controller.js';
-import { authenticate } from '../middleware/auth.js';
+import auth from '../middleware/auth.js';
 import { authorize } from '../middleware/roles.js';
 
 const router = express.Router();
 
 // All routes require authentication
-router.use(authenticate);
+router.use(auth);
 
 // Batch-level ledger
 router.get(

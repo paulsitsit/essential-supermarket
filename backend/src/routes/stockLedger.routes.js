@@ -7,7 +7,7 @@ import {
   getProductVariancesController
 } from '../controllers/stockLedger.controller.js';
 import { protect } from '../middleware/auth.js';
-import { authorize } from '../middleware/roles.js';
+import { checkRole } from '../middleware/roles.js';
 
 const router = express.Router();
 
@@ -17,35 +17,35 @@ router.use(protect);
 // Batch-level ledger
 router.get(
   '/batches/:batchId/ledger',
-  authorize(['admin', 'manager', 'staff']),
+  checkRole(['admin', 'manager', 'staff']),
   getBatchLedgerController
 );
 
 // Product-level ledger (all batches)
 router.get(
   '/products/:productId/ledger',
-  authorize(['admin', 'manager', 'staff']),
+  checkRole(['admin', 'manager', 'staff']),
   getProductLedgerController
 );
 
 // Product-level movements
 router.get(
   '/products/:productId/movements',
-  authorize(['admin', 'manager', 'staff']),
+  checkRole(['admin', 'manager', 'staff']),
   getProductMovementsController
 );
 
 // Batch variance check
 router.get(
   '/batches/:batchId/variance',
-  authorize(['admin', 'manager']),
+  checkRole(['admin', 'manager']),
   getBatchVarianceController
 );
 
 // Product variances (all batches)
 router.get(
   '/products/:productId/variances',
-  authorize(['admin', 'manager']),
+  checkRole(['admin', 'manager']),
   getProductVariancesController
 );
 

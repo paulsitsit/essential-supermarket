@@ -22,12 +22,14 @@ export async function downloadServerReport(
       ? 'xlsx'
       : 'pdf';
 
+  const contentType =
+    response.headers?.['content-type'] ||
+    'application/octet-stream';
+
   const blob = new Blob(
     [response.data],
     {
-      type:
-        response.headers?.['content-type'] ||
-        'application/octet-stream'
+      type: contentType
     }
   );
 
@@ -46,5 +48,5 @@ export async function downloadServerReport(
 
   window.setTimeout(() => {
     URL.revokeObjectURL(blobUrl);
-  }, 0);
+  }, 500);
 }

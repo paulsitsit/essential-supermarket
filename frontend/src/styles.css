@@ -3425,3 +3425,137 @@ body,
     padding: 10px;
   }
 }
+/*"glassmorphism" interface style*/
+:root {
+  --glass-sidebar: rgba(255, 255, 255, 0.72);
+  --glass-topbar: rgba(255, 255, 255, 0.68);
+  --glass-border: rgba(255, 255, 255, 0.72);
+  --glass-shadow: 0 10px 32px rgba(22, 101, 52, 0.10);
+}
+
+/* Add soft color behind the transparent interface layers. */
+body {
+  background:
+    radial-gradient(
+      circle at 8% 12%,
+      rgba(134, 239, 172, 0.42) 0,
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 92% 4%,
+      rgba(187, 247, 208, 0.46) 0,
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 75% 90%,
+      rgba(220, 252, 231, 0.62) 0,
+      transparent 35%
+    ),
+    #f0fdf4;
+}
+
+/* Fixed left sidebar glass layer. */
+.sidebar.compact-sidebar {
+  background: var(--glass-sidebar);
+  border-right: 1px solid var(--glass-border);
+  box-shadow:
+    10px 0 32px rgba(22, 101, 52, 0.08),
+    inset -1px 0 0 rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(22px) saturate(155%);
+  -webkit-backdrop-filter: blur(22px) saturate(155%);
+}
+
+/* Fixed topbar glass layer. */
+.topbar {
+  background: var(--glass-topbar);
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow:
+    0 8px 28px rgba(22, 101, 52, 0.08),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(22px) saturate(155%);
+  -webkit-backdrop-filter: blur(22px) saturate(155%);
+}
+
+/* Search field should look like a smaller glass panel. */
+.global-search {
+  background: rgba(255, 255, 255, 0.48);
+  border-color: rgba(255, 255, 255, 0.68);
+  box-shadow:
+    0 5px 15px rgba(22, 101, 52, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.global-search:focus-within {
+  background: rgba(255, 255, 255, 0.66);
+  border-color: rgba(34, 197, 94, 0.35);
+  box-shadow:
+    0 0 0 3px rgba(34, 197, 94, 0.10),
+    0 8px 20px rgba(22, 101, 52, 0.08);
+}
+
+/* Sidebar menu hover and active layers. */
+.compact-nav-item:hover {
+  background: rgba(255, 255, 255, 0.46);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42);
+}
+
+.compact-nav-item.active {
+  background: rgba(229, 229, 228, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.62),
+    0 5px 14px rgba(22, 101, 52, 0.06);
+}
+
+/* Make the notification dropdown match the glass interface. */
+.notification-dropdown {
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(255, 255, 255, 0.76);
+  box-shadow:
+    0 18px 50px rgba(22, 101, 52, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.58);
+  backdrop-filter: blur(24px) saturate(155%);
+  -webkit-backdrop-filter: blur(24px) saturate(155%);
+}
+
+/* Search results should visually connect to the glass search field. */
+.search-suggestions,
+.search-status {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: rgba(255, 255, 255, 0.76);
+  box-shadow:
+    0 15px 36px rgba(22, 101, 52, 0.13),
+    inset 0 1px 0 rgba(255, 255, 255, 0.60);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+}
+
+/* Keep the mobile drawer readable over page content. */
+@media (max-width: 900px) {
+  .sidebar.compact-sidebar {
+    background: rgba(255, 255, 255, 0.82);
+    box-shadow:
+      16px 0 45px rgba(22, 101, 52, 0.18),
+      inset -1px 0 0 rgba(255, 255, 255, 0.45);
+  }
+
+  .topbar {
+    background: rgba(255, 255, 255, 0.76);
+  }
+}
+
+/* Respect users who turn off motion/transparency effects. */
+@media (prefers-reduced-transparency: reduce) {
+  .sidebar.compact-sidebar,
+  .topbar,
+  .notification-dropdown,
+  .search-suggestions,
+  .search-status,
+  .global-search {
+    background: #ffffff;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}

@@ -53,22 +53,6 @@ function formatDate(value) {
   }).format(date);
 }
 
-function formatDateOnly(value) {
-  if (!value) {
-    return '';
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
-
-  return new Intl.DateTimeFormat('en-PH', {
-    dateStyle: 'medium'
-  }).format(date);
-}
-
 function formatPeso(value) {
   return new Intl.NumberFormat('en-PH', {
     style: 'currency',
@@ -85,6 +69,7 @@ function getMovementLabel(type) {
     damaged: 'Damaged',
     expired: 'Expired',
     adjustment: 'Adjustment',
+    stock_adjustment: 'Stock Adjustment',
     manual_correction: 'Manual Correction',
     returned_to_supplier: 'Returned to Supplier',
     branch_transfer: 'Branch Transfer'
@@ -93,14 +78,63 @@ function getMovementLabel(type) {
   return labels[type] || type || 'Unknown';
 }
 
+function isValidDateString(value) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(
+    String(value || '')
+  );
+}
+
 function getSafeDateRange(query) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date()
+    .toISOString()
+    .slice(0, 10);
 
   const from = query.from || today;
   const to = query.to || from;
 
-  const fromDate = new Date(`${from}T00:00:00.000Z`);
-  const toDate = new Date(`${to}T23:59:59.999Z`);
+  if (
+    !isValidDateString(from) ||
+    !isValidDateString(to)
+  ) {
+    return null;
+  }
+
+  /*
+   * Use local calendar date construction instead of parsing
+   * YYYY-MM-DD as UTC. This avoids off-by-one-day behavior
+   * around Philippine-time report boundaries.
+   */
+  const [
+    fromYear,
+    fromMonth,
+    fromDay
+  ] = from.split('-').map(Number);
+
+  const [
+    toYear,
+    toMonth,
+    toDay
+  ] = to.split('-').map(Number);
+
+  const fromDate = new Date(
+    fromYear,
+    fromMonth - 1,
+    fromDay,
+    0,
+    0,
+    0,
+    0
+  );
+
+  const toDate = new Date(
+    toYear,
+    toMonth - 1,
+    toDay,
+    23,
+    59,
+    59,
+    999
+  );
 
   if (
     Number.isNaN(fromDate.getTime()) ||
@@ -116,6 +150,32 @@ function getSafeDateRange(query) {
     fromDate,
     toDate
   };
+}
+
+function getDateKey(date) {
+  const value = new Date(date);
+
+  return [
+    value.getFullYear(),
+    value.getMonth() + 1,
+    value.getDate()
+  ].join('-');
+}
+
+function toReportDate(date) {
+  const value = new Date(date);
+
+  const year = value.getFullYear();
+
+  const month = String(
+    value.getMonth() + 1
+  ).padStart(2, '0');
+
+  const day = String(
+    value.getDate()
+  ).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
 }
 
 async function getInventoryReport(query) {
@@ -213,19 +273,22 @@ async function getMovementsReport(query) {
   }
 
   if (query.from || query.to) {
-    filter.createdAt = {};
+    const range = getSafeDateRange(query);
 
-    if (query.from) {
-      filter.createdAt.$gte = new Date(
-        `${query.from}T00:00:00.000Z`
+    if (!range) {
+      const error = new Error(
+        'Invalid date range. Use YYYY-MM-DD and ensure the end date is not before the start date.'
       );
+
+      error.statusCode = 400;
+
+      throw error;
     }
 
-    if (query.to) {
-      filter.createdAt.$lte = new Date(
-        `${query.to}T23:59:59.999Z`
-      );
-    }
+    filter.createdAt = {
+      $gte: range.fromDate,
+      $lte: range.toDate
+    };
   }
 
   const movements = await StockMovement.find(filter)
@@ -342,51 +405,60 @@ async function getSalesReturnsReport(query) {
   const salesMap = new Map(
     salesByDay.map(row => [
       `${row._id.year}-${row._id.month}-${row._id.day}`,
-      row
+      {
+        grossSales: Number(
+          row.grossSales || 0
+        ),
+        transactions: Number(
+          row.transactions || 0
+        )
+      }
     ])
   );
 
   const returnsMap = new Map(
     returnsByDay.map(row => [
       `${row._id.year}-${row._id.month}-${row._id.day}`,
-      row
+      {
+        refunds: Number(row.refunds || 0),
+        returnsCount: Number(
+          row.returnsCount || 0
+        )
+      }
     ])
   );
 
   const reportRows = [];
 
   const cursor = new Date(range.fromDate);
-  const end = new Date(range.toDate);
 
-  while (cursor <= end) {
-    const key = [
-      cursor.getUTCFullYear(),
-      cursor.getUTCMonth() + 1,
-      cursor.getUTCDate()
-    ].join('-');
+  while (cursor <= range.toDate) {
+    const key = getDateKey(cursor);
 
-    const sales = salesMap.get(key) || {};
-    const returns = returnsMap.get(key) || {};
+    const sales = salesMap.get(key) || {
+      grossSales: 0,
+      transactions: 0
+    };
 
-    const grossSales = Number(
-      sales.grossSales || 0
-    );
+    const returns = returnsMap.get(key) || {
+      refunds: 0,
+      returnsCount: 0
+    };
 
-    const refunds = Number(
-      returns.refunds || 0
-    );
+    const grossSales = sales.grossSales;
+    const refunds = returns.refunds;
 
     reportRows.push([
-      cursor.toISOString().slice(0, 10),
+      toReportDate(cursor),
       grossSales,
       refunds,
       grossSales - refunds,
-      Number(sales.transactions || 0),
-      Number(returns.returnsCount || 0)
+      sales.transactions,
+      returns.returnsCount
     ]);
 
-    cursor.setUTCDate(
-      cursor.getUTCDate() + 1
+    cursor.setDate(
+      cursor.getDate() + 1
     );
   }
 
@@ -408,6 +480,12 @@ async function getSalesReturnsReport(query) {
       returnsCount: 0
     }
   );
+
+  summary.averageReturn =
+    summary.returnsCount > 0
+      ? summary.refunds /
+        summary.returnsCount
+      : 0;
 
   return {
     title: 'Sales & Returns Report',
@@ -441,12 +519,36 @@ async function getSalesReturnsReport(query) {
       [
         'Return Records',
         String(summary.returnsCount)
+      ],
+      [
+        'Average Return',
+        formatPeso(summary.averageReturn)
       ]
     ]
   };
 }
 
+function normalizeReportType(type) {
+  const aliases = {
+    inventory: 'inventory',
+
+    'low-stock': 'low-stock',
+    lowStock: 'low-stock',
+
+    'stock-movements': 'stock-movements',
+    movements: 'stock-movements',
+
+    'sales-returns': 'sales-returns',
+    salesReturns: 'sales-returns'
+  };
+
+  return aliases[type] || null;
+}
+
 async function getReport(type, query) {
+  const normalizedType =
+    normalizeReportType(type);
+
   const handlers = {
     inventory: getInventoryReport,
     'low-stock': getLowStockReport,
@@ -454,31 +556,48 @@ async function getReport(type, query) {
     'sales-returns': getSalesReturnsReport
   };
 
-  const handler = handlers[type];
+  const handler = handlers[normalizedType];
 
   if (!handler) {
     const error = new Error(
-      `Unknown export type: ${type}`
+      `Invalid report type: ${type}`
     );
 
-    error.statusCode = 404;
+    error.statusCode = 400;
 
     throw error;
   }
 
-  return handler(query);
+  const report = await handler(query);
+
+  return {
+    ...report,
+    type: normalizedType
+  };
 }
 
-function sendPdf(res, report, type) {
+function isCurrencyColumn(columnName) {
+  return [
+    'Cost Price',
+    'Inventory Value',
+    'Gross Sales',
+    'Refunds',
+    'Net Revenue'
+  ].includes(columnName);
+}
+
+function sendPdf(res, report) {
   const document = new PDFDocument({
     margin: 36,
     size: 'A4',
-    layout: report.columns.length > 6
-      ? 'landscape'
-      : 'portrait'
+    layout:
+      report.columns.length > 6
+        ? 'landscape'
+        : 'portrait'
   });
 
-  const fileName = `${type}-report.pdf`;
+  const fileName =
+    `${report.type}-report.pdf`;
 
   res.setHeader(
     'Content-Type',
@@ -500,9 +619,7 @@ function sendPdf(res, report, type) {
   document
     .fillColor('#153225')
     .fontSize(14)
-    .text(report.title, {
-      continued: false
-    });
+    .text(report.title);
 
   if (report.subtitle) {
     document
@@ -528,16 +645,18 @@ function sendPdf(res, report, type) {
 
     document.moveDown(0.3);
 
-    report.summary.forEach(([label, value]) => {
-      document
-        .fillColor('#52725c')
-        .fontSize(9)
-        .text(`${label}: `, {
-          continued: true
-        })
-        .fillColor('#153225')
-        .text(value);
-    });
+    report.summary.forEach(
+      ([label, value]) => {
+        document
+          .fillColor('#52725c')
+          .fontSize(9)
+          .text(`${label}: `, {
+            continued: true
+          })
+          .fillColor('#153225')
+          .text(String(value));
+      }
+    );
 
     document.moveDown(1);
   }
@@ -547,8 +666,8 @@ function sendPdf(res, report, type) {
     document.page.margins.left -
     document.page.margins.right;
 
-  const columns = report.columns;
-  const columnWidth = pageWidth / columns.length;
+  const columnWidth =
+    pageWidth / report.columns.length;
 
   function drawHeader() {
     const y = document.y;
@@ -558,7 +677,7 @@ function sendPdf(res, report, type) {
         document.page.margins.left,
         y,
         pageWidth,
-        18
+        20
       )
       .fill('#dcfce7');
 
@@ -566,28 +685,30 @@ function sendPdf(res, report, type) {
       .fillColor('#166534')
       .fontSize(7);
 
-    columns.forEach((column, index) => {
-      document.text(
-        column,
-        document.page.margins.left +
-          columnWidth * index +
-          3,
-        y + 5,
-        {
-          width: columnWidth - 6,
-          height: 10,
-          ellipsis: true
-        }
-      );
-    });
+    report.columns.forEach(
+      (column, index) => {
+        document.text(
+          column,
+          document.page.margins.left +
+            columnWidth * index +
+            3,
+          y + 6,
+          {
+            width: columnWidth - 6,
+            height: 10,
+            ellipsis: true
+          }
+        );
+      }
+    );
 
-    document.y = y + 22;
+    document.y = y + 24;
   }
 
   drawHeader();
 
   report.rows.forEach(row => {
-    const rowHeight = 18;
+    const rowHeight = 19;
 
     if (
       document.y + rowHeight >
@@ -618,29 +739,24 @@ function sendPdf(res, report, type) {
       .fontSize(7);
 
     row.forEach((cell, index) => {
-      let value = cell ?? '';
+      const columnName =
+        report.columns[index];
 
-      if (
-        [
-          'Cost Price',
-          'Inventory Value',
-          'Gross Sales',
-          'Refunds',
-          'Net Revenue'
-        ].includes(columns[index])
-      ) {
-        value = formatPeso(value);
-      }
+      const value = isCurrencyColumn(
+        columnName
+      )
+        ? formatPeso(cell)
+        : String(cell ?? '');
 
       document.text(
-        String(value),
+        value,
         document.page.margins.left +
           columnWidth * index +
           3,
         y + 5,
         {
           width: columnWidth - 6,
-          height: 10,
+          height: 11,
           ellipsis: true
         }
       );
@@ -652,7 +768,7 @@ function sendPdf(res, report, type) {
   document.end();
 }
 
-async function sendExcel(res, report, type) {
+async function sendExcel(res, report) {
   const workbook = new ExcelJS.Workbook();
 
   workbook.creator = 'Essential Supermarket';
@@ -669,10 +785,10 @@ async function sendExcel(res, report, type) {
     report.columns.length
   );
 
-  const titleCell = worksheet.getCell(1, 1);
+  worksheet.getCell(1, 1).value =
+    'Essential Supermarket';
 
-  titleCell.value = 'Essential Supermarket';
-  titleCell.font = {
+  worksheet.getCell(1, 1).font = {
     bold: true,
     size: 16,
     color: {
@@ -687,10 +803,10 @@ async function sendExcel(res, report, type) {
     report.columns.length
   );
 
-  const reportTitleCell = worksheet.getCell(2, 1);
+  worksheet.getCell(2, 1).value =
+    report.title;
 
-  reportTitleCell.value = report.title;
-  reportTitleCell.font = {
+  worksheet.getCell(2, 1).font = {
     bold: true,
     size: 12,
     color: {
@@ -722,9 +838,8 @@ async function sendExcel(res, report, type) {
   }
 
   if (report.summary?.length) {
-    const summarySheet = workbook.addWorksheet(
-      'Summary'
-    );
+    const summarySheet =
+      workbook.addWorksheet('Summary');
 
     summarySheet.getCell('A1').value =
       'Essential Supermarket';
@@ -747,12 +862,14 @@ async function sendExcel(res, report, type) {
 
     summarySheet.addRow([]);
 
-    report.summary.forEach(([label, value]) => {
-      summarySheet.addRow([
-        label,
-        value
-      ]);
-    });
+    report.summary.forEach(
+      ([label, value]) => {
+        summarySheet.addRow([
+          label,
+          value
+        ]);
+      }
+    );
 
     summarySheet.getColumn(1).width = 24;
     summarySheet.getColumn(2).width = 22;
@@ -789,14 +906,17 @@ async function sendExcel(res, report, type) {
     worksheet.addRow(row);
   });
 
-  worksheet.columns.forEach((column, index) => {
-    const heading = report.columns[index] || '';
+  worksheet.columns.forEach(
+    (column, index) => {
+      const heading =
+        report.columns[index] || '';
 
-    column.width = Math.min(
-      Math.max(heading.length + 3, 14),
-      26
-    );
-  });
+      column.width = Math.min(
+        Math.max(heading.length + 3, 14),
+        28
+      );
+    }
+  );
 
   worksheet.autoFilter = {
     from: {
@@ -816,7 +936,8 @@ async function sendExcel(res, report, type) {
     }
   ];
 
-  const fileName = `${type}-report.xlsx`;
+  const fileName =
+    `${report.type}-report.xlsx`;
 
   res.setHeader(
     'Content-Type',
@@ -839,8 +960,6 @@ export async function exportReport(
   next
 ) {
   try {
-    const type = req.params.type;
-
     const format = String(
       req.query.format || 'xlsx'
     ).toLowerCase();
@@ -858,7 +977,7 @@ export async function exportReport(
     }
 
     const report = await getReport(
-      type,
+      req.params.type,
       req.query
     );
 
@@ -866,16 +985,23 @@ export async function exportReport(
       req,
       account: req.account,
       action: 'report_exported',
-      affectedRecord: `${type}_${format}`
+      affectedRecord:
+        `${report.type}_${format}`
     });
 
     if (format === 'pdf') {
-      sendPdf(res, report, type);
+      sendPdf(res, report);
       return;
     }
 
-    await sendExcel(res, report, type);
+    await sendExcel(res, report);
   } catch (error) {
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({
+        message: error.message
+      });
+    }
+
     next(error);
   }
 }

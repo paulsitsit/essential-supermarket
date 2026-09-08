@@ -22,6 +22,8 @@ import InventoryPage from './pages/InventoryPage';
 import StockMovementsPage from './pages/StockMovementsPage';
 import ScannerPage from './pages/ScannerPage';
 import AlertsPage from './pages/AlertsPage';
+import LowStockAlertsPage from './pages/LowStockAlertsPage';
+import ExpirationAlertsPage from './pages/ExpirationAlertsPage';
 import ReportsPage from './pages/ReportsPage';
 import AccountsPage from './pages/AccountsPage';
 import SettingsPage from './pages/SettingsPage';
@@ -191,8 +193,13 @@ export default function App() {
             />
 
             <Route
-              path="alerts"
-              element={<AlertsPage />}
+              path="alerts/low-stock"
+              element={<LowStockAlertsPage />}
+            />
+
+            <Route
+              path="alerts/expiration"
+              element={<ExpirationAlertsPage />}
             />
           </Route>
         </Route>

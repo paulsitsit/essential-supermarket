@@ -27,51 +27,104 @@ import stockLedgerRoutes from './routes/stockLedger.routes.js';
 
 // Import middleware
 import { errorHandler } from './middleware/error.js';
-import { protect } from './middleware/auth.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// Trust proxy for rate limiting
+// Trust Render's proxy. This is needed for secure deployments and
+// middleware that checks the request IP/protocol behind the proxy.
 app.set('trust proxy', 1);
 
 // Security headers
 app.use(helmet());
 
-// CORS - Allow both localhost and production
+/*
+ * CORS allowlist.
+ *
+ * Both web applications use the same Render API:
+ * - Inventory management frontend
+ * - POS frontend
+ *
+ * The POS origin must be present here or login preflight requests
+ * will fail before they reach /api/auth/login.
+ */
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:3000',
-  'https://essential-supermarket.vercel.app'
+
+  // Inventory management frontend
+  'https://essential-supermarket.vercel.app',
+
+  // Point-of-sale frontend
+  'https://essential-supermarket-pos.vercel.app'
 ];
 
-app.use(cors({
-  origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+const corsOptions = {
+  origin(origin, callback) {
+    /*
+     * No-Origin requests can come from Render health checks,
+     * curl, Postman, native mobile clients, or server-to-server calls.
+     */
+    if (!origin) {
+      return callback(null, true);
     }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    console.warn('Blocked by CORS:', origin);
+
+    return callback(
+      new Error(`Origin not allowed by CORS: ${origin}`)
+    );
   },
-  credentials: true
-}));
+
+  credentials: true,
+
+  methods: [
+    'GET',
+    'HEAD',
+    'POST',
+    'PUT',
+    'PATCH',
+    'DELETE',
+    'OPTIONS'
+  ],
+
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization'
+  ],
+
+  optionsSuccessStatus: 204
+};
+
+/*
+ * Must appear before body parsing, authentication, and API routes.
+ * The cors package automatically answers browser OPTIONS preflight
+ * requests using the allowed origins above.
+ */
+app.use(cors(corsOptions));
 
 // Body parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Logging
+// HTTP request logging
 app.use(morgan('dev'));
 
-// Static files for exports
-app.use('/exports', express.static(path.join(__dirname, '../exports')));
+// Static files for generated exports
+app.use(
+  '/exports',
+  express.static(
+    path.join(__dirname, '../exports')
+  )
+);
 
-// API Routes
+// API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/accounts', accountRoutes);
 app.use('/api/alerts', alertRoutes);
@@ -91,17 +144,21 @@ app.use('/api/stock-movements', stockMovementRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/stock-ledger', stockLedgerRoutes);
 
-// Health check
+// Health check for Render
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({
+    status: 'ok'
+  });
 });
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ message: 'Route not found' });
+  res.status(404).json({
+    message: 'Route not found'
+  });
 });
 
-// Error handler (must be last)
+// Error handler must be last
 app.use(errorHandler);
 
 export default app;

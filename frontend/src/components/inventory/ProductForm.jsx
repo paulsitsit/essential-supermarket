@@ -2,6 +2,7 @@ import {
   useEffect,
   useState
 } from 'react';
+
 import {
   CheckCircle2,
   ImagePlus,
@@ -11,10 +12,15 @@ import {
 } from 'lucide-react';
 
 import client from '../../api/client';
-import { getErrorMessage } from '../../utils/errors';
+
+import {
+  getErrorMessage
+} from '../../utils/errors';
+
 import CameraScanner from '../scanner/CameraScanner';
 
-const MAX_IMAGE_SIZE_BYTES = 3 * 1024 * 1024;
+const MAX_IMAGE_SIZE_BYTES =
+  3 * 1024 * 1024;
 
 const ALLOWED_IMAGE_TYPES = [
   'image/jpeg',
@@ -33,7 +39,14 @@ const emptyForm = {
   description: '',
   unitType: 'piece',
   branch: 'Main Branch',
+
+  /*
+   * Important:
+   * Product stock begins at zero.
+   * Actual stock must be received through a ProductBatch.
+   */
   currentStock: 0,
+
   reorderLevel: 10,
   costPrice: 0,
   sellingPrice: 0,
@@ -55,22 +68,31 @@ function formatDateInput(value) {
 
 function getInitialForm(initialProduct) {
   if (!initialProduct) {
-    return { ...emptyForm };
+    return {
+      ...emptyForm
+    };
   }
 
   return {
     ...emptyForm,
     ...initialProduct,
+
     category:
       initialProduct.category?._id ||
       initialProduct.category ||
       '',
+
     supplier:
       initialProduct.supplier?._id ||
       initialProduct.supplier ||
       '',
-    costPrice: initialProduct.costPrice ?? 0,
-    sellingPrice: initialProduct.sellingPrice ?? 0,
+
+    costPrice:
+      initialProduct.costPrice ?? 0,
+
+    sellingPrice:
+      initialProduct.sellingPrice ?? 0,
+
     expirationDate: formatDateInput(
       initialProduct.expirationDate
     )
@@ -94,47 +116,77 @@ function applyLocalProduct(
 ) {
   return {
     ...currentForm,
-    name: product.name || currentForm.name,
-    barcode: product.barcode || code,
-    sku: product.sku || currentForm.sku,
+
+    name:
+      product.name ||
+      currentForm.name,
+
+    barcode:
+      product.barcode ||
+      code,
+
+    sku:
+      product.sku ||
+      currentForm.sku,
+
     qrCode:
       product.qrCode ||
       product.barcode ||
       code,
+
     category:
       getProductId(product.category) ||
       currentForm.category,
+
     supplier:
       getProductId(product.supplier) ||
       currentForm.supplier,
-    brand: product.brand || currentForm.brand,
+
+    brand:
+      product.brand ||
+      currentForm.brand,
+
     description:
       product.description ||
       currentForm.description,
+
     imageUrl:
       product.imageUrl ||
       currentForm.imageUrl ||
       '',
+
     unitType:
       product.unitType ||
       currentForm.unitType,
+
     branch:
       product.branch ||
       currentForm.branch,
+
+    /*
+     * Keep current product stock only while editing an existing
+     * product. New products always begin at stock zero.
+     */
     currentStock:
       product.currentStock ??
       currentForm.currentStock,
+
     reorderLevel:
       product.reorderLevel ??
       currentForm.reorderLevel,
+
     costPrice:
       product.costPrice ??
       currentForm.costPrice,
+
     sellingPrice:
       product.sellingPrice ??
       currentForm.sellingPrice,
+
     expirationDate:
-      formatDateInput(product.expirationDate) ||
+      formatDateInput(
+        product.expirationDate
+      ) ||
       currentForm.expirationDate
   };
 }
@@ -146,41 +198,61 @@ function applyExternalProduct(
 ) {
   return {
     ...currentForm,
+
     name:
       product.productName ||
       product.name ||
       product.product_name ||
       currentForm.name,
+
     barcode:
       product.barcode ||
       product.code ||
       code,
+
     qrCode:
       product.qrCode ||
       product.barcode ||
       product.code ||
       code,
+
     brand:
       product.brand ||
       product.brands ||
       currentForm.brand,
+
     description:
       product.description ||
       product.genericName ||
       currentForm.description,
+
     imageUrl:
       product.imageUrl ||
       product.image_front_url ||
       currentForm.imageUrl ||
       '',
+
     sku: currentForm.sku,
     category: currentForm.category,
     supplier: currentForm.supplier,
+
+    /*
+     * Never use external lookup data to alter stock.
+     * Stock is created only using Receive Stock batches.
+     */
     currentStock: currentForm.currentStock,
-    reorderLevel: currentForm.reorderLevel,
-    costPrice: currentForm.costPrice,
-    sellingPrice: currentForm.sellingPrice,
-    expirationDate: currentForm.expirationDate
+
+    reorderLevel:
+      currentForm.reorderLevel,
+
+    costPrice:
+      currentForm.costPrice,
+
+    sellingPrice:
+      currentForm.sellingPrice,
+
+    expirationDate:
+      currentForm.expirationDate
   };
 }
 
@@ -191,7 +263,10 @@ function getRecognizedProduct(data) {
     data?.data ||
     data;
 
-  if (!product || typeof product !== 'object') {
+  if (
+    !product ||
+    typeof product !== 'object'
+  ) {
     return {};
   }
 
@@ -201,22 +276,27 @@ function getRecognizedProduct(data) {
       product.name ||
       product.product_name ||
       '',
+
     brand:
       product.brand ||
       product.brandName ||
       '',
+
     category:
       product.category ||
       product.productType ||
       '',
+
     description:
       product.description ||
       product.genericName ||
       '',
+
     imageUrl:
       product.imageUrl ||
       product.image_url ||
       '',
+
     size:
       product.size ||
       product.quantity ||
@@ -240,58 +320,93 @@ export default function ProductForm({
   suppliers = [],
   onSuccess
 }) {
-  const [form, setForm] = useState(
+  const [
+    form,
+    setForm
+  ] = useState(
     getInitialForm(initialProduct)
   );
 
-  const [error, setError] = useState('');
-  const [scanMessage, setScanMessage] =
-    useState('');
-  const [scanError, setScanError] =
-    useState('');
-  const [scannerOpen, setScannerOpen] =
-    useState(false);
-  const [scanning, setScanning] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [recognizing, setRecognizing] =
-    useState(false);
-  const [recognitionError, setRecognitionError] =
-    useState('');
+  const [
+    error,
+    setError
+  ] = useState('');
 
-  /*
-   * Keep the actual selected File in state so that it survives
-   * failed image recognition and can be uploaded after the product
-   * receives a real MongoDB ID.
-   */
-  const [selectedImageFile, setSelectedImageFile] =
-    useState(null);
+  const [
+    scanMessage,
+    setScanMessage
+  ] = useState('');
 
-  /*
-   * Used only to show a local preview before saving. It may be a
-   * blob URL for a new photo or a saved image URL when editing.
-   */
-  const [imagePreviewUrl, setImagePreviewUrl] =
-    useState(
-      initialProduct?.imageUrl || ''
-    );
+  const [
+    scanError,
+    setScanError
+  ] = useState('');
+
+  const [
+    scannerOpen,
+    setScannerOpen
+  ] = useState(false);
+
+  const [
+    scanning,
+    setScanning
+  ] = useState(false);
+
+  const [
+    busy,
+    setBusy
+  ] = useState(false);
+
+  const [
+    recognizing,
+    setRecognizing
+  ] = useState(false);
+
+  const [
+    recognitionError,
+    setRecognitionError
+  ] = useState('');
+
+  const [
+    selectedImageFile,
+    setSelectedImageFile
+  ] = useState(null);
+
+  const [
+    imagePreviewUrl,
+    setImagePreviewUrl
+  ] = useState(
+    initialProduct?.imageUrl || ''
+  );
+
+  const isEditing = Boolean(
+    initialProduct?._id
+  );
 
   useEffect(() => {
     setForm(getInitialForm(initialProduct));
 
     setSelectedImageFile(null);
+
     setImagePreviewUrl(
       initialProduct?.imageUrl || ''
     );
   }, [initialProduct]);
 
   useEffect(() => {
-    if (!form.qrCode && form.barcode) {
+    if (
+      !form.qrCode &&
+      form.barcode
+    ) {
       setForm(current => ({
         ...current,
         qrCode: current.barcode
       }));
     }
-  }, [form.barcode, form.qrCode]);
+  }, [
+    form.barcode,
+    form.qrCode
+  ]);
 
   useEffect(() => {
     return () => {
@@ -299,7 +414,9 @@ export default function ProductForm({
         imagePreviewUrl &&
         imagePreviewUrl.startsWith('blob:')
       ) {
-        URL.revokeObjectURL(imagePreviewUrl);
+        URL.revokeObjectURL(
+          imagePreviewUrl
+        );
       }
     };
   }, [imagePreviewUrl]);
@@ -321,24 +438,26 @@ export default function ProductForm({
       imagePreviewUrl &&
       imagePreviewUrl.startsWith('blob:')
     ) {
-      URL.revokeObjectURL(imagePreviewUrl);
+      URL.revokeObjectURL(
+        imagePreviewUrl
+      );
     }
   }
 
-  /*
-   * Attach the image before recognition. This is the critical change:
-   * fruits, meat, vegetables, and other non-barcoded products retain
-   * their photo even if the AI cannot identify a name.
-   */
   function selectProductImage(file) {
     if (!file) {
       return false;
     }
 
-    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    if (
+      !ALLOWED_IMAGE_TYPES.includes(
+        file.type
+      )
+    ) {
       setRecognitionError(
         'Choose a JPG, PNG, or WebP image.'
       );
+
       return false;
     }
 
@@ -346,12 +465,14 @@ export default function ProductForm({
       setRecognitionError(
         'Image must be 3 MB or smaller.'
       );
+
       return false;
     }
 
     releaseLocalPreview();
 
-    const previewUrl = URL.createObjectURL(file);
+    const previewUrl =
+      URL.createObjectURL(file);
 
     setSelectedImageFile(file);
     setImagePreviewUrl(previewUrl);
@@ -364,11 +485,13 @@ export default function ProductForm({
     releaseLocalPreview();
 
     setSelectedImageFile(null);
+
     setImagePreviewUrl(
       initialProduct?.imageUrl || ''
     );
 
     setRecognitionError('');
+
     setScanMessage(
       initialProduct?.imageUrl
         ? 'The newly selected image was removed. The existing product image remains unchanged.'
@@ -377,7 +500,9 @@ export default function ProductForm({
   }
 
   async function lookupScannedCode(code) {
-    const cleanCode = String(code || '').trim();
+    const cleanCode = String(
+      code || ''
+    ).trim();
 
     if (!cleanCode || scanning) {
       return;
@@ -401,7 +526,9 @@ export default function ProductForm({
           response.data?.product ||
           response.data;
       } catch (localError) {
-        if (localError.response?.status !== 404) {
+        if (
+          localError.response?.status !== 404
+        ) {
           throw localError;
         }
 
@@ -446,7 +573,9 @@ export default function ProductForm({
 
       setScannerOpen(false);
     } catch (err) {
-      if (err.response?.status === 404) {
+      if (
+        err.response?.status === 404
+      ) {
         setForm(current => ({
           ...current,
           barcode: cleanCode,
@@ -473,7 +602,8 @@ export default function ProductForm({
   }
 
   async function recognizeFromPhoto(file) {
-    const imageSelected = selectProductImage(file);
+    const imageSelected =
+      selectProductImage(file);
 
     if (!imageSelected) {
       return;
@@ -497,10 +627,6 @@ export default function ProductForm({
         response.data
       );
 
-      /*
-       * Recognition failure is not a blocking error. The photo stays
-       * attached, allowing manual product entry for fresh goods.
-       */
       if (!recognized.name?.trim()) {
         setScanMessage(
           'Photo attached. No exact product name was recognized. Enter the product name manually, then register the product.'
@@ -511,10 +637,13 @@ export default function ProductForm({
 
       setForm(current => ({
         ...current,
+
         name: recognized.name.trim(),
+
         brand:
           recognized.brand ||
           current.brand,
+
         description:
           [
             recognized.description,
@@ -533,9 +662,6 @@ export default function ProductForm({
         return;
       }
 
-      /*
-       * Keep the image even if the recognition provider is unavailable.
-       */
       setScanMessage(
         'Photo attached. Recognition was unavailable, so enter the product details manually and save the product.'
       );
@@ -551,7 +677,10 @@ export default function ProductForm({
     clearScanMessage();
 
     if (!form.name.trim()) {
-      setError('Product name is required.');
+      setError(
+        'Product name is required.'
+      );
+
       return;
     }
 
@@ -602,42 +731,57 @@ export default function ProductForm({
     try {
       const payload = {
         name: form.name.trim(),
+
         barcode:
           form.barcode.trim() || undefined,
+
         sku:
           form.sku.trim().toUpperCase() ||
           undefined,
+
         qrCode:
           form.qrCode.trim() ||
           form.barcode.trim() ||
           undefined,
+
         category:
           form.category || undefined,
+
         supplier:
           form.supplier || undefined,
-        brand: form.brand.trim(),
-        description: form.description.trim(),
 
-        /*
-         * Keep manually entered or externally sourced image URLs.
-         * A selected camera/gallery file is uploaded separately below.
-         */
+        brand: form.brand.trim(),
+
+        description:
+          form.description.trim(),
+
         imageUrl:
           form.imageUrl?.trim() || undefined,
 
         unitType: form.unitType,
+
         branch: form.branch.trim(),
-        currentStock,
+
+        /*
+         * New product registrations always begin at zero.
+         * Existing product stock is preserved but cannot be
+         * changed from this catalog form.
+         */
+        currentStock: isEditing
+          ? currentStock
+          : 0,
+
         reorderLevel,
         costPrice,
         sellingPrice,
+
         expirationDate:
           form.expirationDate || undefined
       };
 
       let savedProduct;
 
-      if (initialProduct?._id) {
+      if (isEditing) {
         const response = await client.put(
           `/products/${initialProduct._id}`,
           payload
@@ -653,11 +797,10 @@ export default function ProductForm({
         savedProduct = response.data;
       }
 
-      /*
-       * Upload the camera/gallery photo only after product creation.
-       * The backend stores it on Product.imageUrl.
-       */
-      if (selectedImageFile && savedProduct?._id) {
+      if (
+        selectedImageFile &&
+        savedProduct?._id
+      ) {
         const imageFormData = new FormData();
 
         imageFormData.append(
@@ -671,7 +814,7 @@ export default function ProductForm({
         );
       }
 
-      onSuccess?.();
+      onSuccess?.(savedProduct);
     } catch (err) {
       setError(
         getErrorMessage(
@@ -729,7 +872,7 @@ export default function ProductForm({
         </div>
       )}
 
-      {!initialProduct && (
+      {!isEditing && (
         <div className="product-scan-box">
           <div className="product-scan-heading">
             <div className="product-scan-icon">
@@ -784,7 +927,11 @@ export default function ProductForm({
             </div>
           )}
 
-          <div style={{ marginTop: 16 }}>
+          <div
+            style={{
+              marginTop: 16
+            }}
+          >
             <div className="product-scan-heading">
               <div className="product-scan-icon">
                 <ImagePlus size={20} />
@@ -794,10 +941,11 @@ export default function ProductForm({
                 <h3>Picture product</h3>
 
                 <p>
-                  Take a photo of fruits, meat, vegetables,
-                  fresh goods, or packaged products. The image
-                  will be attached to the product even when no
-                  barcode, QR code, or label can be recognized.
+                  Take a photo of fruits, meat,
+                  vegetables, fresh goods, or packaged
+                  products. The image stays attached
+                  even when no barcode or label can be
+                  recognized.
                 </p>
               </div>
             </div>
@@ -818,9 +966,13 @@ export default function ProductForm({
                   accept="image/jpeg,image/png,image/webp"
                   capture="environment"
                   disabled={
-                    recognizing || scanning || busy
+                    recognizing ||
+                    scanning ||
+                    busy
                   }
-                  style={{ display: 'none' }}
+                  style={{
+                    display: 'none'
+                  }}
                   onChange={event => {
                     const file =
                       event.target.files?.[0];
@@ -841,9 +993,13 @@ export default function ProductForm({
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   disabled={
-                    recognizing || scanning || busy
+                    recognizing ||
+                    scanning ||
+                    busy
                   }
-                  style={{ display: 'none' }}
+                  style={{
+                    display: 'none'
+                  }}
                   onChange={event => {
                     const file =
                       event.target.files?.[0];
@@ -886,7 +1042,11 @@ export default function ProductForm({
                   }}
                 />
 
-                <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    flex: 1
+                  }}
+                >
                   <strong
                     style={{
                       display: 'block',
@@ -909,7 +1069,9 @@ export default function ProductForm({
                   onClick={removeSelectedImage}
                   title="Remove selected product photo"
                   aria-label="Remove selected product photo"
-                  disabled={recognizing || busy}
+                  disabled={
+                    recognizing || busy
+                  }
                 >
                   <Trash2 size={16} />
                 </button>
@@ -919,7 +1081,9 @@ export default function ProductForm({
             {recognizing && (
               <div
                 className="scanner-status"
-                style={{ marginTop: 8 }}
+                style={{
+                  marginTop: 8
+                }}
               >
                 Reading the product label...
               </div>
@@ -928,7 +1092,9 @@ export default function ProductForm({
             {recognitionError && (
               <div
                 className="form-error"
-                style={{ marginTop: 8 }}
+                style={{
+                  marginTop: 8
+                }}
               >
                 {recognitionError}
               </div>
@@ -961,7 +1127,8 @@ export default function ProductForm({
             SKU
 
             <span className="field-hint">
-              Optional — generated automatically if blank
+              Optional — generated automatically if
+              blank
             </span>
 
             <input
@@ -980,7 +1147,8 @@ export default function ProductForm({
             Barcode
 
             <span className="field-hint">
-              Leave blank to generate an internal barcode
+              Leave blank to generate an internal
+              barcode
             </span>
 
             <input
@@ -992,7 +1160,7 @@ export default function ProductForm({
                 )
               }
               placeholder="ES-000001 or manufacturer code"
-              disabled={Boolean(initialProduct)}
+              disabled={isEditing}
             />
           </label>
 
@@ -1030,7 +1198,8 @@ export default function ProductForm({
             Product image URL
 
             <span className="field-hint">
-              Optional. A camera or gallery photo overrides this URL when saved.
+              Optional. A camera or gallery photo
+              overrides this URL when saved.
             </span>
 
             <input
@@ -1167,19 +1336,23 @@ export default function ProductForm({
           </label>
 
           <label>
-            Initial quantity
+            {isEditing
+              ? 'Current quantity'
+              : 'Initial quantity'}
+
+            <span className="field-hint">
+              {isEditing
+                ? 'Stock is managed through batches and cannot be changed from this product form.'
+                : 'New products begin at zero. Register the product, then use Receive Stock to create the first sellable batch.'}
+            </span>
 
             <input
               type="number"
               min="0"
               step="1"
               value={form.currentStock}
-              onChange={event =>
-                change(
-                  'currentStock',
-                  event.target.value
-                )
-              }
+              disabled
+              readOnly
             />
           </label>
 
@@ -1204,7 +1377,9 @@ export default function ProductForm({
             Expiration date
 
             <span className="field-hint">
-              Optional
+              Optional product reference date. Actual
+              sellable expiry dates are recorded per
+              batch during Receive Stock.
             </span>
 
             <input
@@ -1270,31 +1445,41 @@ export default function ProductForm({
           </label>
 
           <div className="valuation-preview">
-            <span>Calculated inventory value</span>
+            <span>
+              Calculated inventory value
+            </span>
 
             <strong>
               ₱{money(inventoryValue)}
             </strong>
 
             <small>
-              Current quantity × cost price
+              {isEditing
+                ? 'Current quantity × cost price'
+                : 'Value updates after the first stock batch is received'}
             </small>
           </div>
 
           <div className="valuation-preview">
-            <span>Potential sales value</span>
+            <span>
+              Potential sales value
+            </span>
 
             <strong>
               ₱{money(expectedRevenue)}
             </strong>
 
             <small>
-              Current quantity × selling price
+              {isEditing
+                ? 'Current quantity × selling price'
+                : 'Sales value updates after the first stock batch is received'}
             </small>
           </div>
 
           <div className="valuation-preview">
-            <span>Gross margin per unit</span>
+            <span>
+              Gross margin per unit
+            </span>
 
             <strong
               className={
@@ -1313,6 +1498,24 @@ export default function ProductForm({
         </div>
       </div>
 
+      {!isEditing && (
+        <div
+          className="settings-info"
+          style={{
+            marginBottom: 16
+          }}
+        >
+          <CheckCircle2 size={16} />
+
+          <span>
+            After registering this product, open
+            Receive Stock to add its first batch.
+            Only products with available batches can
+            be sold through POS.
+          </span>
+        </div>
+      )}
+
       <div className="form-actions">
         <button
           type="button"
@@ -1328,11 +1531,15 @@ export default function ProductForm({
         <button
           type="submit"
           className="primary-btn"
-          disabled={busy || scanning || recognizing}
+          disabled={
+            busy ||
+            scanning ||
+            recognizing
+          }
         >
           {busy
             ? 'Saving...'
-            : initialProduct
+            : isEditing
               ? 'Update Product'
               : 'Register Product'}
         </button>

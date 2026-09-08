@@ -1,11 +1,12 @@
+import multer from 'multer';
+
 import Product from '../models/Product.js';
-import { writeAudit } from '../utils/audit.js';
+import ProductBatch from '../models/ProductBatch.js';
+import ExpirationAlert from '../models/ExpirationAlert.js';
 
 import {
   createOrUpdateAlert
 } from '../services/inventory.service.js';
-
-import ProductBatch from '../models/ProductBatch.js';
 
 import {
   removeBatchesForProduct
@@ -15,8 +16,6 @@ import {
   syncExpirationAlertsForProduct
 } from '../services/expirationAlert.service.js';
 
-import ExpirationAlert from '../models/ExpirationAlert.js';
-
 import {
   generateInternalBarcode
 } from '../utils/barcode.js';
@@ -25,22 +24,16 @@ import {
   generateUniqueSku
 } from '../utils/sku.js';
 
-import multer from 'multer';
-
 import {
   recognizeProductImage
 } from '../utils/huggingFaceClient.js';
 
-/*
- * Maximum accepted original image file size.
- *
- * 5 MB is a reasonable limit when the image is converted to Base64
- * and stored in Product.imageUrl in MongoDB.
- *
- * A 5 MB original image becomes roughly 6.7 MB after Base64 encoding,
- * which remains below MongoDB's 16 MB maximum document size.
- */
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+import {
+  writeAudit
+} from '../utils/audit.js';
+
+const MAX_IMAGE_SIZE_BYTES =
+  5 * 1024 * 1024;
 
 const allowedImageMimeTypes = [
   'image/jpeg',
@@ -50,11 +43,17 @@ const allowedImageMimeTypes = [
 
 const upload = multer({
   storage: multer.memoryStorage(),
+
   limits: {
     fileSize: MAX_IMAGE_SIZE_BYTES
   },
+
   fileFilter: (req, file, callback) => {
-    if (!allowedImageMimeTypes.includes(file.mimetype)) {
+    if (
+      !allowedImageMimeTypes.includes(
+        file.mimetype
+      )
+    ) {
       const error = new Error(
         'Only JPG, PNG, and WebP image files are allowed.'
       );
@@ -68,45 +67,46 @@ const upload = multer({
   }
 });
 
-/*
- * Wrapper around Multer so upload-size and upload-type errors return
- * clean client responses rather than generic 500 errors.
- *
- * The frontend submits the image under exactly this field name:
- * image
- */
 export function uploadProductImage(
   req,
   res,
   next
 ) {
-  upload.single('image')(req, res, error => {
-    if (!error) {
-      return next();
-    }
+  upload.single('image')(
+    req,
+    res,
+    error => {
+      if (!error) {
+        return next();
+      }
 
-    if (error instanceof multer.MulterError) {
-      if (error.code === 'LIMIT_FILE_SIZE') {
-        return res.status(413).json({
+      if (
+        error instanceof multer.MulterError
+      ) {
+        if (
+          error.code === 'LIMIT_FILE_SIZE'
+        ) {
+          return res.status(413).json({
+            message:
+              'Image must be 5 MB or smaller. Please choose a smaller photo or reduce its size before uploading.'
+          });
+        }
+
+        return res.status(400).json({
           message:
-            'Image must be 5 MB or smaller. Please choose a smaller photo or reduce its size before uploading.'
+            'Unable to upload the image. Please choose a JPG, PNG, or WebP image and try again.'
         });
       }
 
-      return res.status(400).json({
+      return res.status(
+        error.statusCode || 400
+      ).json({
         message:
-          'Unable to upload the image. Please choose a JPG, PNG, or WebP image and try again.'
+          error.message ||
+          'Unable to upload the image.'
       });
     }
-
-    return res.status(
-      error.statusCode || 400
-    ).json({
-      message:
-        error.message ||
-        'Unable to upload the image.'
-    });
-  });
+  );
 }
 
 function getImageDataUrl(file) {
@@ -114,18 +114,23 @@ function getImageDataUrl(file) {
     return '';
   }
 
-  const mimeType = allowedImageMimeTypes.includes(
-    file.mimetype
-  )
-    ? file.mimetype
-    : 'image/jpeg';
+  const mimeType =
+    allowedImageMimeTypes.includes(
+      file.mimetype
+    )
+      ? file.mimetype
+      : 'image/jpeg';
 
-  const base64 = file.buffer.toString('base64');
+  const base64 = file.buffer.toString(
+    'base64'
+  );
 
   return `data:${mimeType};base64,${base64}`;
 }
 
-async function fetchOpenFoodFactsProduct(barcode) {
+async function fetchOpenFoodFactsProduct(
+  barcode
+) {
   const fields = [
     'code',
     'product_name',
@@ -148,7 +153,8 @@ async function fetchOpenFoodFactsProduct(barcode) {
   const response = await fetch(url, {
     headers: {
       Accept: 'application/json',
-      'User-Agent': 'EssentialSupermarket/1.0'
+      'User-Agent':
+        'EssentialSupermarket/1.0'
     }
   });
 
@@ -158,7 +164,10 @@ async function fetchOpenFoodFactsProduct(barcode) {
 
   const result = await response.json();
 
-  if (result.status !== 1 || !result.product) {
+  if (
+    result.status !== 1 ||
+    !result.product
+  ) {
     return null;
   }
 
@@ -169,18 +178,29 @@ async function fetchOpenFoodFactsProduct(barcode) {
     found: true,
     product: {
       barcode: product.code || barcode,
+
       name:
         product.product_name_en ||
         product.product_name ||
         product.generic_name ||
         '',
+
       brand: product.brands || '',
-      description: product.ingredients_text || '',
+
+      description:
+        product.ingredients_text || '',
+
       quantity: product.quantity || '',
-      categoryText: product.categories || '',
+
+      categoryText:
+        product.categories || '',
+
       imageUrl: product.image_url || '',
+
       packaging: product.packaging || '',
+
       countries: product.countries || '',
+
       stores: product.stores || ''
     }
   };
@@ -198,7 +218,9 @@ export async function listProducts(req, res) {
   const filter =
     includeArchived === 'true'
       ? {}
-      : { isArchived: false };
+      : {
+          isArchived: false
+        };
 
   if (status) {
     filter.status = status;
@@ -224,15 +246,23 @@ export async function listProducts(req, res) {
     );
 
     filter.$or = [
-      { name: searchRegex },
-      { barcode: searchRegex },
-      { sku: searchRegex }
+      {
+        name: searchRegex
+      },
+      {
+        barcode: searchRegex
+      },
+      {
+        sku: searchRegex
+      }
     ];
   }
 
   const products = await Product.find(filter)
     .populate('category supplier', 'name')
-    .sort({ updatedAt: -1 });
+    .sort({
+      updatedAt: -1
+    });
 
   res.json(products);
 }
@@ -258,7 +288,8 @@ export async function scanProduct(req, res) {
 
   if (!rawCode) {
     return res.status(400).json({
-      message: 'A barcode or QR code is required'
+      message:
+        'A barcode or QR code is required'
     });
   }
 
@@ -266,11 +297,20 @@ export async function scanProduct(req, res) {
 
   const product = await Product.findOne({
     $or: [
-      { barcode: upperCode },
-      { sku: upperCode },
-      { qrCode: rawCode },
-      { qrCode: upperCode }
+      {
+        barcode: upperCode
+      },
+      {
+        sku: upperCode
+      },
+      {
+        qrCode: rawCode
+      },
+      {
+        qrCode: upperCode
+      }
     ],
+
     isArchived: false
   })
     .select(
@@ -316,8 +356,11 @@ export async function scanProduct(req, res) {
     sellingPrice: Number.isFinite(sellingPrice)
       ? sellingPrice
       : 0,
-    currentStock: Number(product.currentStock || 0),
-    unitType: product.unitType || 'piece'
+    currentStock: Number(
+      product.currentStock || 0
+    ),
+    unitType:
+      product.unitType || 'piece'
   });
 }
 
@@ -326,7 +369,10 @@ export async function getProductBatches(req, res) {
     req.params.id
   ).populate('category supplier', 'name');
 
-  if (!product || product.isArchived) {
+  if (
+    !product ||
+    product.isArchived
+  ) {
     return res.status(404).json({
       message: 'Product not found'
     });
@@ -349,7 +395,10 @@ export async function getProductBatches(req, res) {
   });
 }
 
-export async function lookupExternalProduct(req, res) {
+export async function lookupExternalProduct(
+  req,
+  res
+) {
   const barcode = String(
     req.params.barcode || ''
   ).trim();
@@ -370,7 +419,7 @@ export async function lookupExternalProduct(req, res) {
     const result =
       await fetchOpenFoodFactsProduct(barcode);
 
-    if (!result || !result.product) {
+    if (!result?.product) {
       return res.status(404).json({
         message:
           'Product was not found in Open Food Facts'
@@ -391,10 +440,6 @@ export async function lookupExternalProduct(req, res) {
   }
 }
 
-/*
- * Analyzes a product image to suggest a name, brand, and description.
- * It does not permanently save the image.
- */
 export async function recognizeProduct(req, res) {
   try {
     if (!req.file) {
@@ -406,7 +451,10 @@ export async function recognizeProduct(req, res) {
 
     const imageBuffer = req.file.buffer;
 
-    if (!imageBuffer || imageBuffer.length === 0) {
+    if (
+      !imageBuffer ||
+      imageBuffer.length === 0
+    ) {
       return res.status(400).json({
         message:
           'Uploaded image is empty. Please try another file.'
@@ -418,12 +466,16 @@ export async function recognizeProduct(req, res) {
 
     return res.status(200).json({
       source: 'huggingface-vision',
-      matched: Boolean(product?.productName),
-      productName: product?.productName || '',
+      matched: Boolean(
+        product?.productName
+      ),
+      productName:
+        product?.productName || '',
       brand: product?.brand || '',
       category: product?.category || '',
       variant: product?.variant || '',
-      description: product?.description || ''
+      description:
+        product?.description || ''
     });
   } catch (error) {
     console.error(
@@ -434,19 +486,16 @@ export async function recognizeProduct(req, res) {
     return res.status(502).json({
       message:
         'Unable to analyze the image. The photo is still available to attach when you save the product.',
-      error: error.message || 'Unknown error'
+      error:
+        error.message || 'Unknown error'
     });
   }
 }
 
-/*
- * Saves a permanent product image.
- *
- * The image is stored in MongoDB as a Base64 data URL in Product.imageUrl.
- * A 5 MB original image becomes around 6.7 MB Base64, remaining below
- * MongoDB's 16 MB document-size limit.
- */
-export async function saveProductImage(req, res) {
+export async function saveProductImage(
+  req,
+  res
+) {
   if (!req.file) {
     return res.status(400).json({
       message:
@@ -458,7 +507,10 @@ export async function saveProductImage(req, res) {
     req.params.id
   );
 
-  if (!product || product.isArchived) {
+  if (
+    !product ||
+    product.isArchived
+  ) {
     return res.status(404).json({
       message: 'Product not found'
     });
@@ -483,8 +535,10 @@ export async function saveProductImage(req, res) {
     action: 'product_image_uploaded',
     affectedRecord: product._id.toString(),
     metadata: {
-      fileName: req.file.originalname || '',
-      mimeType: req.file.mimetype || '',
+      fileName:
+        req.file.originalname || '',
+      mimeType:
+        req.file.mimetype || '',
       sizeBytes: req.file.size || 0,
       maxSizeBytes: MAX_IMAGE_SIZE_BYTES
     }
@@ -524,11 +578,15 @@ export async function createProduct(req, res) {
 
   const data = {
     ...req.body,
+
     barcode,
+
     sku,
+
     qrCode:
       String(req.body.qrCode || '').trim() ||
       barcode,
+
     createdBy: req.account._id
   };
 
@@ -538,8 +596,48 @@ export async function createProduct(req, res) {
     });
   }
 
+  /*
+   * Critical stock integrity rule:
+   *
+   * The POS sells from ProductBatch quantities, not only from
+   * Product.currentStock. Therefore a product cannot be created
+   * with stock unless a matching batch is also created.
+   *
+   * The correct workflow:
+   * Create product with stock 0
+   * → use POST /batches/receive
+   * → batch is created
+   * → product.currentStock is updated by the batch service
+   * → item becomes sellable in POS.
+   */
+  const requestedInitialStock = Number(
+    req.body.currentStock || 0
+  );
+
   if (
-    Number(data.currentStock || 0) < 0 ||
+    !Number.isFinite(requestedInitialStock) ||
+    requestedInitialStock < 0
+  ) {
+    return res.status(400).json({
+      message:
+        'Initial quantity must be a non-negative number.'
+    });
+  }
+
+  if (requestedInitialStock > 0) {
+    return res.status(400).json({
+      message:
+        'New products must start with zero stock. Register the product first, then use Receive Stock to create the first batch and make it sellable in POS.'
+    });
+  }
+
+  /*
+   * Ignore any client attempt to set stock on creation.
+   * Product stock is maintained by batch operations only.
+   */
+  data.currentStock = 0;
+
+  if (
     Number(data.reorderLevel || 0) < 0 ||
     Number(data.costPrice || 0) < 0 ||
     Number(data.sellingPrice || 0) < 0
@@ -583,6 +681,10 @@ export async function createProduct(req, res) {
     throw error;
   }
 
+  /*
+   * A brand-new product with stock zero should appear as
+   * low-stock if its reorder level is greater than zero.
+   */
   if (
     Number(product.currentStock) <=
     Number(product.reorderLevel)
@@ -595,19 +697,6 @@ export async function createProduct(req, res) {
     );
   }
 
-  if (product.currentStock > 0) {
-    await writeAudit({
-      req,
-      account: req.account,
-      action:
-        'product_created_with_initial_stock',
-      affectedRecord: product._id.toString(),
-      metadata: {
-        quantity: product.currentStock
-      }
-    });
-  }
-
   await writeAudit({
     req,
     account: req.account,
@@ -615,7 +704,10 @@ export async function createProduct(req, res) {
     affectedRecord: product._id.toString(),
     metadata: {
       sku: product.sku,
-      barcode: product.barcode
+      barcode: product.barcode,
+      initialStock: 0,
+      stockEntryMethod:
+        'batch_receive_required'
     }
   });
 
@@ -646,8 +738,8 @@ export async function updateProduct(req, res) {
   ];
 
   const updates = Object.fromEntries(
-    Object.entries(req.body).filter(([key]) =>
-      allowed.includes(key)
+    Object.entries(req.body).filter(
+      ([key]) => allowed.includes(key)
     )
   );
 
@@ -782,8 +874,12 @@ export async function updateProduct(req, res) {
 export async function archiveProduct(req, res) {
   const product = await Product.findByIdAndUpdate(
     req.params.id,
-    { isArchived: true },
-    { new: true }
+    {
+      isArchived: true
+    },
+    {
+      new: true
+    }
   );
 
   if (!product) {
@@ -828,7 +924,9 @@ export async function deleteProduct(req, res) {
     });
   }
 
-  await removeBatchesForProduct(product._id);
+  await removeBatchesForProduct(
+    product._id
+  );
 
   await ExpirationAlert.deleteMany({
     product: product._id

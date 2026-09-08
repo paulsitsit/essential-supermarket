@@ -110,9 +110,15 @@ const groups = [
         roles: ['admin', 'manager', 'staff']
       },
       {
-        label: 'Low stock and expiration alerts',
-        path: '/alerts',
+        label: 'Low-stock alerts',
+        path: '/alerts/low-stock',
         icon: ShieldAlert,
+        roles: ['admin', 'manager', 'staff']
+      },
+      {
+        label: 'Expiration alerts',
+        path: '/alerts/expiration',
+        icon: CalendarClock,
         roles: ['admin', 'manager', 'staff']
       }
     ]

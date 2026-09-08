@@ -3559,3 +3559,40 @@ body {
     -webkit-backdrop-filter: none;
   }
 }
+/* Keep notifications solid for readability.
+   Sidebar and topbar glassmorphism remain unchanged. */
+.notification-dropdown {
+  background: #ffffff;
+  border: 1px solid rgba(22, 101, 52, 0.14);
+  box-shadow: 0 20px 55px rgba(22, 101, 52, 0.20);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  opacity: 1;
+}
+
+.notification-header {
+  background: #f0fdf4;
+  border-bottom: 1px solid rgba(22, 101, 52, 0.10);
+}
+
+.notification-list {
+  background: #ffffff;
+}
+
+.notification-item {
+  background: #ffffff;
+  border-bottom: 1px solid rgba(22, 101, 52, 0.08);
+}
+
+.notification-item:hover {
+  background: #f0fdf4;
+}
+
+.notification-footer-links {
+  background: #f8faf8;
+  border-top: 1px solid rgba(22, 101, 52, 0.10);
+}
+
+.notification-empty {
+  background: #ffffff;
+}

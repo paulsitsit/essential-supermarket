@@ -1,68 +1,163 @@
 import { useEffect, useState } from 'react';
-import { Download, FileBarChart, RefreshCw } from 'lucide-react';
+
+import {
+  Download,
+  FileBarChart,
+  RefreshCw
+} from 'lucide-react';
+
 import client from '../api/client';
+
 import GlassCard from '../components/common/GlassCard';
-import { peso, dateTime, movementLabel } from '../utils/format';
+
+import {
+  peso,
+  dateTime,
+  movementLabel
+} from '../utils/format';
+
 import { downloadCsv } from '../utils/download';
-import { downloadServerReport } from '../utils/serverExport';
-import { getErrorMessage } from '../utils/errors';
+
+import {
+  downloadServerReport
+} from '../utils/serverExport';
+
+import {
+  getErrorMessage
+} from '../utils/errors';
 
 const reports = [
   {
     id: 'inventory',
     title: 'Current Inventory Report',
-    description: 'All active products and current quantities.',
+    description:
+      'All active products and current quantities.',
     endpoint: '/reports/inventory'
   },
   {
     id: 'low-stock',
     title: 'Low-Stock Report',
-    description: 'Products at or below reorder levels.',
+    description:
+      'Products at or below reorder levels.',
     endpoint: '/reports/low-stock'
   },
   {
     id: 'stock-movements',
     title: 'Stock Movement Report',
-    description: 'Inventory changes and movement history.',
+    description:
+      'Inventory changes and movement history.',
     endpoint: '/reports/stock-movements'
   },
   {
     id: 'sales-returns',
     title: 'Sales & Returns Report',
-    description: 'Gross sales, refunds, and net revenue by date.',
+    description:
+      'Gross sales, refunds, and net revenue by date.',
     endpoint: '/reports/sales-returns'
   }
 ];
 
+function getToday() {
+  return new Date()
+    .toISOString()
+    .split('T')[0];
+}
+
 export default function ReportsPage() {
-  const [active, setActive] = useState('inventory');
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [
+    active,
+    setActive
+  ] = useState('inventory');
 
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [
+    data,
+    setData
+  ] = useState(null);
 
-  const selected = reports.find(report => report.id === active);
+  const [
+    loading,
+    setLoading
+  ] = useState(false);
+
+  const [
+    exporting,
+    setExporting
+  ] = useState(false);
+
+  const [
+    error,
+    setError
+  ] = useState('');
+
+  const [
+    dateFrom,
+    setDateFrom
+  ] = useState('');
+
+  const [
+    dateTo,
+    setDateTo
+  ] = useState('');
+
+  const selected = reports.find(
+    report => report.id === active
+  );
+
+  const isSalesReturns =
+    active === 'sales-returns';
+
+  function getSalesReturnsDates() {
+    const today = getToday();
+
+    const from = dateFrom || today;
+
+    const to = dateTo || from;
+
+    return {
+      from,
+      to
+    };
+  }
 
   async function load() {
+    if (!selected) {
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
       let endpoint = selected.endpoint;
 
-      if (active === 'sales-returns') {
-        const from = dateFrom || new Date().toISOString().split('T')[0];
-        const to = dateTo || from;
+      if (isSalesReturns) {
+        const {
+          from,
+          to
+        } = getSalesReturnsDates();
 
-        endpoint = `${endpoint}?from=${from}&to=${to}`;
+        const query = new URLSearchParams({
+          from,
+          to
+        });
+
+        endpoint = `${endpoint}?${query.toString()}`;
       }
 
-      const { data: response } = await client.get(endpoint);
+      const {
+        data: response
+      } = await client.get(endpoint);
+
       setData(response);
     } catch (err) {
-      setError(getErrorMessage(err, 'Unable to load report'));
+      setData(null);
+
+      setError(
+        getErrorMessage(
+          err,
+          'Unable to load report'
+        )
+      );
     } finally {
       setLoading(false);
     }
@@ -73,14 +168,21 @@ export default function ReportsPage() {
   }, [active]);
 
   useEffect(() => {
-    if (active === 'sales-returns') {
+    if (isSalesReturns) {
       load();
     }
-  }, [dateFrom, dateTo]);
+  }, [
+    dateFrom,
+    dateTo
+  ]);
 
   function exportCsv() {
-    if (active === 'sales-returns') {
-      const rows = (data?.rows || []).map(row => ({
+    if (!data?.rows?.length) {
+      return;
+    }
+
+    if (isSalesReturns) {
+      const rows = data.rows.map(row => ({
         date: row.date,
         grossSales: peso(row.grossSales),
         refunds: peso(row.refunds),
@@ -89,49 +191,119 @@ export default function ReportsPage() {
         returnsCount: row.returnsCount
       }));
 
-      downloadCsv(`${active}-report.csv`, rows);
+      downloadCsv(
+        `${active}-report.csv`,
+        rows
+      );
+
       return;
     }
 
-    const rows = (data?.rows || []).map(row =>
+    const rows = data.rows.map(row =>
       active === 'stock-movements'
         ? {
-            product: row.product?.name,
-            barcode: row.product?.barcode,
-            movementType: movementLabel(row.movementType),
-            quantityChanged: row.quantityChanged,
-            previousStock: row.previousStock,
-            newStock: row.newStock,
-            reason: row.reason,
-            account: row.account?.fullName,
-            createdAt: dateTime(row.createdAt)
+            product:
+              row.product?.name ||
+              'Unknown product',
+
+            barcode:
+              row.product?.barcode ||
+              '',
+
+            sku:
+              row.product?.sku ||
+              '',
+
+            movementType: movementLabel(
+              row.movementType
+            ),
+
+            quantityChanged:
+              row.quantityChanged,
+
+            previousStock:
+              row.previousStock,
+
+            newStock:
+              row.newStock,
+
+            reason:
+              row.reason ||
+              '',
+
+            account:
+              row.account?.fullName ||
+              '',
+
+            createdAt: dateTime(
+              row.createdAt
+            )
           }
         : {
-            product: row.name,
-            barcode: row.barcode,
-            sku: row.sku,
-            category: row.category?.name,
-            supplier: row.supplier?.name,
-            currentStock: row.currentStock,
-            reorderLevel: row.reorderLevel,
-            costPrice: peso(row.costPrice),
-            inventoryValue: peso(row.inventoryValue),
-            status: row.status
+            product: row.name || '',
+
+            barcode: row.barcode || '',
+
+            sku: row.sku || '',
+
+            category:
+              row.category?.name ||
+              '',
+
+            supplier:
+              row.supplier?.name ||
+              '',
+
+            currentStock:
+              row.currentStock,
+
+            reorderLevel:
+              row.reorderLevel,
+
+            costPrice: peso(
+              row.costPrice
+            ),
+
+            inventoryValue: peso(
+              row.inventoryValue
+            ),
+
+            status: row.status || ''
           }
     );
 
-    downloadCsv(`${active}-report.csv`, rows);
+    downloadCsv(
+      `${active}-report.csv`,
+      rows
+    );
   }
 
   async function exportReport(format) {
+    setExporting(true);
+    setError('');
+
     try {
-      await downloadServerReport(active, format);
+      const filters = isSalesReturns
+        ? getSalesReturnsDates()
+        : {};
+
+      await downloadServerReport(
+        active,
+        format,
+        filters
+      );
     } catch (err) {
-      setError(getErrorMessage(err, 'Unable to export report'));
+      setError(
+        getErrorMessage(
+          err,
+          `Unable to export ${format.toUpperCase()} report`
+        )
+      );
+    } finally {
+      setExporting(false);
     }
   }
 
-  const isSalesReturns = active === 'sales-returns';
   const summary = data?.summary;
   const rows = data?.rows || [];
 
@@ -139,33 +311,71 @@ export default function ReportsPage() {
     <div>
       <div className="page-heading">
         <div>
-          <p className="eyebrow">INVENTORY ANALYTICS</p>
+          <p className="eyebrow">
+            INVENTORY ANALYTICS
+          </p>
+
           <h1>Reports</h1>
-          <p>View and export inventory and sales reports.</p>
+
+          <p>
+            View and export inventory and sales reports.
+          </p>
         </div>
 
         <div className="heading-actions">
-          <button className="secondary-btn" onClick={load}>
-            <RefreshCw size={16} /> Refresh
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={load}
+            disabled={loading}
+          >
+            <RefreshCw size={16} />
+            Refresh
           </button>
 
           <button
+            type="button"
             className="secondary-btn"
             onClick={exportCsv}
-            disabled={!data?.rows?.length}
+            disabled={
+              loading ||
+              exporting ||
+              !data?.rows?.length
+            }
           >
-            <Download size={16} /> Export CSV
+            <Download size={16} />
+            Export CSV
           </button>
 
-          <button className="secondary-btn" onClick={() => exportReport('pdf')}>
-            PDF
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={() => exportReport('pdf')}
+            disabled={loading || exporting}
+          >
+            {exporting
+              ? 'Exporting...'
+              : 'PDF'}
           </button>
 
-          <button className="secondary-btn" onClick={() => exportReport('xlsx')}>
-            Excel
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={() =>
+              exportReport('xlsx')
+            }
+            disabled={loading || exporting}
+          >
+            {exporting
+              ? 'Exporting...'
+              : 'Excel'}
           </button>
 
-          <button className="secondary-btn" onClick={() => window.print()}>
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={() => window.print()}
+          >
             Print
           </button>
         </div>
@@ -174,79 +384,139 @@ export default function ReportsPage() {
       <div className="report-grid">
         {reports.map(report => (
           <button
+            type="button"
             key={report.id}
             className={
-              active === report.id ? 'report-option active-report' : 'report-option'
+              active === report.id
+                ? 'report-option active-report'
+                : 'report-option'
             }
-            onClick={() => setActive(report.id)}
+            onClick={() => {
+              if (report.id !== active) {
+                setActive(report.id);
+                setData(null);
+                setError('');
+              }
+            }}
           >
             <FileBarChart size={19} />
+
             <span>
-              <strong>{report.title}</strong>
-              <small>{report.description}</small>
+              <strong>
+                {report.title}
+              </strong>
+
+              <small>
+                {report.description}
+              </small>
             </span>
           </button>
         ))}
       </div>
 
-      {error && <div className="form-error page-message">{error}</div>}
+      {error && (
+        <div className="form-error page-message">
+          {error}
+        </div>
+      )}
 
       {isSalesReturns && (
-        <GlassCard className="report-result" style={{ marginTop: 16 }}>
+        <GlassCard
+          className="report-result"
+          style={{
+            marginTop: 16
+          }}
+        >
           <div className="section-heading">
             <div>
               <h3>Date range</h3>
-              <p>Select the period for the Sales & Returns Report</p>
+
+              <p>
+                Select the period for the Sales & Returns Report.
+              </p>
             </div>
           </div>
 
-          <div className="modal-form" style={{ marginTop: 8 }}>
+          <div
+            className="modal-form"
+            style={{
+              marginTop: 8
+            }}
+          >
             <label>
               <span>From</span>
+
               <input
                 type="date"
                 value={dateFrom}
-                onChange={event => setDateFrom(event.target.value)}
+                max={dateTo || undefined}
+                onChange={event => {
+                  setDateFrom(
+                    event.target.value
+                  );
+                }}
               />
             </label>
 
             <label>
               <span>To</span>
+
               <input
                 type="date"
                 value={dateTo}
-                onChange={event => setDateTo(event.target.value)}
+                min={dateFrom || undefined}
+                onChange={event => {
+                  setDateTo(
+                    event.target.value
+                  );
+                }}
               />
             </label>
           </div>
         </GlassCard>
       )}
 
-      <GlassCard className="report-result" style={{ marginTop: 16 }}>
+      <GlassCard
+        className="report-result"
+        style={{
+          marginTop: 16
+        }}
+      >
         <div className="section-heading">
           <div>
-            <h3>{selected.title}</h3>
+            <h3>
+              {selected?.title ||
+                'Report'}
+            </h3>
+
             <p>
               Generated{' '}
-              {data?.generatedAt ? dateTime(data.generatedAt) : '—'}
+              {data?.generatedAt
+                ? dateTime(data.generatedAt)
+                : '—'}
             </p>
           </div>
         </div>
 
         {loading ? (
-          <div className="page-loading">Generating report...</div>
+          <div className="page-loading">
+            Generating report...
+          </div>
         ) : isSalesReturns && summary ? (
           <>
             <div
               className="summary-grid"
               style={{
-                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gridTemplateColumns:
+                  'repeat(auto-fit, minmax(180px, 1fr))',
                 marginBottom: 16
               }}
             >
               <div className="report-stat">
                 <span>Gross sales</span>
-                <strong>{peso(summary.grossSales)}</strong>
+                <strong>
+                  {peso(summary.grossSales)}
+                </strong>
               </div>
 
               <div className="report-stat">
@@ -265,17 +535,23 @@ export default function ReportsPage() {
 
               <div className="report-stat">
                 <span>Transactions</span>
-                <strong>{summary.transactions}</strong>
+                <strong>
+                  {summary.transactions}
+                </strong>
               </div>
 
               <div className="report-stat">
                 <span>Return records</span>
-                <strong>{summary.returnsCount}</strong>
+                <strong>
+                  {summary.returnsCount}
+                </strong>
               </div>
 
               <div className="report-stat">
                 <span>Average return</span>
-                <strong>{peso(summary.averageReturn)}</strong>
+                <strong>
+                  {peso(summary.averageReturn)}
+                </strong>
               </div>
             </div>
 
@@ -296,22 +572,38 @@ export default function ReportsPage() {
                   {rows.map(row => (
                     <tr key={row.date}>
                       <td>{row.date}</td>
-                      <td>{peso(row.grossSales)}</td>
+
+                      <td>
+                        {peso(row.grossSales)}
+                      </td>
+
                       <td className="quantity-negative">
                         {peso(row.refunds)}
                       </td>
+
                       <td className="quantity-positive">
                         {peso(row.netRevenue)}
                       </td>
-                      <td>{row.transactions}</td>
-                      <td>{row.returnsCount}</td>
+
+                      <td>
+                        {row.transactions}
+                      </td>
+
+                      <td>
+                        {row.returnsCount}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            <div className="report-stat" style={{ marginTop: 12 }}>
+            <div
+              className="report-stat"
+              style={{
+                marginTop: 12
+              }}
+            >
               <span>Rows returned</span>
               <strong>{rows.length}</strong>
             </div>
@@ -319,12 +611,15 @@ export default function ReportsPage() {
         ) : (
           <div className="report-stat">
             <span>Rows returned</span>
-            <strong>{data?.rows?.length || 0}</strong>
+            <strong>
+              {data?.rows?.length || 0}
+            </strong>
           </div>
         )}
 
         <div className="report-note">
-          PDF, Excel, print, and advanced date/category filters can be connected to the report export service in the deployment part.
+          Export as CSV, PDF, or Excel. Sales and
+          Returns exports use the selected date range.
         </div>
       </GlassCard>
     </div>

@@ -17,6 +17,7 @@ import {
 } from 'react-router-dom';
 
 import client from '../../api/client';
+import ThemeToggle from '../common/ThemeToggle';
 
 export default function Topbar({
   onMenu,
@@ -424,6 +425,8 @@ export default function Topbar({
       </div>
 
       <div className="topbar-actions">
+        <ThemeToggle />
+
         <div className="notification-wrapper">
           <button
             type="button"

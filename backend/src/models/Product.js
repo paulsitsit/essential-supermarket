@@ -64,14 +64,27 @@ const productSchema = new mongoose.Schema(
 
     unitType: {
       type: String,
-      default: 'piece',
-      trim: true
+      trim: true,
+      enum: [
+        'piece',
+        'kg',
+        'g',
+        'lb',
+        'oz',
+        'liter',
+        'ml',
+        'box',
+        'pack',
+        'bottle',
+        'can'
+      ],
+      default: 'piece'
     },
 
     branch: {
       type: String,
-      default: 'Main Branch',
-      trim: true
+      trim: true,
+      default: 'Main Branch'
     },
 
     currentStock: {
@@ -134,21 +147,13 @@ const productSchema = new mongoose.Schema(
 );
 
 productSchema.index(
-  {
-    barcode: 1
-  },
-  {
-    unique: true
-  }
+  { barcode: 1 },
+  { unique: true }
 );
 
 productSchema.index(
-  {
-    sku: 1
-  },
-  {
-    unique: true
-  }
+  { sku: 1 },
+  { unique: true }
 );
 
 productSchema.index({
@@ -157,17 +162,17 @@ productSchema.index({
   sku: 'text'
 });
 
-productSchema.pre('save', function(next) {
-  this.inventoryValue =
-    Number(this.currentStock || 0) *
-    Number(this.costPrice || 0);
+productSchema.pre('save', function updateInventoryFields(next) {
+  const stock = Number(this.currentStock || 0);
+  const costPrice = Number(this.costPrice || 0);
+  const reorderLevel = Number(this.reorderLevel || 0);
+
+  this.inventoryValue = stock * costPrice;
 
   if (this.status !== 'damaged') {
-    if (this.currentStock === 0) {
+    if (stock === 0) {
       this.status = 'out_of_stock';
-    } else if (
-      this.currentStock <= this.reorderLevel
-    ) {
+    } else if (stock <= reorderLevel) {
       this.status = 'low_stock';
     } else {
       this.status = 'normal';

@@ -182,18 +182,25 @@ async function fetchOpenFoodFactsProduct(
       categoryText:
         product.categories || '',
 
-      imageUrl: product.image_url || '',
+      imageUrl:
+        product.image_url || '',
 
-      packaging: product.packaging || '',
+      packaging:
+        product.packaging || '',
 
-      countries: product.countries || '',
+      countries:
+        product.countries || '',
 
-      stores: product.stores || ''
+      stores:
+        product.stores || ''
     }
   };
 }
 
-export async function listProducts(req, res) {
+export async function listProducts(
+  req,
+  res
+) {
   const {
     search,
     status,
@@ -256,7 +263,10 @@ export async function listProducts(req, res) {
   res.json(products);
 }
 
-export async function getProduct(req, res) {
+export async function getProduct(
+  req,
+  res
+) {
   const product = await Product.findById(
     req.params.id
   ).populate('category supplier', 'name');
@@ -270,7 +280,10 @@ export async function getProduct(req, res) {
   res.json(product);
 }
 
-export async function scanProduct(req, res) {
+export async function scanProduct(
+  req,
+  res
+) {
   const rawCode = String(
     req.params.barcode || ''
   ).trim();
@@ -282,7 +295,8 @@ export async function scanProduct(req, res) {
     });
   }
 
-  const upperCode = rawCode.toUpperCase();
+  const upperCode =
+    rawCode.toUpperCase();
 
   const product = await Product.findOne({
     $or: [
@@ -341,8 +355,11 @@ export async function scanProduct(req, res) {
     qrCode: product.qrCode || '',
     brand: product.brand || '',
     imageUrl: product.imageUrl || '',
-    category: product.category?.name || '',
-    sellingPrice: Number.isFinite(sellingPrice)
+    category:
+      product.category?.name || '',
+    sellingPrice: Number.isFinite(
+      sellingPrice
+    )
       ? sellingPrice
       : 0,
     currentStock: Number(
@@ -353,7 +370,10 @@ export async function scanProduct(req, res) {
   });
 }
 
-export async function getProductBatches(req, res) {
+export async function getProductBatches(
+  req,
+  res
+) {
   const product = await Product.findById(
     req.params.id
   ).populate('category supplier', 'name');
@@ -406,7 +426,9 @@ export async function lookupExternalProduct(
 
   try {
     const result =
-      await fetchOpenFoodFactsProduct(barcode);
+      await fetchOpenFoodFactsProduct(
+        barcode
+      );
 
     if (!result?.product) {
       return res.status(404).json({
@@ -429,7 +451,10 @@ export async function lookupExternalProduct(
   }
 }
 
-export async function recognizeProduct(req, res) {
+export async function recognizeProduct(
+  req,
+  res
+) {
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -451,7 +476,9 @@ export async function recognizeProduct(req, res) {
     }
 
     const product =
-      await recognizeProductImage(imageBuffer);
+      await recognizeProductImage(
+        imageBuffer
+      );
 
     return res.status(200).json({
       source: 'huggingface-vision',
@@ -460,9 +487,12 @@ export async function recognizeProduct(req, res) {
       ),
       productName:
         product?.productName || '',
-      brand: product?.brand || '',
-      category: product?.category || '',
-      variant: product?.variant || '',
+      brand:
+        product?.brand || '',
+      category:
+        product?.category || '',
+      variant:
+        product?.variant || '',
       description:
         product?.description || ''
     });
@@ -512,11 +542,57 @@ export async function saveProductImage(
     });
   }
 
-  const uploaded =
-    await uploadImageToCloudinary(
-      req.file.buffer,
-      req.file.originalname
+  let uploaded;
+
+  try {
+    uploaded =
+      await uploadImageToCloudinary(
+        req.file.buffer,
+        req.file.originalname
+      );
+  } catch (error) {
+    console.error(
+      'Cloudinary product image upload failed:',
+      error
     );
+
+    return res.status(502).json({
+      message:
+        'Unable to store the product image in Cloudinary.',
+      error:
+        error.message || 'Unknown Cloudinary error'
+    });
+  }
+
+  if (
+    !uploaded?.secure_url ||
+    !uploaded?.public_id
+  ) {
+    console.error(
+      'Cloudinary returned an incomplete upload result:',
+      uploaded
+    );
+
+    return res.status(502).json({
+      message:
+        'Cloudinary did not return a valid image URL.'
+    });
+  }
+
+  if (
+    uploaded.secure_url.startsWith(
+      'data:image/'
+    )
+  ) {
+    console.error(
+      'Rejected Base64 image returned by upload service.'
+    );
+
+    return res.status(502).json({
+      message:
+        'The image service returned Base64 data instead of a Cloudinary URL.'
+    });
+  }
 
   const oldPublicId =
     product.imagePublicId || '';
@@ -534,7 +610,9 @@ export async function saveProductImage(
     oldPublicId !== uploaded.public_id
   ) {
     try {
-      await deleteProductImage(oldPublicId);
+      await deleteProductImage(
+        oldPublicId
+      );
     } catch (cleanupError) {
       console.error(
         'Old product image cleanup failed:',
@@ -547,7 +625,8 @@ export async function saveProductImage(
     req,
     account: req.account,
     action: 'product_image_uploaded',
-    affectedRecord: product._id.toString(),
+    affectedRecord:
+      product._id.toString(),
     metadata: {
       fileName:
         req.file.originalname || '',
@@ -558,7 +637,8 @@ export async function saveProductImage(
       maxSizeBytes:
         MAX_IMAGE_SIZE_BYTES,
       storage: 'cloudinary',
-      publicId: uploaded.public_id
+      publicId:
+        uploaded.public_id
     }
   });
 
@@ -573,7 +653,10 @@ export async function saveProductImage(
   });
 }
 
-export async function createProduct(req, res) {
+export async function createProduct(
+  req,
+  res
+) {
   const requestedBarcode = String(
     req.body.barcode || ''
   )
@@ -602,7 +685,8 @@ export async function createProduct(req, res) {
     sku,
 
     qrCode:
-      String(req.body.qrCode || '').trim() ||
+      String(req.body.qrCode || '')
+        .trim() ||
       barcode,
 
     createdBy: req.account._id
@@ -619,7 +703,9 @@ export async function createProduct(req, res) {
   );
 
   if (
-    !Number.isFinite(requestedInitialStock) ||
+    !Number.isFinite(
+      requestedInitialStock
+    ) ||
     requestedInitialStock < 0
   ) {
     return res.status(400).json({
@@ -651,21 +737,28 @@ export async function createProduct(req, res) {
   let product;
 
   try {
-    product = await Product.create(data);
+    product = await Product.create(
+      data
+    );
   } catch (error) {
     if (error.code === 11000) {
-      const duplicateField = Object.keys(
-        error.keyPattern || {}
-      )[0];
+      const duplicateField =
+        Object.keys(
+          error.keyPattern || {}
+        )[0];
 
-      if (duplicateField === 'sku') {
+      if (
+        duplicateField === 'sku'
+      ) {
         return res.status(409).json({
           message:
             'This SKU already exists. Please try again.'
         });
       }
 
-      if (duplicateField === 'barcode') {
+      if (
+        duplicateField === 'barcode'
+      ) {
         return res.status(409).json({
           message:
             'This barcode already exists.'
@@ -697,7 +790,8 @@ export async function createProduct(req, res) {
     req,
     account: req.account,
     action: 'product_created',
-    affectedRecord: product._id.toString(),
+    affectedRecord:
+      product._id.toString(),
     metadata: {
       sku: product.sku,
       barcode: product.barcode,
@@ -715,7 +809,10 @@ export async function createProduct(req, res) {
   res.status(201).json(product);
 }
 
-export async function updateProduct(req, res) {
+export async function updateProduct(
+  req,
+  res
+) {
   const allowed = [
     'name',
     'barcode',
@@ -745,7 +842,9 @@ export async function updateProduct(req, res) {
     ).trim();
   }
 
-  if (updates.barcode !== undefined) {
+  if (
+    updates.barcode !== undefined
+  ) {
     const value = String(
       updates.barcode || ''
     )
@@ -818,19 +917,21 @@ export async function updateProduct(req, res) {
   let product;
 
   try {
-    product = await Product.findByIdAndUpdate(
-      req.params.id,
-      updates,
-      {
-        new: true,
-        runValidators: true
-      }
-    );
+    product =
+      await Product.findByIdAndUpdate(
+        req.params.id,
+        updates,
+        {
+          new: true,
+          runValidators: true
+        }
+      );
   } catch (error) {
     if (error.code === 11000) {
-      const duplicateField = Object.keys(
-        error.keyPattern || {}
-      )[0];
+      const duplicateField =
+        Object.keys(
+          error.keyPattern || {}
+        )[0];
 
       return res.status(409).json({
         message:
@@ -853,9 +954,11 @@ export async function updateProduct(req, res) {
     req,
     account: req.account,
     action: 'product_updated',
-    affectedRecord: product._id.toString(),
+    affectedRecord:
+      product._id.toString(),
     metadata: {
-      changedFields: Object.keys(updates)
+      changedFields:
+        Object.keys(updates)
     }
   });
 
@@ -867,16 +970,20 @@ export async function updateProduct(req, res) {
   res.json(product);
 }
 
-export async function archiveProduct(req, res) {
-  const product = await Product.findByIdAndUpdate(
-    req.params.id,
-    {
-      isArchived: true
-    },
-    {
-      new: true
-    }
-  );
+export async function archiveProduct(
+  req,
+  res
+) {
+  const product =
+    await Product.findByIdAndUpdate(
+      req.params.id,
+      {
+        isArchived: true
+      },
+      {
+        new: true
+      }
+    );
 
   if (!product) {
     return res.status(404).json({
@@ -895,7 +1002,8 @@ export async function archiveProduct(req, res) {
     req,
     account: req.account,
     action: 'product_archived',
-    affectedRecord: product._id.toString()
+    affectedRecord:
+      product._id.toString()
   });
 
   req.app.get('io')?.emit(
@@ -909,7 +1017,10 @@ export async function archiveProduct(req, res) {
   });
 }
 
-export async function deleteProduct(req, res) {
+export async function deleteProduct(
+  req,
+  res
+) {
   const product = await Product.findById(
     req.params.id
   );
@@ -927,6 +1038,19 @@ export async function deleteProduct(req, res) {
   await ExpirationAlert.deleteMany({
     product: product._id
   });
+
+  if (product.imagePublicId) {
+    try {
+      await deleteProductImage(
+        product.imagePublicId
+      );
+    } catch (cleanupError) {
+      console.error(
+        'Product image cleanup failed:',
+        cleanupError
+      );
+    }
+  }
 
   await Product.findByIdAndDelete(
     req.params.id

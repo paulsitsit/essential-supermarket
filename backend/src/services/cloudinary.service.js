@@ -1,9 +1,14 @@
 import { v2 as cloudinary } from 'cloudinary';
 
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+  cloud_name:
+    process.env.CLOUDINARY_CLOUD_NAME,
+
+  api_key:
+    process.env.CLOUDINARY_API_KEY,
+
+  api_secret:
+    process.env.CLOUDINARY_API_SECRET
 });
 
 export function isCloudinaryConfigured() {
@@ -14,7 +19,7 @@ export function isCloudinaryConfigured() {
   );
 }
 
-export async function uploadProductImage(
+export function uploadProductImage(
   buffer,
   originalName = 'product-image'
 ) {
@@ -24,25 +29,35 @@ export async function uploadProductImage(
     );
   }
 
-  if (!buffer?.length) {
+  if (!buffer || buffer.length === 0) {
     throw new Error(
       'Product image buffer is empty.'
     );
   }
 
   const baseName = String(originalName)
-    .replace(/\\.[^/.]+$/, '')
+    .replace(/\.[^/.]+$/, '')
     .replace(/[^a-zA-Z0-9_-]/g, '-')
     .slice(0, 80) || 'product-image';
+
+  const uniquePublicId =
+    `${baseName}-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
 
   return new Promise((resolve, reject) => {
     const uploadStream =
       cloudinary.uploader.upload_stream(
         {
-          folder: 'essential-supermarket/products',
-          public_id: baseName,
+          folder:
+            'essential-supermarket/products',
+
+          public_id: uniquePublicId,
+
           resource_type: 'image',
+
           overwrite: false,
+
           transformation: [
             {
               width: 1200,

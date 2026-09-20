@@ -20,7 +20,7 @@ import {
 import CameraScanner from '../scanner/CameraScanner';
 
 const MAX_IMAGE_SIZE_BYTES =
-  3 * 1024 * 1024;
+  15 * 1024 * 1024;
 
 const ALLOWED_IMAGE_TYPES = [
   'image/jpeg',
@@ -39,14 +39,7 @@ const emptyForm = {
   description: '',
   unitType: 'piece',
   branch: 'Main Branch',
-
-  /*
-   * Important:
-   * Product stock begins at zero.
-   * Actual stock must be received through a ProductBatch.
-   */
   currentStock: 0,
-
   reorderLevel: 10,
   costPrice: 0,
   sellingPrice: 0,
@@ -163,10 +156,6 @@ function applyLocalProduct(
       product.branch ||
       currentForm.branch,
 
-    /*
-     * Keep current product stock only while editing an existing
-     * product. New products always begin at stock zero.
-     */
     currentStock:
       product.currentStock ??
       currentForm.currentStock,
@@ -236,11 +225,8 @@ function applyExternalProduct(
     category: currentForm.category,
     supplier: currentForm.supplier,
 
-    /*
-     * Never use external lookup data to alter stock.
-     * Stock is created only using Receive Stock batches.
-     */
-    currentStock: currentForm.currentStock,
+    currentStock:
+      currentForm.currentStock,
 
     reorderLevel:
       currentForm.reorderLevel,
@@ -463,7 +449,7 @@ export default function ProductForm({
 
     if (file.size > MAX_IMAGE_SIZE_BYTES) {
       setRecognitionError(
-        'Image must be 3 MB or smaller.'
+        'Image must be 15 MB or smaller.'
       );
 
       return false;
@@ -750,7 +736,8 @@ export default function ProductForm({
         supplier:
           form.supplier || undefined,
 
-        brand: form.brand.trim(),
+        brand:
+          form.brand.trim(),
 
         description:
           form.description.trim(),
@@ -758,18 +745,16 @@ export default function ProductForm({
         imageUrl:
           form.imageUrl?.trim() || undefined,
 
-        unitType: form.unitType,
+        unitType:
+          form.unitType,
 
-        branch: form.branch.trim(),
+        branch:
+          form.branch.trim(),
 
-        /*
-         * New product registrations always begin at zero.
-         * Existing product stock is preserved but cannot be
-         * changed from this catalog form.
-         */
-        currentStock: isEditing
-          ? currentStock
-          : 0,
+        currentStock:
+          isEditing
+            ? currentStock
+            : 0,
 
         reorderLevel,
         costPrice,
@@ -801,7 +786,8 @@ export default function ProductForm({
         selectedImageFile &&
         savedProduct?._id
       ) {
-        const imageFormData = new FormData();
+        const imageFormData =
+          new FormData();
 
         imageFormData.append(
           'image',
@@ -854,7 +840,9 @@ export default function ProductForm({
         <div className="scan-success-message">
           <CheckCircle2 size={17} />
 
-          <span>{scanMessage}</span>
+          <span>
+            {scanMessage}
+          </span>
 
           <button
             type="button"
@@ -880,7 +868,9 @@ export default function ProductForm({
             </div>
 
             <div>
-              <h3>Scan product code</h3>
+              <h3>
+                Scan product code
+              </h3>
 
               <p>
                 Scan a QR code or barcode to search
@@ -938,14 +928,16 @@ export default function ProductForm({
               </div>
 
               <div>
-                <h3>Picture product</h3>
+                <h3>
+                  Picture product
+                </h3>
 
                 <p>
                   Take a photo of fruits, meat,
                   vegetables, fresh goods, or packaged
                   products. The image stays attached
-                  even when no barcode or label can be
-                  recognized.
+                  even when no barcode or label can
+                  be recognized.
                 </p>
               </div>
             </div>
@@ -1070,7 +1062,8 @@ export default function ProductForm({
                   title="Remove selected product photo"
                   aria-label="Remove selected product photo"
                   disabled={
-                    recognizing || busy
+                    recognizing ||
+                    busy
                   }
                 >
                   <Trash2 size={16} />
@@ -1104,7 +1097,9 @@ export default function ProductForm({
       )}
 
       <div className="form-section">
-        <h3>Basic information</h3>
+        <h3>
+          Basic information
+        </h3>
 
         <div className="form-grid">
           <label className="span-two">
@@ -1233,7 +1228,9 @@ export default function ProductForm({
       </div>
 
       <div className="form-section">
-        <h3>Inventory information</h3>
+        <h3>
+          Inventory information
+        </h3>
 
         <div className="form-grid">
           <label>
@@ -1397,7 +1394,9 @@ export default function ProductForm({
       </div>
 
       <div className="form-section">
-        <h3>Pricing and valuation</h3>
+        <h3>
+          Pricing and valuation
+        </h3>
 
         <div className="form-grid">
           <label>

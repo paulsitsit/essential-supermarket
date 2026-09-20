@@ -29,7 +29,10 @@ export function uploadProductImage(
     );
   }
 
-  if (!buffer || buffer.length === 0) {
+  if (
+    !buffer ||
+    buffer.length === 0
+  ) {
     throw new Error(
       'Product image buffer is empty.'
     );
@@ -52,7 +55,8 @@ export function uploadProductImage(
           folder:
             'essential-supermarket/products',
 
-          public_id: uniquePublicId,
+          public_id:
+            uniquePublicId,
 
           resource_type: 'image',
 
@@ -68,6 +72,7 @@ export function uploadProductImage(
             }
           ]
         },
+
         (error, result) => {
           if (error) {
             reject(error);

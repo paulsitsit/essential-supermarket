@@ -32,8 +32,14 @@ import {
   writeAudit
 } from '../utils/audit.js';
 
+import {
+  uploadProductImage as uploadImageToCloudinary,
+  deleteProductImage,
+  isCloudinaryConfigured
+} from '../services/cloudinary.service.js';
+
 const MAX_IMAGE_SIZE_BYTES =
-  5 * 1024 * 1024;
+  15 * 1024 * 1024;
 
 const allowedImageMimeTypes = [
   'image/jpeg',
@@ -88,7 +94,7 @@ export function uploadProductImage(
         ) {
           return res.status(413).json({
             message:
-              'Image must be 5 MB or smaller. Please choose a smaller photo or reduce its size before uploading.'
+              'Image must be 15 MB or smaller. Please choose a smaller photo or reduce its size before uploading.'
           });
         }
 
@@ -107,25 +113,6 @@ export function uploadProductImage(
       });
     }
   );
-}
-
-function getImageDataUrl(file) {
-  if (!file?.buffer?.length) {
-    return '';
-  }
-
-  const mimeType =
-    allowedImageMimeTypes.includes(
-      file.mimetype
-    )
-      ? file.mimetype
-      : 'image/jpeg';
-
-  const base64 = file.buffer.toString(
-    'base64'
-  );
-
-  return `data:${mimeType};base64,${base64}`;
 }
 
 async function fetchOpenFoodFactsProduct(
@@ -235,7 +222,9 @@ export async function listProducts(req, res) {
   }
 
   if (search) {
-    const escapedSearch = String(search).replace(
+    const escapedSearch = String(
+      search
+    ).replace(
       /[.*+?^${}()|[\]\\]/g,
       '\\$&'
     );
@@ -445,7 +434,7 @@ export async function recognizeProduct(req, res) {
     if (!req.file) {
       return res.status(400).json({
         message:
-          'No image file received. Choose a JPG, PNG, or WebP image that is 5 MB or smaller and try again.'
+          'No image file received. Choose a JPG, PNG, or WebP image that is 15 MB or smaller and try again.'
       });
     }
 
@@ -499,7 +488,14 @@ export async function saveProductImage(
   if (!req.file) {
     return res.status(400).json({
       message:
-        'No image file received. Choose a JPG, PNG, or WebP image that is 5 MB or smaller.'
+        'No image file received. Choose a JPG, PNG, or WebP image that is 15 MB or smaller.'
+    });
+  }
+
+  if (!isCloudinaryConfigured()) {
+    return res.status(503).json({
+      message:
+        'Product image storage is not configured. Please contact an administrator.'
     });
   }
 
@@ -516,18 +512,36 @@ export async function saveProductImage(
     });
   }
 
-  const imageUrl = getImageDataUrl(req.file);
+  const uploaded =
+    await uploadImageToCloudinary(
+      req.file.buffer,
+      req.file.originalname
+    );
 
-  if (!imageUrl) {
-    return res.status(400).json({
-      message:
-        'The uploaded image could not be processed.'
-    });
-  }
+  const oldPublicId =
+    product.imagePublicId || '';
 
-  product.imageUrl = imageUrl;
+  product.imageUrl =
+    uploaded.secure_url;
+
+  product.imagePublicId =
+    uploaded.public_id;
 
   await product.save();
+
+  if (
+    oldPublicId &&
+    oldPublicId !== uploaded.public_id
+  ) {
+    try {
+      await deleteProductImage(oldPublicId);
+    } catch (cleanupError) {
+      console.error(
+        'Old product image cleanup failed:',
+        cleanupError
+      );
+    }
+  }
 
   await writeAudit({
     req,
@@ -539,8 +553,12 @@ export async function saveProductImage(
         req.file.originalname || '',
       mimeType:
         req.file.mimetype || '',
-      sizeBytes: req.file.size || 0,
-      maxSizeBytes: MAX_IMAGE_SIZE_BYTES
+      sizeBytes:
+        req.file.size || 0,
+      maxSizeBytes:
+        MAX_IMAGE_SIZE_BYTES,
+      storage: 'cloudinary',
+      publicId: uploaded.public_id
     }
   });
 
@@ -549,7 +567,7 @@ export async function saveProductImage(
     product
   );
 
-  res.json({
+  return res.json({
     message: 'Product image saved',
     product
   });
@@ -596,20 +614,6 @@ export async function createProduct(req, res) {
     });
   }
 
-  /*
-   * Critical stock integrity rule:
-   *
-   * The POS sells from ProductBatch quantities, not only from
-   * Product.currentStock. Therefore a product cannot be created
-   * with stock unless a matching batch is also created.
-   *
-   * The correct workflow:
-   * Create product with stock 0
-   * → use POST /batches/receive
-   * → batch is created
-   * → product.currentStock is updated by the batch service
-   * → item becomes sellable in POS.
-   */
   const requestedInitialStock = Number(
     req.body.currentStock || 0
   );
@@ -631,10 +635,6 @@ export async function createProduct(req, res) {
     });
   }
 
-  /*
-   * Ignore any client attempt to set stock on creation.
-   * Product stock is maintained by batch operations only.
-   */
   data.currentStock = 0;
 
   if (
@@ -681,10 +681,6 @@ export async function createProduct(req, res) {
     throw error;
   }
 
-  /*
-   * A brand-new product with stock zero should appear as
-   * low-stock if its reorder level is greater than zero.
-   */
   if (
     Number(product.currentStock) <=
     Number(product.reorderLevel)

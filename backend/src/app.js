@@ -33,11 +33,11 @@ const app = express();
 
 app.set('trust proxy', 1);
 
-app.use(helmet());
-
 const defaultAllowedOrigins = [
   'http://localhost:8080',
   'http://127.0.0.1:8080',
+  'http://localhost:8081',
+  'http://127.0.0.1:8081',
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:3000',
@@ -66,7 +66,9 @@ const corsOptions = {
     console.warn(`Blocked by CORS: ${origin}`);
     callback(new Error(`Origin not allowed by CORS: ${origin}`));
   },
+
   credentials: true,
+
   methods: [
     'GET',
     'HEAD',
@@ -76,16 +78,25 @@ const corsOptions = {
     'DELETE',
     'OPTIONS',
   ],
+
   allowedHeaders: [
     'Accept',
     'Content-Type',
     'Authorization',
   ],
+
   optionsSuccessStatus: 204,
 };
 
+app.use(helmet());
+
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+
+/*
+ * Express 5-compatible wildcard route.
+ * Do not use app.options('*', ...) with Express 5.
+ */
+app.options('/{*splat}', cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

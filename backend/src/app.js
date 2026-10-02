@@ -34,16 +34,28 @@ const app = express();
 app.set('trust proxy', 1);
 
 const defaultAllowedOrigins = [
+  // Capacitor Android and local development
+  'https://localhost',
+  'http://localhost',
+  'capacitor://localhost',
+
+  // Vite development servers
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'http://localhost:4173',
+  'http://127.0.0.1:4173',
+
+  // Other local development ports
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
   'http://localhost:8080',
   'http://127.0.0.1:8080',
   'http://localhost:8081',
   'http://127.0.0.1:8081',
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
+
+  // Production web applications
   'https://essential-supermarket.vercel.app',
-  'https://essential-supermarket-pos.vercel.app',
+  'https://essential-supermarket-pos.vercel.app'
 ];
 
 const allowedOrigins = [
@@ -51,20 +63,27 @@ const allowedOrigins = [
     ...defaultAllowedOrigins,
     ...(process.env.CLIENT_URL ?? '')
       .split(',')
-      .map((origin) => origin.trim())
-      .filter(Boolean),
-  ]),
+      .map(origin => origin.trim())
+      .filter(Boolean)
+  ])
 ];
 
 const corsOptions = {
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Allow requests without an Origin header, such as curl,
+    // server-to-server requests, and health checks.
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
       return;
     }
 
     console.warn(`Blocked by CORS: ${origin}`);
-    callback(new Error(`Origin not allowed by CORS: ${origin}`));
+    callback(null, false);
   },
 
   credentials: true,
@@ -76,16 +95,17 @@ const corsOptions = {
     'PUT',
     'PATCH',
     'DELETE',
-    'OPTIONS',
+    'OPTIONS'
   ],
 
   allowedHeaders: [
     'Accept',
     'Content-Type',
     'Authorization',
+    'X-Requested-With'
   ],
 
-  optionsSuccessStatus: 204,
+  optionsSuccessStatus: 204
 };
 
 app.use(helmet());
@@ -94,7 +114,7 @@ app.use(cors(corsOptions));
 
 /*
  * Express 5-compatible wildcard route.
- * Do not use app.options('*', ...) with Express 5.
+ * This handles browser preflight requests.
  */
 app.options('/{*splat}', cors(corsOptions));
 
@@ -104,7 +124,7 @@ app.use(morgan('dev'));
 
 app.use(
   '/exports',
-  express.static(path.join(__dirname, '../exports')),
+  express.static(path.join(__dirname, '../exports'))
 );
 
 app.use('/api/auth', authRoutes);
@@ -127,12 +147,14 @@ app.use('/api/suppliers', supplierRoutes);
 app.use('/api/stock-ledger', stockLedgerRoutes);
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({
+    status: 'ok'
+  });
 });
 
 app.use((req, res) => {
   res.status(404).json({
-    message: 'Route not found',
+    message: 'Route not found'
   });
 });
 

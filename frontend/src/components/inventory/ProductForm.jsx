@@ -107,7 +107,7 @@ function getProductId(value) {
   }
 
   return typeof value === 'object'
-    ? value._id || ''
+    ? value._id || value.id || ''
     : value;
 }
 
@@ -324,12 +324,17 @@ export default function ProductForm({
   );
 
   const [error, setError] = useState('');
-  const [scanMessage, setScanMessage] = useState('');
-  const [scanError, setScanError] = useState('');
-  const [scannerOpen, setScannerOpen] = useState(false);
-  const [scanning, setScanning] = useState(false);
+  const [scanMessage, setScanMessage] =
+    useState('');
+  const [scanError, setScanError] =
+    useState('');
+  const [scannerOpen, setScannerOpen] =
+    useState(false);
+  const [scanning, setScanning] =
+    useState(false);
   const [busy, setBusy] = useState(false);
-  const [recognizing, setRecognizing] = useState(false);
+  const [recognizing, setRecognizing] =
+    useState(false);
 
   const [
     recognitionError,
@@ -349,8 +354,13 @@ export default function ProductForm({
   );
 
   const isEditing = Boolean(
-    initialProduct?._id
+    initialProduct?._id || initialProduct?.id
   );
+
+  const initialProductId =
+    initialProduct?._id ||
+    initialProduct?.id ||
+    '';
 
   useEffect(() => {
     setForm(getInitialForm(initialProduct));
@@ -476,7 +486,7 @@ export default function ProductForm({
       return;
     }
 
-    if (!navigator.onLine) {
+    if (!isOnline) {
       clearScanMessage();
 
       setForm(current => ({
@@ -487,8 +497,7 @@ export default function ProductForm({
       }));
 
       setScanMessage(
-        'Code captured offline. Product lookup requires a connection. ' +
-        'Complete the remaining fields manually.'
+        'Code captured offline. Product lookup requires a connection. Complete the remaining fields manually.'
       );
 
       setScannerOpen(false);
@@ -580,7 +589,7 @@ export default function ProductForm({
         setScanError(
           getErrorMessage(
             err,
-            'Unable to look up this product'
+            'Unable to look up this product.'
           )
         );
       }
@@ -597,12 +606,11 @@ export default function ProductForm({
       return;
     }
 
-    if (!navigator.onLine) {
+    if (!isOnline) {
       clearScanMessage();
 
       setScanMessage(
-        'Photo attached locally. Enter the product details manually. ' +
-        'The photo will be retained with your offline draft.'
+        'Photo preview attached locally. Enter the product details manually. The photo itself cannot be added to the offline synchronization queue and must be uploaded after the product is synchronized.'
       );
 
       return;
@@ -679,7 +687,11 @@ export default function ProductForm({
     setError('');
     clearScanMessage();
 
-    if (!form.name.trim()) {
+    const productName = String(
+      form.name || ''
+    ).trim();
+
+    if (!productName) {
       setError(
         'Product name is required.'
       );
@@ -729,80 +741,126 @@ export default function ProductForm({
       return;
     }
 
+    const payload = {
+      name: productName,
+
+      barcode:
+        String(form.barcode || '')
+          .trim()
+          .toUpperCase() || undefined,
+
+      sku:
+        String(form.sku || '')
+          .trim()
+          .toUpperCase() || undefined,
+
+      qrCode:
+        String(form.qrCode || '').trim() ||
+        String(form.barcode || '')
+          .trim()
+          .toUpperCase() ||
+        undefined,
+
+      category:
+        form.category || undefined,
+
+      supplier:
+        form.supplier || undefined,
+
+      brand:
+        String(form.brand || '').trim(),
+
+      description:
+        String(form.description || '').trim(),
+
+      imageUrl:
+        String(form.imageUrl || '').trim() ||
+        undefined,
+
+      unitType:
+        form.unitType || 'piece',
+
+      branch:
+        String(form.branch || '').trim(),
+
+      /*
+       * New products must begin at zero stock.
+       * Existing product stock is controlled through
+       * inventory batches rather than catalog editing.
+       */
+      currentStock: isEditing
+        ? currentStock
+        : 0,
+
+      reorderLevel,
+
+      costPrice,
+
+      sellingPrice
+    };
+
+    if (!isOnline) {
+      try {
+        const savedDraft = saveProductDraft({
+          kind: isEditing
+            ? 'update'
+            : 'create',
+
+          productId: isEditing
+            ? initialProductId
+            : null,
+
+          baseSyncVersion: Number(
+            initialProduct?.syncVersion || 1
+          ),
+
+          draft: payload
+        });
+
+        setScanMessage(
+          isEditing
+            ? 'Product edit was saved on this device and will synchronize when the connection returns.'
+            : 'Product draft was saved on this device and will synchronize when the connection returns.'
+        );
+
+        if (selectedImageFile) {
+          setRecognitionError(
+            'The product draft was saved, but the selected image file cannot be stored in the offline queue. Upload the photo after the product synchronizes while you are online.'
+          );
+        }
+
+        onSuccess?.({
+          _localDraft: true,
+          draftId: savedDraft.id,
+          name: payload.name,
+          ...payload
+        });
+
+        return;
+      } catch (draftError) {
+        console.error(
+          'Unable to save offline product draft:',
+          draftError
+        );
+
+        setError(
+          draftError?.message ||
+            'Unable to save this product draft on the device.'
+        );
+
+        return;
+      }
+    }
+
     submitInProgress.current = true;
     setBusy(true);
 
     try {
-      const payload = {
-        name: form.name.trim(),
-
-        barcode:
-          form.barcode.trim() || undefined,
-
-        sku:
-          form.sku.trim().toUpperCase() ||
-          undefined,
-
-        qrCode:
-          form.qrCode.trim() ||
-          form.barcode.trim() ||
-          undefined,
-
-        category:
-          form.category || undefined,
-
-        supplier:
-          form.supplier || undefined,
-
-        brand:
-          form.brand.trim(),
-
-        description:
-          form.description.trim(),
-
-        imageUrl:
-          form.imageUrl?.trim() || undefined,
-
-        unitType:
-          form.unitType,
-
-        branch:
-          form.branch.trim(),
-
-        currentStock:
-          isEditing
-            ? currentStock
-            : 0,
-
-        reorderLevel,
-        costPrice,
-        sellingPrice,
-
-        expirationDate:
-          form.expirationDate || undefined
-      };
-
-      if (!navigator.onLine) {
-        const draft = await saveProductDraft({
-          payload,
-          initialProduct,
-          imageFile: selectedImageFile
-        });
-
-        onSuccess?.({
-          _localDraft: true,
-          draftId: draft.id,
-          name: payload.name
-        });
-
-        return;
-      }
-
       let savedProduct;
 
       if (isEditing) {
         const response = await client.put(
-          `/products/${initialProduct._id}`,
+          `/products/${initialProductId}`,
           payload
         );
 
@@ -816,12 +874,15 @@ export default function ProductForm({
         savedProduct = response.data;
       }
 
+      const savedProductId =
+        savedProduct?._id ||
+        savedProduct?.id;
+
       if (
         selectedImageFile &&
-        savedProduct?._id
+        savedProductId
       ) {
-        const imageFormData =
-          new FormData();
+        const imageFormData = new FormData();
 
         imageFormData.append(
           'image',
@@ -829,7 +890,7 @@ export default function ProductForm({
         );
 
         await client.post(
-          `/products/${savedProduct._id}/image`,
+          `/products/${savedProductId}/image`,
           imageFormData
         );
       }
@@ -839,7 +900,7 @@ export default function ProductForm({
       setError(
         getErrorMessage(
           err,
-          'Unable to save product'
+          'Unable to save product.'
         )
       );
     } finally {
@@ -964,11 +1025,10 @@ export default function ProductForm({
                 </h3>
 
                 <p>
-                  Take a photo of fruits, meat,
-                  vegetables, fresh goods, or packaged
-                  products. The image stays attached
-                  even when no barcode or label can
-                  be recognized.
+                  Take a photo of fresh goods or
+                  packaged products. Photos can be
+                  analyzed while online and uploaded
+                  once a saved product exists.
                 </p>
               </div>
             </div>
@@ -1073,7 +1133,11 @@ export default function ProductForm({
 
                   <small className="table-subtext">
                     {selectedImageFile
-                      ? `${selectedImageFile.name} — it will be saved with this product or local draft.`
+                      ? `${selectedImageFile.name}${
+                          isOnline
+                            ? ' — it will be uploaded after the product is saved.'
+                            : ' — upload it after the product synchronizes.'
+                        }`
                       : 'Existing product image'}
                   </small>
                 </div>
@@ -1126,9 +1190,12 @@ export default function ProductForm({
 
             <input
               required
-              value={form.name}
+              value={form.name || ''}
               onChange={event =>
-                change('name', event.target.value)
+                change(
+                  'name',
+                  event.target.value
+                )
               }
               placeholder="e.g. Fresh Banana, Chicken Breast, Alcoplus Ethyl Alcohol"
             />
@@ -1142,7 +1209,7 @@ export default function ProductForm({
             </span>
 
             <input
-              value={form.sku}
+              value={form.sku || ''}
               onChange={event =>
                 change(
                   'sku',
@@ -1161,7 +1228,7 @@ export default function ProductForm({
             </span>
 
             <input
-              value={form.barcode}
+              value={form.barcode || ''}
               onChange={event =>
                 change(
                   'barcode',
@@ -1177,9 +1244,12 @@ export default function ProductForm({
             QR code
 
             <input
-              value={form.qrCode}
+              value={form.qrCode || ''}
               onChange={event =>
-                change('qrCode', event.target.value)
+                change(
+                  'qrCode',
+                  event.target.value
+                )
               }
               placeholder="Defaults to barcode"
             />
@@ -1189,9 +1259,12 @@ export default function ProductForm({
             Brand
 
             <input
-              value={form.brand}
+              value={form.brand || ''}
               onChange={event =>
-                change('brand', event.target.value)
+                change(
+                  'brand',
+                  event.target.value
+                )
               }
               placeholder="Brand name or farm/supplier name"
             />
@@ -1208,7 +1281,10 @@ export default function ProductForm({
             <input
               value={form.imageUrl || ''}
               onChange={event =>
-                change('imageUrl', event.target.value)
+                change(
+                  'imageUrl',
+                  event.target.value
+                )
               }
               placeholder="Optional external image URL"
             />
@@ -1218,7 +1294,7 @@ export default function ProductForm({
             Description
 
             <textarea
-              value={form.description}
+              value={form.description || ''}
               onChange={event =>
                 change(
                   'description',
@@ -1242,7 +1318,7 @@ export default function ProductForm({
             Category
 
             <select
-              value={form.category}
+              value={form.category || ''}
               onChange={event =>
                 change(
                   'category',
@@ -1256,8 +1332,14 @@ export default function ProductForm({
 
               {categories.map(category => (
                 <option
-                  key={category._id}
-                  value={category._id}
+                  key={
+                    category._id ||
+                    category.id
+                  }
+                  value={
+                    category._id ||
+                    category.id
+                  }
                 >
                   {category.name}
                 </option>
@@ -1269,7 +1351,7 @@ export default function ProductForm({
             Supplier
 
             <select
-              value={form.supplier}
+              value={form.supplier || ''}
               onChange={event =>
                 change(
                   'supplier',
@@ -1283,8 +1365,14 @@ export default function ProductForm({
 
               {suppliers.map(supplier => (
                 <option
-                  key={supplier._id}
-                  value={supplier._id}
+                  key={
+                    supplier._id ||
+                    supplier.id
+                  }
+                  value={
+                    supplier._id ||
+                    supplier.id
+                  }
                 >
                   {supplier.name}
                 </option>
@@ -1296,7 +1384,7 @@ export default function ProductForm({
             Unit type
 
             <select
-              value={form.unitType}
+              value={form.unitType || 'piece'}
               onChange={event =>
                 change(
                   'unitType',
@@ -1327,7 +1415,7 @@ export default function ProductForm({
             Branch / warehouse
 
             <input
-              value={form.branch}
+              value={form.branch || ''}
               onChange={event =>
                 change(
                   'branch',
@@ -1379,14 +1467,14 @@ export default function ProductForm({
             Expiration date
 
             <span className="field-hint">
-              Optional product reference date. Actual
-              sellable expiry dates are recorded per
-              batch during Receive Stock.
+              Optional product reference date.
+              Actual sellable expiry dates are
+              recorded per batch during Receive Stock.
             </span>
 
             <input
               type="date"
-              value={form.expirationDate}
+              value={form.expirationDate || ''}
               onChange={event =>
                 change(
                   'expirationDate',
@@ -1523,10 +1611,9 @@ export default function ProductForm({
           className="inventory-cache-notice"
           role="status"
         >
-          This will save a draft on this device only.
-          It will not create sellable stock or update
-          the server. Automatic synchronization is
-          not enabled yet.
+          This will save a product draft on this
+          device. It will automatically synchronize
+          when the connection returns.
         </div>
       )}
 

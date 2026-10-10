@@ -1,7 +1,12 @@
 import Dexie from 'dexie';
+
 import client from '../api/client';
 
-const db = new Dexie('essentialInventoryReadCache');
+const READ_TIMEOUT_MS = 30000;
+
+const db = new Dexie(
+  'essentialInventoryReadCache'
+);
 
 db.version(1).stores({
   responses: '&key, scope, savedAt'
@@ -10,7 +15,9 @@ db.version(1).stores({
 export function getCacheScope() {
   try {
     const account = JSON.parse(
-      localStorage.getItem('essential_account') || 'null'
+      localStorage.getItem(
+        'essential_account'
+      ) || 'null'
     );
 
     const id = account?._id || account?.id;
@@ -36,18 +43,44 @@ export function getCacheScope() {
 export async function clearOfflineCache(scope) {
   try {
     if (scope) {
-      await db.responses.where('scope').equals(scope).delete();
+      await db.responses
+        .where('scope')
+        .equals(scope)
+        .delete();
     } else {
       await db.responses.clear();
     }
   } catch (error) {
-    console.warn('Unable to clear offline cache:', error);
+    console.warn(
+      'Unable to clear offline cache:',
+      error
+    );
   }
+}
+
+function isTransportFailure(error) {
+  if (error?.response) {
+    return false;
+  }
+
+  return [
+    'ERR_NETWORK',
+    'ECONNABORTED',
+    'ETIMEDOUT',
+    'ECONNRESET',
+    'ERR_CONNECTION_RESET',
+    'ERR_CONNECTION_TIMED_OUT',
+    'ERR_INTERNET_DISCONNECTED',
+    'ERR_SSL_PROTOCOL_ERROR'
+  ].includes(error?.code);
 }
 
 export async function cachedGet(url) {
   const scope = getCacheScope();
-  const key = JSON.stringify([scope, url]);
+  const key = JSON.stringify([
+    scope,
+    url
+  ]);
 
   async function readCached() {
     if (!scope) {
@@ -57,7 +90,11 @@ export async function cachedGet(url) {
     try {
       return await db.responses.get(key);
     } catch (error) {
-      console.warn('Unable to read offline cache:', error);
+      console.warn(
+        'Unable to read offline cache:',
+        error
+      );
+
       return null;
     }
   }
@@ -81,12 +118,20 @@ export async function cachedGet(url) {
 
   try {
     const response = await client.get(url, {
-      timeout: 10000
+      timeout: READ_TIMEOUT_MS
     });
 
     const savedAt = new Date().toISOString();
 
-    if (scope && scope === getCacheScope()) {
+    /*
+     * Avoid writing data into a cache that belongs to
+     * a user who has logged out or changed accounts
+     * while this request was still loading.
+     */
+    if (
+      scope &&
+      scope === getCacheScope()
+    ) {
       try {
         await db.responses.put({
           key,
@@ -108,16 +153,16 @@ export async function cachedGet(url) {
       savedAt
     };
   } catch (error) {
-    const transportFailure =
-      !error.response &&
-      (
-        error.code === 'ERR_NETWORK' ||
-        error.code === 'ECONNABORTED' ||
-        error.code === 'ETIMEDOUT'
-      );
-
-    // Do not hide authorization or other HTTP errors.
-    if (!transportFailure || scope !== getCacheScope()) {
+    /*
+     * Do not use a cached response to hide an actual
+     * backend response such as 401, 403, 404, 409,
+     * 422, or 500. Only fall back for a connection,
+     * proxy, timeout, or TLS transport failure.
+     */
+    if (
+      !isTransportFailure(error) ||
+      scope !== getCacheScope()
+    ) {
       throw error;
     }
 
@@ -126,6 +171,11 @@ export async function cachedGet(url) {
     if (!cached) {
       throw error;
     }
+
+    console.warn(
+      `Using saved offline response for ${url}.`,
+      error
+    );
 
     return {
       data: cached.data,

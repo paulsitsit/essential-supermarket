@@ -12,7 +12,8 @@ import {
   lookupExternalProduct,
   recognizeProduct,
   saveProductImage,
-  uploadProductImage
+  uploadProductImage,
+  syncProductDraft
 } from '../controllers/product.controller.js';
 
 import { protect } from '../middleware/auth.js';
@@ -57,6 +58,16 @@ router.post(
   allowRoles('admin', 'manager', 'staff'),
   uploadProductImage,
   recognizeProduct
+);
+
+/*
+ * Replay-safe synchronization of offline product drafts.
+ * Must stay above '/:id/image' and any other '/:id' routes.
+ */
+router.post(
+  '/sync',
+  allowRoles('admin'),
+  syncProductDraft
 );
 
 /*

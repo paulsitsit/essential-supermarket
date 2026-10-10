@@ -131,7 +131,23 @@ const productSchema = new mongoose.Schema(
 
     isArchived: {
       type: Boolean,
-      default: false
+      default: false,
+      index: true
+    },
+
+    /*
+     * Used by offline product synchronization.
+     *
+     * The PWA stores the version seen when an admin
+     * opened an edit form. The backend later compares
+     * that saved version to the current product version
+     * before applying an offline product edit.
+     */
+    syncVersion: {
+      type: Number,
+      required: true,
+      min: 1,
+      default: 1
     },
 
     createdBy: {
@@ -147,13 +163,21 @@ const productSchema = new mongoose.Schema(
 );
 
 productSchema.index(
-  { barcode: 1 },
-  { unique: true }
+  {
+    barcode: 1
+  },
+  {
+    unique: true
+  }
 );
 
 productSchema.index(
-  { sku: 1 },
-  { unique: true }
+  {
+    sku: 1
+  },
+  {
+    unique: true
+  }
 );
 
 productSchema.index({
@@ -162,25 +186,80 @@ productSchema.index({
   sku: 'text'
 });
 
-productSchema.pre('save', function updateInventoryFields(next) {
-  const stock = Number(this.currentStock || 0);
-  const costPrice = Number(this.costPrice || 0);
-  const reorderLevel = Number(this.reorderLevel || 0);
+/*
+ * Runs when a product document is created or saved.
+ *
+ * Existing inventory calculation and low-stock status
+ * logic are preserved exactly.
+ */
+productSchema.pre(
+  'save',
+  function updateInventoryFields(next) {
+    const stock = Number(
+      this.currentStock || 0
+    );
 
-  this.inventoryValue = stock * costPrice;
+    const costPrice = Number(
+      this.costPrice || 0
+    );
 
-  if (this.status !== 'damaged') {
-    if (stock === 0) {
-      this.status = 'out_of_stock';
-    } else if (stock <= reorderLevel) {
-      this.status = 'low_stock';
-    } else {
-      this.status = 'normal';
+    const reorderLevel = Number(
+      this.reorderLevel || 0
+    );
+
+    this.inventoryValue = stock * costPrice;
+
+    if (this.status !== 'damaged') {
+      if (stock === 0) {
+        this.status = 'out_of_stock';
+      } else if (stock <= reorderLevel) {
+        this.status = 'low_stock';
+      } else {
+        this.status = 'normal';
+      }
     }
-  }
 
-  next();
-});
+    /*
+     * New products begin at version 1.
+     * Existing products saved through document.save()
+     * increment their synchronization version.
+     */
+    if (!this.isNew && this.isModified()) {
+      this.syncVersion =
+        Number(this.syncVersion || 1) + 1;
+    }
+
+    next();
+  }
+);
+
+/*
+ * Your normal product update controller uses:
+ *
+ * Product.findByIdAndUpdate(...)
+ *
+ * That does not run pre('save'), so increment the
+ * version at query level as well.
+ */
+productSchema.pre(
+  'findOneAndUpdate',
+  function incrementSyncVersion(next) {
+    const update = this.getUpdate() || {};
+
+    /*
+     * Do not replace any existing increments created
+     * by another controller/service.
+     */
+    update.$inc = {
+      ...(update.$inc || {}),
+      syncVersion: 1
+    };
+
+    this.setUpdate(update);
+
+    next();
+  }
+);
 
 export default mongoose.model(
   'Product',

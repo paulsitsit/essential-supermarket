@@ -1,8 +1,10 @@
 import multer from 'multer';
+import mongoose from 'mongoose';
 
 import Product from '../models/Product.js';
 import ProductBatch from '../models/ProductBatch.js';
 import ExpirationAlert from '../models/ExpirationAlert.js';
+import SyncOperation from '../models/SyncOperation.js';
 
 import {
   createOrUpdateAlert
@@ -653,6 +655,759 @@ export async function saveProductImage(
   });
 }
 
+function normalizeSyncPayload(payload = {}) {
+  const allowed = [
+    'name',
+    'barcode',
+    'sku',
+    'qrCode',
+    'category',
+    'supplier',
+    'brand',
+    'description',
+    'imageUrl',
+    'unitType',
+    'branch',
+    'reorderLevel',
+    'costPrice',
+    'sellingPrice'
+  ];
+
+  const updates = Object.fromEntries(
+    Object.entries(payload).filter(
+      ([key]) => allowed.includes(key)
+    )
+  );
+
+  if (updates.name !== undefined) {
+    updates.name = String(updates.name).trim();
+  }
+
+  if (updates.barcode !== undefined) {
+    const value = String(
+      updates.barcode || ''
+    )
+      .trim()
+      .toUpperCase();
+
+    if (value) {
+      updates.barcode = value;
+    } else {
+      delete updates.barcode;
+    }
+  }
+
+  if (updates.sku !== undefined) {
+    const value = String(
+      updates.sku || ''
+    )
+      .trim()
+      .toUpperCase();
+
+    if (value) {
+      updates.sku = value;
+    } else {
+      delete updates.sku;
+    }
+  }
+
+  if (updates.qrCode !== undefined) {
+    const value = String(
+      updates.qrCode || ''
+    )
+      .trim();
+
+    if (value) {
+      updates.qrCode = value;
+    } else {
+      delete updates.qrCode;
+    }
+  }
+
+  if (
+    updates.reorderLevel !== undefined &&
+    (
+      !Number.isFinite(
+        Number(updates.reorderLevel)
+      ) ||
+      Number(updates.reorderLevel) < 0
+    )
+  ) {
+    const error = new Error(
+      'Reorder level must be a non-negative number.'
+    );
+
+    error.statusCode = 400;
+
+    throw error;
+  }
+
+  if (
+    updates.costPrice !== undefined &&
+    (
+      !Number.isFinite(
+        Number(updates.costPrice)
+      ) ||
+      Number(updates.costPrice) < 0
+    )
+  ) {
+    const error = new Error(
+      'Cost price must be a non-negative number.'
+    );
+
+    error.statusCode = 400;
+
+    throw error;
+  }
+
+  if (
+    updates.sellingPrice !== undefined &&
+    (
+      !Number.isFinite(
+        Number(updates.sellingPrice)
+      ) ||
+      Number(updates.sellingPrice) < 0
+    )
+  ) {
+    const error = new Error(
+      'Selling price must be a non-negative number.'
+    );
+
+    error.statusCode = 400;
+
+    throw error;
+  }
+
+  return updates;
+}
+
+function getDuplicateProductError(error) {
+  const duplicateField = Object.keys(
+    error.keyPattern || {}
+  )[0];
+
+  const message =
+    duplicateField === 'sku'
+      ? 'This SKU already exists.'
+      : duplicateField === 'barcode'
+        ? 'This barcode already exists.'
+        : 'A product with this information already exists.';
+
+  const result = new Error(message);
+
+  result.statusCode = 409;
+
+  return result;
+}
+
+function isFinalSyncError(error) {
+  return [
+    400,
+    403,
+    404,
+    409,
+    422
+  ].includes(
+    Number(error.statusCode || 0)
+  );
+}
+
+async function saveSyncReceipt(
+  operation,
+  {
+    status,
+    product = null,
+    response = null,
+    errorMessage = ''
+  }
+) {
+  operation.status = status;
+
+  if (product) {
+    operation.product = product._id;
+  }
+
+  if (response) {
+    operation.response = response;
+  }
+
+  operation.errorMessage = errorMessage;
+
+  await operation.save();
+}
+
+async function getCompletedSyncResponse(
+  operation,
+  account
+) {
+  if (
+    operation.account.toString() !==
+    account._id.toString()
+  ) {
+    const error = new Error(
+      'This synchronization operation belongs to another account.'
+    );
+
+    error.statusCode = 403;
+
+    throw error;
+  }
+
+  if (
+    operation.status === 'completed' &&
+    operation.product
+  ) {
+    const product = await Product.findById(
+      operation.product
+    ).populate('category supplier', 'name');
+
+    if (!product) {
+      const error = new Error(
+        'The saved synchronization receipt refers to a product that no longer exists.'
+      );
+
+      error.statusCode = 409;
+
+      throw error;
+    }
+
+    return {
+      replayed: true,
+      operationId: operation.operationId,
+      product
+    };
+  }
+
+  if (
+    operation.status === 'retryable' &&
+    operation.product
+  ) {
+    const product = await Product.findById(
+      operation.product
+    ).populate('category supplier', 'name');
+
+    if (product) {
+      return {
+        replayed: true,
+        operationId: operation.operationId,
+        product
+      };
+    }
+  }
+
+  return null;
+}
+
+export async function syncProductDraft(
+  req,
+  res
+) {
+  const {
+    operationId,
+    kind,
+    productId,
+    baseSyncVersion,
+    payload
+  } = req.body || {};
+
+  const normalizedOperationId = String(
+    operationId || ''
+  ).trim();
+
+  if (
+    normalizedOperationId.length < 8 ||
+    normalizedOperationId.length > 200
+  ) {
+    return res.status(400).json({
+      message:
+        'A valid synchronization operation ID is required.'
+    });
+  }
+
+  if (
+    !['create', 'update'].includes(kind)
+  ) {
+    return res.status(400).json({
+      message:
+        'Synchronization kind must be create or update.'
+    });
+  }
+
+  if (
+    kind === 'update' &&
+    !mongoose.isValidObjectId(productId)
+  ) {
+    return res.status(400).json({
+      message:
+        'A valid product ID is required for an offline product edit.'
+    });
+  }
+
+  let existingOperation =
+    await SyncOperation.findOne({
+      operationId: normalizedOperationId
+    });
+
+  if (existingOperation) {
+    try {
+      const existingResponse =
+        await getCompletedSyncResponse(
+          existingOperation,
+          req.account
+        );
+
+      if (existingResponse) {
+        return res.json(existingResponse);
+      }
+
+      if (
+        existingOperation.account.toString() !==
+        req.account._id.toString()
+      ) {
+        return res.status(403).json({
+          message:
+            'This synchronization operation belongs to another account.'
+        });
+      }
+
+      if (
+        existingOperation.status ===
+        'processing'
+      ) {
+        return res.status(409).json({
+          message:
+            'This product synchronization is already being processed. Try again shortly.'
+        });
+      }
+
+      if (
+        existingOperation.status ===
+        'retryable'
+      ) {
+        existingOperation.status =
+          'processing';
+
+        await existingOperation.save();
+
+        return await processSyncOperation({
+          req,
+          res,
+          operation:
+            existingOperation,
+          kind,
+          productId,
+          baseSyncVersion,
+          payload
+        });
+      }
+
+      return res.status(409).json({
+        message:
+          existingOperation.errorMessage ||
+          'This synchronization operation failed previously. Resolve the product issue and create a new draft before retrying.'
+      });
+    } catch (error) {
+      return res.status(
+        error.statusCode || 500
+      ).json({
+        message:
+          error.message ||
+          'Unable to read synchronization status.'
+      });
+    }
+  }
+
+  try {
+    existingOperation =
+      await SyncOperation.create({
+        operationId:
+          normalizedOperationId,
+
+        account: req.account._id,
+
+        type:
+          kind === 'create'
+            ? 'product_create'
+            : 'product_update',
+
+        status: 'processing'
+      });
+  } catch (error) {
+    if (error.code === 11000) {
+      const duplicateOperation =
+        await SyncOperation.findOne({
+          operationId:
+            normalizedOperationId
+        });
+
+      if (duplicateOperation) {
+        try {
+          const duplicateResponse =
+            await getCompletedSyncResponse(
+              duplicateOperation,
+              req.account
+            );
+
+          if (duplicateResponse) {
+            return res.json(
+              duplicateResponse
+            );
+          }
+        } catch (duplicateReadError) {
+          return res.status(
+            duplicateReadError.statusCode ||
+              500
+          ).json({
+            message:
+              duplicateReadError.message ||
+              'Unable to read synchronization status.'
+          });
+        }
+      }
+
+      return res.status(409).json({
+        message:
+          'This product synchronization is already being processed. Try again shortly.'
+      });
+    }
+
+    throw error;
+  }
+
+  return await processSyncOperation({
+    req,
+    res,
+    operation: existingOperation,
+    kind,
+    productId,
+    baseSyncVersion,
+    payload
+  });
+}
+
+async function processSyncOperation({
+  req,
+  res,
+  operation,
+  kind,
+  productId,
+  baseSyncVersion,
+  payload
+}) {
+  try {
+    const updates =
+      normalizeSyncPayload(payload);
+
+    let product;
+
+    if (kind === 'create') {
+      if (!updates.name?.trim()) {
+        const error = new Error(
+          'Product name is required.'
+        );
+
+        error.statusCode = 400;
+
+        throw error;
+      }
+
+      const barcode =
+        updates.barcode ||
+        (await generateInternalBarcode());
+
+      const sku =
+        updates.sku ||
+        (await generateUniqueSku());
+
+      const productData = {
+        ...updates,
+
+        barcode,
+
+        sku,
+
+        qrCode:
+          String(updates.qrCode || '')
+            .trim() ||
+          barcode,
+
+        currentStock: 0,
+
+        createdBy: req.account._id
+      };
+
+      try {
+        product = await Product.create(
+          productData
+        );
+
+        /*
+         * Save the product reference immediately.
+         * If alert creation, auditing, or the response step
+         * fails afterward, a retry can safely recover this
+         * already-created product instead of recreating it.
+         */
+        await saveSyncReceipt(
+          operation,
+          {
+            status: 'processing',
+            product
+          }
+        );
+      } catch (error) {
+        if (error.code === 11000) {
+          throw getDuplicateProductError(
+            error
+          );
+        }
+
+        throw error;
+      }
+
+      try {
+        if (
+          Number(product.currentStock) <=
+          Number(product.reorderLevel)
+        ) {
+          await createOrUpdateAlert(
+            product,
+            req.account,
+            req,
+            req.app.get('io')
+          );
+        }
+      } catch (alertError) {
+        console.error(
+          'Offline product alert creation failed:',
+          alertError
+        );
+      }
+
+      try {
+        await writeAudit({
+          req,
+          account: req.account,
+          action:
+            'product_created_offline_sync',
+          affectedRecord:
+            product._id.toString(),
+          metadata: {
+            operationId:
+              operation.operationId,
+            sku: product.sku,
+            barcode: product.barcode,
+            initialStock: 0,
+            stockEntryMethod:
+              'batch_receive_required'
+          }
+        });
+      } catch (auditError) {
+        console.error(
+          'Offline product audit write failed:',
+          auditError
+        );
+      }
+    } else {
+      const expectedVersion = Number(
+        baseSyncVersion || 1
+      );
+
+      if (
+        !Number.isInteger(expectedVersion) ||
+        expectedVersion < 1
+      ) {
+        const error = new Error(
+          'A valid base product version is required for an offline edit.'
+        );
+
+        error.statusCode = 400;
+
+        throw error;
+      }
+
+      const currentProduct =
+        await Product.findById(productId);
+
+      if (
+        !currentProduct ||
+        currentProduct.isArchived
+      ) {
+        const error = new Error(
+          'Product not found or archived.'
+        );
+
+        error.statusCode = 404;
+
+        throw error;
+      }
+
+      const currentVersion = Number(
+        currentProduct.syncVersion || 1
+      );
+
+      if (
+        currentVersion !== expectedVersion
+      ) {
+        const error = new Error(
+          'This product was changed on the server after the offline edit was created. Review the latest product before applying the local edit.'
+        );
+
+        error.statusCode = 409;
+        error.code =
+          'PRODUCT_SYNC_CONFLICT';
+
+        throw error;
+      }
+
+      try {
+        product =
+          await Product.findOneAndUpdate(
+            {
+              _id: productId,
+              syncVersion:
+                expectedVersion,
+              isArchived: false
+            },
+            {
+              ...updates,
+              $inc: {
+                syncVersion: 1
+              }
+            },
+            {
+              new: true,
+              runValidators: true
+            }
+          );
+      } catch (error) {
+        if (error.code === 11000) {
+          throw getDuplicateProductError(
+            error
+          );
+        }
+
+        throw error;
+      }
+
+      if (!product) {
+        const error = new Error(
+          'The product changed before the offline edit could be synchronized. Review the latest server product.'
+        );
+
+        error.statusCode = 409;
+        error.code =
+          'PRODUCT_SYNC_CONFLICT';
+
+        throw error;
+      }
+
+      await saveSyncReceipt(
+        operation,
+        {
+          status: 'processing',
+          product
+        }
+      );
+
+      try {
+        await writeAudit({
+          req,
+          account: req.account,
+          action:
+            'product_updated_offline_sync',
+          affectedRecord:
+            product._id.toString(),
+          metadata: {
+            operationId:
+              operation.operationId,
+            changedFields:
+              Object.keys(updates),
+            baseSyncVersion:
+              expectedVersion,
+            syncVersion:
+              product.syncVersion
+          }
+        });
+      } catch (auditError) {
+        console.error(
+          'Offline product audit write failed:',
+          auditError
+        );
+      }
+    }
+
+    await saveSyncReceipt(
+      operation,
+      {
+        status: 'completed',
+        product,
+        response: {
+          productId:
+            product._id.toString(),
+          productUpdatedAt:
+            product.updatedAt
+        },
+        errorMessage: ''
+      }
+    );
+
+    req.app.get('io')?.emit(
+      'productUpdated',
+      product
+    );
+
+    const populatedProduct =
+      await Product.findById(
+        product._id
+      ).populate(
+        'category supplier',
+        'name'
+      );
+
+    return res.status(
+      kind === 'create' ? 201 : 200
+    ).json({
+      replayed: false,
+      operationId:
+        operation.operationId,
+      product: populatedProduct
+    });
+  } catch (error) {
+    const finalError =
+      isFinalSyncError(error);
+
+    try {
+      await saveSyncReceipt(
+        operation,
+        {
+          status: finalError
+            ? 'failed'
+            : 'retryable',
+          errorMessage:
+            error.message ||
+            'Unable to synchronize product draft.'
+        }
+      );
+    } catch (receiptError) {
+      console.error(
+        'Unable to save failed synchronization receipt:',
+        receiptError
+      );
+    }
+
+    return res.status(
+      error.statusCode || 500
+    ).json({
+      message:
+        error.message ||
+        'Unable to synchronize product draft.',
+      code:
+        error.code || undefined,
+      retryable: !finalError
+    });
+  }
+}
+
 export async function createProduct(
   req,
   res
@@ -875,7 +1630,8 @@ export async function updateProduct(
   if (updates.qrCode !== undefined) {
     const value = String(
       updates.qrCode || ''
-    ).trim();
+    )
+      .trim();
 
     if (value) {
       updates.qrCode = value;
@@ -920,7 +1676,12 @@ export async function updateProduct(
     product =
       await Product.findByIdAndUpdate(
         req.params.id,
-        updates,
+        {
+          ...updates,
+          $inc: {
+            syncVersion: 1
+          }
+        },
         {
           new: true,
           runValidators: true

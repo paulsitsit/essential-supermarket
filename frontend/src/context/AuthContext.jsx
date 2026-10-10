@@ -12,6 +12,11 @@ import {
   initializePushNotifications
 } from '../services/pushNotifications';
 
+import {
+  clearOfflineCache,
+  getCacheScope
+} from '../services/offlineCache';
+
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
@@ -45,9 +50,9 @@ export function AuthProvider({ children }) {
       }
 
       try {
-        const { data } = await client.get(
-          '/auth/me'
-        );
+        const { data } = await client.get('/auth/me', {
+          timeout: 10000
+        });
 
         setAccount(data.account);
 
@@ -55,22 +60,43 @@ export function AuthProvider({ children }) {
           'essential_account',
           JSON.stringify(data.account)
         );
-      } catch {
-        localStorage.removeItem(
-          'essential_token'
-        );
+      } catch (error) {
+        const transportFailure =
+          !error.response &&
+          (
+            error.code === 'ERR_NETWORK' ||
+            error.code === 'ECONNABORTED' ||
+            error.code === 'ETIMEDOUT'
+          );
 
-        localStorage.removeItem(
-          'essential_account'
-        );
+        if (transportFailure) {
+          // Keep the already stored account during a network outage.
+          // No new offline login is performed.
+          console.warn(
+            'Session verification unavailable; using saved session.'
+          );
+        } else {
+          const scope = getCacheScope();
 
-        setAccount(null);
+          localStorage.removeItem('essential_token');
+          localStorage.removeItem('essential_account');
+
+          setAccount(null);
+
+          void clearOfflineCache(scope);
+        }
       } finally {
         setLoading(false);
       }
     }
 
     verify();
+
+    window.addEventListener('online', verify);
+
+    return () => {
+      window.removeEventListener('online', verify);
+    };
   }, []);
 
   async function login(email, password) {
@@ -105,6 +131,9 @@ export function AuthProvider({ children }) {
   }
 
   function logout({ redirect = true } = {}) {
+    const scope = getCacheScope();
+    void clearOfflineCache(scope);
+
     localStorage.removeItem('essential_token');
 
     localStorage.removeItem(

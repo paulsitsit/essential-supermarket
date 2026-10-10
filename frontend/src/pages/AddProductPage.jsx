@@ -12,7 +12,9 @@ import {
   useNavigate
 } from 'react-router-dom';
 
-import client from '../api/client';
+import {
+  cachedGet
+} from '../services/offlineCache';
 
 import GlassCard from '../components/common/GlassCard';
 import ProductForm from '../components/inventory/ProductForm';
@@ -22,33 +24,28 @@ import {
 } from '../utils/errors';
 
 export default function AddProductPage() {
-  const [
-    categories,
-    setCategories
-  ] = useState([]);
-
-  const [
-    suppliers,
-    setSuppliers
-  ] = useState([]);
-
-  const [
-    error,
-    setError
-  ] = useState('');
+  const [categories, setCategories] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [error, setError] = useState('');
 
   const navigate = useNavigate();
 
   useEffect(() => {
+    let active = true;
+
     async function loadFormOptions() {
       try {
         const [
           categoriesResponse,
           suppliersResponse
         ] = await Promise.all([
-          client.get('/categories'),
-          client.get('/suppliers')
+          cachedGet('/categories'),
+          cachedGet('/suppliers')
         ]);
+
+        if (!active) {
+          return;
+        }
 
         setCategories(
           categoriesResponse.data
@@ -58,28 +55,30 @@ export default function AddProductPage() {
           suppliersResponse.data
         );
       } catch (err) {
-        setError(
-          getErrorMessage(
-            err,
-            'Unable to load product form options.'
-          )
-        );
+        if (active) {
+          setError(
+            getErrorMessage(
+              err,
+              'Unable to load product form options.'
+            )
+          );
+        }
       }
     }
 
     loadFormOptions();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   function handleProductCreated(product) {
-    /*
-     * The product has stock 0 by design.
-     *
-     * Send the manager to the product list, where they can use
-     * the existing Receive Stock action to create a first batch.
-     *
-     * The query parameter is optional, but it can be used later
-     * to highlight/open a Receive Stock modal automatically.
-     */
+    if (product?._localDraft) {
+      navigate('/pending-products');
+      return;
+    }
+
     if (product?._id) {
       navigate(
         `/products?newProduct=${encodeURIComponent(
@@ -109,7 +108,9 @@ export default function AddProductPage() {
             ADMIN ONLY
           </p>
 
-          <h1>Register New Product</h1>
+          <h1>
+            Register New Product
+          </h1>
 
           <p>
             Register catalog details first. Add

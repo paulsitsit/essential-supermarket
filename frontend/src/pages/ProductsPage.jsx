@@ -1,7 +1,20 @@
-import { useEffect, useState } from 'react';
-import { Download, Plus } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import {
+  useEffect,
+  useRef,
+  useState
+} from 'react';
+
+import {
+  Download,
+  Plus
+} from 'lucide-react';
+
+import {
+  Link
+} from 'react-router-dom';
+
 import client from '../api/client';
+
 import GlassCard from '../components/common/GlassCard';
 import EmptyState from '../components/common/EmptyState';
 import ConfirmDialog from '../components/common/ConfirmDialog';
@@ -9,8 +22,22 @@ import ProductFilters from '../components/inventory/ProductFilters';
 import ProductTable from '../components/inventory/ProductTable';
 import ReceiveStockModal from '../components/inventory/ReceiveStockModal';
 import ProductDetailsModal from '../components/inventory/ProductDetailsModal';
-import { useAuth } from '../context/AuthContext';
-import { getErrorMessage } from '../utils/errors';
+
+import {
+  useAuth
+} from '../context/AuthContext';
+
+import {
+  getErrorMessage
+} from '../utils/errors';
+
+import {
+  cachedGet
+} from '../services/offlineCache';
+
+import {
+  useOnlineStatus
+} from '../hooks/useOnlineStatus';
 
 const initialFilters = {
   search: '',
@@ -22,7 +49,10 @@ const initialFilters = {
 };
 
 function escapeCsvValue(value) {
-  if (value === null || value === undefined) {
+  if (
+    value === null ||
+    value === undefined
+  ) {
     return '';
   }
 
@@ -84,6 +114,7 @@ function downloadCsv(filename, rows) {
 
   link.href = url;
   link.download = filename;
+
   document.body.appendChild(link);
   link.click();
 
@@ -94,66 +125,139 @@ function downloadCsv(filename, rows) {
 export default function ProductsPage() {
   const { account } = useAuth();
 
+  const isOnline = useOnlineStatus();
+
+  const requestSequence = useRef(0);
+
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [filters, setFilters] = useState(initialFilters);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [detailsProduct, setDetailsProduct] = useState(null);
+
+  const [
+    selectedProduct,
+    setSelectedProduct
+  ] = useState(null);
+
+  const [
+    detailsProduct,
+    setDetailsProduct
+  ] = useState(null);
+
   const [confirm, setConfirm] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [cacheInfo, setCacheInfo] = useState(null);
+
+  const readOnly =
+    !isOnline ||
+    Boolean(cacheInfo) ||
+    loading ||
+    Boolean(error);
 
   async function load() {
+    const requestId =
+      ++requestSequence.current;
+
     setLoading(true);
     setError('');
 
     try {
       const query = new URLSearchParams(
-        Object.entries(filters).filter(([, value]) => value)
+        Object.entries(filters).filter(
+          ([, value]) => value
+        )
       );
 
-      const [productRes, categoryRes, supplierRes] = await Promise.all([
-        client.get(`/products?${query.toString()}`),
-        client.get('/categories'),
-        client.get('/suppliers')
+      const [
+        productRes,
+        categoryRes,
+        supplierRes
+      ] = await Promise.all([
+        cachedGet(`/products?${query.toString()}`),
+        cachedGet('/categories'),
+        cachedGet('/suppliers')
       ]);
 
-      let rows = productRes.data;
+      if (
+        requestId !== requestSequence.current
+      ) {
+        return;
+      }
+
       const sort = filters.sort;
 
-      rows = [...rows].sort((a, b) =>
-        sort === 'name'
-          ? a.name.localeCompare(b.name)
-          : sort === 'currentStock'
-            ? a.currentStock - b.currentStock
-            : sort === 'inventoryValue'
-              ? b.inventoryValue - a.inventoryValue
-              : new Date(b.updatedAt) - new Date(a.updatedAt)
+      const rows = [...productRes.data].sort(
+        (a, b) =>
+          sort === 'name'
+            ? a.name.localeCompare(b.name)
+            : sort === 'currentStock'
+              ? a.currentStock - b.currentStock
+              : sort === 'inventoryValue'
+                ? b.inventoryValue - a.inventoryValue
+                : new Date(b.updatedAt) -
+                  new Date(a.updatedAt)
       );
 
       setProducts(rows);
       setCategories(categoryRes.data);
       setSuppliers(supplierRes.data);
+
+      setCacheInfo(
+        productRes.cached
+          ? {
+              savedAt: productRes.savedAt
+            }
+          : null
+      );
     } catch (err) {
-      setError(getErrorMessage(err, 'Unable to load products'));
+      if (
+        requestId !== requestSequence.current
+      ) {
+        return;
+      }
+
+      setError(
+        getErrorMessage(
+          err,
+          'Unable to load products'
+        )
+      );
     } finally {
-      setLoading(false);
+      if (
+        requestId === requestSequence.current
+      ) {
+        setLoading(false);
+      }
     }
   }
 
   useEffect(() => {
     load();
+
+    return () => {
+      requestSequence.current += 1;
+    };
   }, [
     filters.search,
     filters.category,
     filters.supplier,
     filters.status,
-    filters.sort
+    filters.sort,
+    filters.page,
+    isOnline
   ]);
 
   async function exportInventory() {
+    if (readOnly) {
+      setError(
+        'Connect and load fresh data before exporting inventory.'
+      );
+
+      return;
+    }
+
     setExporting(true);
     setError('');
 
@@ -174,25 +278,47 @@ export default function ProductsPage() {
 
       const response = await client.get(
         '/reports/export/inventory',
-        { params }
+        {
+          params
+        }
       );
 
-      const rows = response.data?.rows || [];
+      const rows =
+        response.data?.rows || [];
 
       if (!rows.length) {
-        setError('There are no inventory records to export.');
+        setError(
+          'There are no inventory records to export.'
+        );
+
         return;
       }
 
-      downloadCsv('inventory-report.csv', rows);
+      downloadCsv(
+        'inventory-report.csv',
+        rows
+      );
     } catch (err) {
-      setError(getErrorMessage(err, 'Unable to export inventory'));
+      setError(
+        getErrorMessage(
+          err,
+          'Unable to export inventory'
+        )
+      );
     } finally {
       setExporting(false);
     }
   }
 
   async function archive() {
+    if (readOnly) {
+      setError(
+        'Connect and load fresh data before changing products.'
+      );
+
+      return;
+    }
+
     const product = confirm?.product;
 
     if (!product) {
@@ -200,15 +326,32 @@ export default function ProductsPage() {
     }
 
     try {
-      await client.patch(`/products/${product._id}/archive`);
+      await client.patch(
+        `/products/${product._id}/archive`
+      );
+
       setConfirm(null);
+
       await load();
     } catch (err) {
-      setError(getErrorMessage(err, 'Unable to archive product'));
+      setError(
+        getErrorMessage(
+          err,
+          'Unable to archive product'
+        )
+      );
     }
   }
 
   async function remove() {
+    if (readOnly) {
+      setError(
+        'Connect and load fresh data before changing products.'
+      );
+
+      return;
+    }
+
     const product = confirm?.product;
 
     if (!product) {
@@ -216,44 +359,96 @@ export default function ProductsPage() {
     }
 
     try {
-      await client.delete(`/products/${product._id}`);
+      await client.delete(
+        `/products/${product._id}`
+      );
+
       setConfirm(null);
+
       await load();
     } catch (err) {
-      setError(getErrorMessage(err, 'Unable to delete product'));
+      setError(
+        getErrorMessage(
+          err,
+          'Unable to delete product'
+        )
+      );
     }
   }
 
-  const isDeleteAction = confirm?.action === 'delete';
-  const confirmedProduct = confirm?.product;
+  function receive(product) {
+    if (readOnly) {
+      setError(
+        'Stock receiving requires a connection and fresh data.'
+      );
+
+      return;
+    }
+
+    setSelectedProduct(product);
+  }
+
+  const isDeleteAction =
+    confirm?.action === 'delete';
+
+  const confirmedProduct =
+    confirm?.product;
 
   return (
     <div>
       <div className="page-heading">
         <div>
-          <p className="eyebrow">CATALOG</p>
-          <h1>Products</h1>
-          <p>Manage registered products and inventory details.</p>
+          <p className="eyebrow">
+            CATALOG
+          </p>
+
+          <h1>
+            Products
+          </h1>
+
+          <p>
+            Manage registered products and inventory details.
+          </p>
         </div>
 
         <div className="heading-actions">
-          {['admin', 'manager'].includes(account?.role) && (
+          {['admin', 'manager'].includes(
+            account?.role
+          ) && (
             <button
               type="button"
               className="secondary-btn"
               onClick={exportInventory}
-              disabled={exporting}
+              disabled={
+                exporting ||
+                readOnly
+              }
             >
               <Download size={16} />
-              {exporting ? 'Exporting...' : 'Export'}
+
+              {exporting
+                ? 'Exporting...'
+                : 'Export'}
             </button>
           )}
 
           {account?.role === 'admin' && (
-            <Link className="primary-btn" to="/products/new">
-              <Plus size={17} />
-              Add Product
-            </Link>
+            <>
+              <Link
+                className="secondary-btn"
+                to="/pending-products"
+              >
+                Pending Products
+              </Link>
+
+              <Link
+                className="primary-btn"
+                to="/products/new"
+              >
+                <Plus size={17} />
+                Add Product
+              </Link>
+            </>
           )}
         </div>
       </div>
@@ -261,6 +456,32 @@ export default function ProductsPage() {
       {error && (
         <div className="form-error page-message">
           {error}
+
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={load}
+            disabled={loading}
+            style={{ marginLeft: 10 }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {cacheInfo && (
+        <div
+          className="inventory-cache-notice"
+          role="status"
+        >
+          Showing saved product data from{' '}
+          {new Date(
+            cacheInfo.savedAt
+          ).toLocaleString()}.
+          {' '}
+          Stock actions are unavailable. Admin
+          catalog edits can be saved as local drafts
+          while offline.
         </div>
       )}
 
@@ -280,8 +501,9 @@ export default function ProductsPage() {
           <ProductTable
             products={products}
             account={account}
+            readOnly={readOnly}
             onView={setDetailsProduct}
-            onReceive={setSelectedProduct}
+            onReceive={receive}
             onArchive={product =>
               setConfirm({
                 product,
@@ -303,10 +525,12 @@ export default function ProductsPage() {
         )}
       </GlassCard>
 
-      {selectedProduct && (
+      {selectedProduct && !readOnly && (
         <ReceiveStockModal
           product={selectedProduct}
-          onClose={() => setSelectedProduct(null)}
+          onClose={() =>
+            setSelectedProduct(null)
+          }
           onSaved={() => {
             setSelectedProduct(null);
             load();
@@ -317,8 +541,18 @@ export default function ProductsPage() {
       {detailsProduct && (
         <ProductDetailsModal
           product={detailsProduct}
-          onClose={() => setDetailsProduct(null)}
+          onClose={() =>
+            setDetailsProduct(null)
+          }
           onReceive={product => {
+            if (readOnly) {
+              setError(
+                'Stock receiving requires a connection and fresh data.'
+              );
+
+              return;
+            }
+
             setDetailsProduct(null);
             setSelectedProduct(product);
           }}
@@ -327,18 +561,32 @@ export default function ProductsPage() {
 
       <ConfirmDialog
         open={Boolean(confirm)}
-        title={isDeleteAction ? 'Delete product?' : 'Archive product?'}
+        title={
+          isDeleteAction
+            ? 'Delete product?'
+            : 'Archive product?'
+        }
         message={
           confirmedProduct
             ? `Are you sure you want to ${
-                isDeleteAction ? 'delete' : 'archive'
+                isDeleteAction
+                  ? 'delete'
+                  : 'archive'
               } ${confirmedProduct.name}?`
             : ''
         }
         danger
         onCancel={() => setConfirm(null)}
-        onConfirm={isDeleteAction ? remove : archive}
-        confirmText={isDeleteAction ? 'Delete' : 'Archive'}
+        onConfirm={
+          isDeleteAction
+            ? remove
+            : archive
+        }
+        confirmText={
+          isDeleteAction
+            ? 'Delete'
+            : 'Archive'
+        }
       />
     </div>
   );

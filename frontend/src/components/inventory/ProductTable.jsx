@@ -1,4 +1,5 @@
 import React from 'react';
+
 import {
   Archive,
   Eye,
@@ -7,15 +8,24 @@ import {
   Pencil,
   Trash2
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+
+import {
+  Link
+} from 'react-router-dom';
 
 import StatusBadge from '../common/StatusBadge';
 import ProductQrCode from '../common/ProductQrCode.jsx';
-import { peso, dateOnly } from '../../utils/format';
+
+import {
+  peso,
+  dateOnly
+} from '../../utils/format';
 
 function ProductTableImage({ product }) {
-  const [imageFailed, setImageFailed] =
-    React.useState(false);
+  const [
+    imageFailed,
+    setImageFailed
+  ] = React.useState(false);
 
   const imageUrl =
     product.imageUrl ||
@@ -25,6 +35,10 @@ function ProductTableImage({ product }) {
   const productName =
     product.name || 'Product';
 
+  React.useEffect(() => {
+    setImageFailed(false);
+  }, [imageUrl]);
+
   if (!imageUrl || imageFailed) {
     return (
       <div
@@ -32,6 +46,7 @@ function ProductTableImage({ product }) {
         title={`${productName} image unavailable`}
       >
         <ImageOff size={15} />
+
         <span>
           {productName.charAt(0).toUpperCase() || 'P'}
         </span>
@@ -56,7 +71,8 @@ export default function ProductTable({
   onView,
   onReceive,
   onArchive,
-  onDelete
+  onDelete,
+  readOnly = false
 }) {
   return (
     <div className="table-wrap">
@@ -166,7 +182,12 @@ export default function ProductTable({
                   <button
                     type="button"
                     className="row-icon"
-                    title="Add stock"
+                    title={
+                      readOnly
+                        ? 'Unavailable in cached view'
+                        : 'Add stock'
+                    }
+                    disabled={readOnly}
                     onClick={() =>
                       onReceive?.(product)
                     }
@@ -178,7 +199,11 @@ export default function ProductTable({
                     <>
                       <Link
                         className="row-icon"
-                        title="Edit"
+                        title={
+                          readOnly
+                            ? 'Open editor; offline saves remain local'
+                            : 'Edit'
+                        }
                         to={`/products/${product._id}/edit`}
                       >
                         <Pencil size={16} />
@@ -196,7 +221,12 @@ export default function ProductTable({
                       <button
                         type="button"
                         className="row-icon warning-icon"
-                        title="Archive"
+                        title={
+                          readOnly
+                            ? 'Unavailable in cached view'
+                            : 'Archive'
+                        }
+                        disabled={readOnly}
                         onClick={() =>
                           onArchive?.(product)
                         }
@@ -207,7 +237,12 @@ export default function ProductTable({
                       <button
                         type="button"
                         className="row-icon danger-icon"
-                        title="Delete"
+                        title={
+                          readOnly
+                            ? 'Unavailable in cached view'
+                            : 'Delete'
+                        }
+                        disabled={readOnly}
                         onClick={() =>
                           onDelete?.(product)
                         }

@@ -1,11 +1,29 @@
 import axios from 'axios';
 
+import {
+  clearOfflineCache,
+  getCacheScope
+} from '../services/offlineCache';
+
 const client = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
 });
 
 client.interceptors.request.use(
   (config) => {
+    const method = String(config.method || 'get').toLowerCase();
+
+    if (
+      !navigator.onLine &&
+      ['post', 'put', 'patch', 'delete'].includes(method)
+    ) {
+      return Promise.reject(
+        new Error(
+          'You are offline. This action requires an internet connection.'
+        )
+      );
+    }
+
     const token = localStorage.getItem('essential_token');
 
     if (token) {
@@ -38,6 +56,9 @@ client.interceptors.response.use(
       !isLoginRequest &&
       window.location.pathname !== '/login'
     ) {
+      const scope = getCacheScope();
+      void clearOfflineCache(scope);
+
       localStorage.removeItem('essential_token');
       localStorage.removeItem('essential_account');
       window.location.href = '/login';

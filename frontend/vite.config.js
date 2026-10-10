@@ -14,7 +14,7 @@ export default defineConfig({
        * frontend/public/sw.js
        *
        * It contains the push notification and
-       * notification click handlers.
+       * notification click handlers, plus app-shell caching.
        */
       strategies: 'injectManifest',
       srcDir: 'public',
@@ -26,16 +26,13 @@ export default defineConfig({
        */
       injectRegister: false,
 
-      /*
-       * Our custom sw.js does not use:
-       * self.__WB_MANIFEST
-       *
-       * Therefore, disable Workbox precache-manifest
-       * injection to avoid a production build error.
-       */
       injectManifest: {
-        injectionPoint: undefined,
-        rollupFormat: 'iife'
+        injectionPoint: 'self.__WB_MANIFEST',
+        rollupFormat: 'iife',
+        globPatterns: [
+          '**/*.{js,css,html,ico,png,svg,webp,woff,woff2}'
+        ],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024
       },
 
       includeAssets: [
@@ -84,15 +81,11 @@ export default defineConfig({
       },
 
       /*
-       * Allows PWA behavior while using:
-       * npm run dev
-       *
-       * Production deployment still uses the generated
-       * build service worker.
+       * Offline behavior is tested with the production build
+       * (npm run build && npm run preview), not the dev server.
        */
       devOptions: {
-        enabled: true,
-        type: 'classic'
+        enabled: false
       }
     })
   ],

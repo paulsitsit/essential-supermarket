@@ -1,3 +1,29 @@
+import {
+  cleanupOutdatedCaches,
+  createHandlerBoundToURL,
+  precacheAndRoute
+} from 'workbox-precaching';
+
+import {
+  NavigationRoute,
+  registerRoute
+} from 'workbox-routing';
+
+cleanupOutdatedCaches();
+
+precacheAndRoute(self.__WB_MANIFEST);
+
+registerRoute(
+  new NavigationRoute(
+    createHandlerBoundToURL('/index.html'),
+    {
+      denylist: [
+        /^\/api(?:\/|$)/
+      ]
+    }
+  )
+);
+
 self.addEventListener('push', event => {
   let payload = {
     title: 'Essential Supermarket',

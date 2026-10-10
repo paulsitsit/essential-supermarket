@@ -4258,3 +4258,49 @@ html.dark .sidebar .logout-btn,
 body.dark-mode .sidebar .logout-btn {
   color: #fbbf24 !important;
 }
+.inventory-offline-banner {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(380px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border: 1px solid #f59e0b;
+  border-radius: 12px;
+  color: #78350f;
+  background: #fef3c7;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.inventory-offline-banner strong,
+.inventory-offline-banner span {
+  display: block;
+}
+
+.inventory-offline-banner strong {
+  font-size: 13px;
+}
+
+.inventory-offline-banner span {
+  margin-top: 3px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.inventory-cache-notice {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid #f59e0b;
+  border-radius: 10px;
+  color: #78350f;
+  background: #fffbeb;
+  font-size: 13px;
+}
+
+.row-icon:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

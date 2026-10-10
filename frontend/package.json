@@ -13,6 +13,7 @@
     "@capacitor/core": "^8.5.2",
     "@capacitor/push-notifications": "^8.1.2",
     "axios": "^1.7.2",
+    "dexie": "^4.4.6",
     "html5-qrcode": "^2.3.8",
     "lucide-react": "^0.468.0",
     "ogl": "^1.0.11",
@@ -29,6 +30,8 @@
     "@capacitor/cli": "^8.5.2",
     "@vitejs/plugin-react": "^6.0.5",
     "vite": "^8.2.1",
-    "vite-plugin-pwa": "^1.3.0"
+    "vite-plugin-pwa": "^1.3.0",
+    "workbox-precaching": "^7.4.1",
+    "workbox-routing": "^7.4.1"
   }
 }

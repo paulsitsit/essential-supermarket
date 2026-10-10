@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useRef,
   useState
 } from 'react';
 
@@ -18,6 +19,14 @@ import {
 } from '../../utils/errors';
 
 import CameraScanner from '../scanner/CameraScanner';
+
+import {
+  saveProductDraft
+} from '../../services/productOutbox';
+
+import {
+  useOnlineStatus
+} from '../../hooks/useOnlineStatus';
 
 const MAX_IMAGE_SIZE_BYTES =
   15 * 1024 * 1024;
@@ -306,47 +315,21 @@ export default function ProductForm({
   suppliers = [],
   onSuccess
 }) {
-  const [
-    form,
-    setForm
-  ] = useState(
+  const isOnline = useOnlineStatus();
+
+  const submitInProgress = useRef(false);
+
+  const [form, setForm] = useState(
     getInitialForm(initialProduct)
   );
 
-  const [
-    error,
-    setError
-  ] = useState('');
-
-  const [
-    scanMessage,
-    setScanMessage
-  ] = useState('');
-
-  const [
-    scanError,
-    setScanError
-  ] = useState('');
-
-  const [
-    scannerOpen,
-    setScannerOpen
-  ] = useState(false);
-
-  const [
-    scanning,
-    setScanning
-  ] = useState(false);
-
-  const [
-    busy,
-    setBusy
-  ] = useState(false);
-
-  const [
-    recognizing,
-    setRecognizing
-  ] = useState(false);
+  const [error, setError] = useState('');
+  const [scanMessage, setScanMessage] = useState('');
+  const [scanError, setScanError] = useState('');
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [recognizing, setRecognizing] = useState(false);
 
   const [
     recognitionError,
@@ -371,7 +354,6 @@ export default function ProductForm({
 
   useEffect(() => {
     setForm(getInitialForm(initialProduct));
-
     setSelectedImageFile(null);
 
     setImagePreviewUrl(
@@ -494,6 +476,26 @@ export default function ProductForm({
       return;
     }
 
+    if (!navigator.onLine) {
+      clearScanMessage();
+
+      setForm(current => ({
+        ...current,
+        barcode: cleanCode,
+        qrCode:
+          current.qrCode || cleanCode
+      }));
+
+      setScanMessage(
+        'Code captured offline. Product lookup requires a connection. ' +
+        'Complete the remaining fields manually.'
+      );
+
+      setScannerOpen(false);
+
+      return;
+    }
+
     setScanning(true);
     clearScanMessage();
 
@@ -595,6 +597,17 @@ export default function ProductForm({
       return;
     }
 
+    if (!navigator.onLine) {
+      clearScanMessage();
+
+      setScanMessage(
+        'Photo attached locally. Enter the product details manually. ' +
+        'The photo will be retained with your offline draft.'
+      );
+
+      return;
+    }
+
     setRecognizing(true);
     setRecognitionError('');
     clearScanMessage();
@@ -659,6 +672,10 @@ export default function ProductForm({
   async function submit(event) {
     event.preventDefault();
 
+    if (submitInProgress.current) {
+      return;
+    }
+
     setError('');
     clearScanMessage();
 
@@ -712,6 +729,7 @@ export default function ProductForm({
       return;
     }
 
+    submitInProgress.current = true;
     setBusy(true);
 
     try {
@@ -764,6 +782,22 @@ export default function ProductForm({
           form.expirationDate || undefined
       };
 
+      if (!navigator.onLine) {
+        const draft = await saveProductDraft({
+          payload,
+          initialProduct,
+          imageFile: selectedImageFile
+        });
+
+        onSuccess?.({
+          _localDraft: true,
+          draftId: draft.id,
+          name: payload.name
+        });
+
+        return;
+      }
+
       let savedProduct;
 
       if (isEditing) {
@@ -809,6 +843,7 @@ export default function ProductForm({
         )
       );
     } finally {
+      submitInProgress.current = false;
       setBusy(false);
     }
   }
@@ -917,11 +952,7 @@ export default function ProductForm({
             </div>
           )}
 
-          <div
-            style={{
-              marginTop: 16
-            }}
-          >
+          <div style={{ marginTop: 16 }}>
             <div className="product-scan-heading">
               <div className="product-scan-icon">
                 <ImagePlus size={20} />
@@ -962,9 +993,7 @@ export default function ProductForm({
                     scanning ||
                     busy
                   }
-                  style={{
-                    display: 'none'
-                  }}
+                  style={{ display: 'none' }}
                   onChange={event => {
                     const file =
                       event.target.files?.[0];
@@ -989,9 +1018,7 @@ export default function ProductForm({
                     scanning ||
                     busy
                   }
-                  style={{
-                    display: 'none'
-                  }}
+                  style={{ display: 'none' }}
                   onChange={event => {
                     const file =
                       event.target.files?.[0];
@@ -1034,11 +1061,7 @@ export default function ProductForm({
                   }}
                 />
 
-                <div
-                  style={{
-                    flex: 1
-                  }}
-                >
+                <div style={{ flex: 1 }}>
                   <strong
                     style={{
                       display: 'block',
@@ -1050,7 +1073,7 @@ export default function ProductForm({
 
                   <small className="table-subtext">
                     {selectedImageFile
-                      ? `${selectedImageFile.name} — it will be saved when this product is registered.`
+                      ? `${selectedImageFile.name} — it will be saved with this product or local draft.`
                       : 'Existing product image'}
                   </small>
                 </div>
@@ -1074,9 +1097,7 @@ export default function ProductForm({
             {recognizing && (
               <div
                 className="scanner-status"
-                style={{
-                  marginTop: 8
-                }}
+                style={{ marginTop: 8 }}
               >
                 Reading the product label...
               </div>
@@ -1085,9 +1106,7 @@ export default function ProductForm({
             {recognitionError && (
               <div
                 className="form-error"
-                style={{
-                  marginTop: 8
-                }}
+                style={{ marginTop: 8 }}
               >
                 {recognitionError}
               </div>
@@ -1109,10 +1128,7 @@ export default function ProductForm({
               required
               value={form.name}
               onChange={event =>
-                change(
-                  'name',
-                  event.target.value
-                )
+                change('name', event.target.value)
               }
               placeholder="e.g. Fresh Banana, Chicken Breast, Alcoplus Ethyl Alcohol"
             />
@@ -1122,8 +1138,7 @@ export default function ProductForm({
             SKU
 
             <span className="field-hint">
-              Optional — generated automatically if
-              blank
+              Optional — generated automatically if blank
             </span>
 
             <input
@@ -1142,8 +1157,7 @@ export default function ProductForm({
             Barcode
 
             <span className="field-hint">
-              Leave blank to generate an internal
-              barcode
+              Leave blank to generate an internal barcode
             </span>
 
             <input
@@ -1165,10 +1179,7 @@ export default function ProductForm({
             <input
               value={form.qrCode}
               onChange={event =>
-                change(
-                  'qrCode',
-                  event.target.value
-                )
+                change('qrCode', event.target.value)
               }
               placeholder="Defaults to barcode"
             />
@@ -1180,10 +1191,7 @@ export default function ProductForm({
             <input
               value={form.brand}
               onChange={event =>
-                change(
-                  'brand',
-                  event.target.value
-                )
+                change('brand', event.target.value)
               }
               placeholder="Brand name or farm/supplier name"
             />
@@ -1200,10 +1208,7 @@ export default function ProductForm({
             <input
               value={form.imageUrl || ''}
               onChange={event =>
-                change(
-                  'imageUrl',
-                  event.target.value
-                )
+                change('imageUrl', event.target.value)
               }
               placeholder="Optional external image URL"
             />
@@ -1500,9 +1505,7 @@ export default function ProductForm({
       {!isEditing && (
         <div
           className="settings-info"
-          style={{
-            marginBottom: 16
-          }}
+          style={{ marginBottom: 16 }}
         >
           <CheckCircle2 size={16} />
 
@@ -1512,6 +1515,18 @@ export default function ProductForm({
             Only products with available batches can
             be sold through POS.
           </span>
+        </div>
+      )}
+
+      {!isOnline && (
+        <div
+          className="inventory-cache-notice"
+          role="status"
+        >
+          This will save a draft on this device only.
+          It will not create sellable stock or update
+          the server. Automatic synchronization is
+          not enabled yet.
         </div>
       )}
 
@@ -1538,9 +1553,13 @@ export default function ProductForm({
         >
           {busy
             ? 'Saving...'
-            : isEditing
-              ? 'Update Product'
-              : 'Register Product'}
+            : !isOnline
+              ? isEditing
+                ? 'Save Edit on This Device'
+                : 'Save Product on This Device'
+              : isEditing
+                ? 'Update Product'
+                : 'Register Product'}
         </button>
       </div>
     </form>

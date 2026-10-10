@@ -1,4 +1,4 @@
-import api from './api.js';
+import client from '../api/client.js';
 
 function createOperationId() {
   if (
@@ -56,7 +56,7 @@ export async function syncProductDraft({
     String(operationId || '').trim() ||
     createOperationId();
 
-  const response = await api.post(
+  const response = await client.post(
     '/products/sync',
     {
       operationId: normalizedOperationId,

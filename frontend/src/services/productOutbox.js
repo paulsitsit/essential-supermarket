@@ -354,3 +354,31 @@ export function hasSyncableProductDrafts() {
       draft.status === 'retryable'
   );
 }
+/*
+ * Compatibility exports for the existing
+ * PendingProductsPage and ProductForm.
+ */
+
+export function listProductDrafts() {
+  return readOutbox();
+}
+
+export function discardProductDraft(
+  draftId
+) {
+  return removeProductDraft(draftId);
+}
+
+export function saveProductDraft({
+  kind = 'create',
+  productId = null,
+  baseSyncVersion = 1,
+  draft
+}) {
+  return savePendingProductDraft({
+    kind,
+    productId,
+    baseSyncVersion,
+    draft
+  });
+}

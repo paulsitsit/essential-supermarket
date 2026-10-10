@@ -2,7 +2,7 @@ import Dexie from 'dexie';
 
 import client from '../api/client';
 
-const READ_TIMEOUT_MS = 60000;
+const READ_TIMEOUT_MS = 30000;
 
 const db = new Dexie(
   'essentialInventoryReadCache'

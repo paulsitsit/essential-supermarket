@@ -442,6 +442,13 @@ export default function ProductsPage() {
               </Link>
 
               <Link
+                className="secondary-btn"
+                to="/pending-stock-receipts"
+              >
+                Pending Stock
+              </Link>
+
+              <Link
                 className="primary-btn"
                 to="/products/new"
               >

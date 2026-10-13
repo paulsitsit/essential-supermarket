@@ -31,6 +31,7 @@ import AuditLogsPage from './pages/AuditLogsPage';
 import ReturnsPage from './pages/ReturnsPage';
 import QuarantinePage from './pages/QuarantinePage';
 import PendingProductsPage from './pages/PendingProductsPage';
+import PendingStockReceiptsPage from './pages/PendingStockReceiptsPage';
 
 const MANAGEMENT_ROLES = [
   'admin',
@@ -175,6 +176,11 @@ export default function App() {
               <Route
                 path="pending-products"
                 element={<PendingProductsPage />}
+              />
+
+              <Route
+                path="pending-stock-receipts"
+                element={<PendingStockReceiptsPage />}
               />
             </Route>
 

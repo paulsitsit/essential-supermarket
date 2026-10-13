@@ -5,6 +5,48 @@ import ExpirationAlert from '../models/ExpirationAlert.js';
 import Sale from '../models/Sale.js';
 import SaleReturn from '../models/SaleReturn.js';
 
+function salesTotals(match) {
+  return Sale.aggregate([
+    { $match: match },
+    {
+      $group: {
+        _id: null,
+        revenue: { $sum: '$totalAmount' },
+        itemsSold: { $sum: { $sum: '$items.quantity' } },
+        transactions: { $sum: 1 }
+      }
+    }
+  ]);
+}
+
+function refundTotals(match = {}) {
+  return SaleReturn.aggregate([
+    { $match: match },
+    {
+      $group: {
+        _id: null,
+        totalRefund: { $sum: '$totalRefund' }
+      }
+    }
+  ]);
+}
+
+function numeric(value) {
+  return Number(value) || 0;
+}
+
+function netRevenue(revenue, refunds) {
+  return Math.max(numeric(revenue) - numeric(refunds), 0);
+}
+
+function localDateKey(date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0')
+  ].join('-');
+}
+
 export async function summary(req, res) {
   const now = new Date();
   const startOfDay = new Date(now);
@@ -14,6 +56,52 @@ export async function summary(req, res) {
   startOfWeek.setDate(
     startOfDay.getDate() - startOfDay.getDay()
   );
+
+  const last7Days = [];
+
+  for (let i = 6; i >= 0; i--) {
+    const start = new Date(startOfDay);
+    start.setDate(start.getDate() - i);
+
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+
+    last7Days.push({
+      start,
+      end,
+      date: localDateKey(start),
+      label: start.toLocaleDateString('en-PH', {
+        weekday: 'short'
+      }),
+      fullDate: start.toLocaleDateString('en-PH', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })
+    });
+  }
+
+  const chartRange = {
+    $gte: last7Days[0].start,
+    $lt: last7Days[last7Days.length - 1].end
+  };
+
+  // Exact date intervals keep grouping aligned with displayed days.
+  const chartDay = {
+    $switch: {
+      branches: last7Days.map((day, index) => ({
+        case: {
+          $and: [
+            { $gte: ['$createdAt', day.start] },
+            { $lt: ['$createdAt', day.end] }
+          ]
+        },
+        then: index
+      })),
+      default: -1
+    }
+  };
 
   const [
     products,
@@ -25,11 +113,21 @@ export async function summary(req, res) {
     categoryData,
     lowStockAlerts,
     expirationAlerts,
-    defectiveProducts
+    defectiveIds,
+    allTimeSalesAgg,
+    todaySalesAgg,
+    weekSalesAgg,
+    allTimeRefundsAgg,
+    todayRefundsAgg,
+    weekRefundsAgg,
+    returnsTodayCount,
+    bestSellerAgg,
+    movementProductAgg,
+    salesByDayAgg,
+    refundsByDayAgg,
+    salesProductAgg
   ] = await Promise.all([
-    Product.countDocuments({
-      isArchived: false
-    }),
+    Product.countDocuments({ isArchived: false }),
 
     Product.countDocuments({
       isArchived: false,
@@ -42,62 +140,34 @@ export async function summary(req, res) {
     }),
 
     StockMovement.countDocuments({
-      createdAt: {
-        $gte: startOfDay
-      }
+      createdAt: { $gte: startOfDay }
     }),
 
     Product.aggregate([
-      {
-        $match: {
-          isArchived: false
-        }
-      },
+      { $match: { isArchived: false } },
       {
         $group: {
           _id: null,
-          total: {
-            $sum: '$inventoryValue'
-          },
-          quantity: {
-            $sum: '$currentStock'
-          }
+          total: { $sum: '$inventoryValue' },
+          quantity: { $sum: '$currentStock' }
         }
       }
     ]),
 
     StockMovement.aggregate([
-      {
-        $match: {
-          createdAt: {
-            $gte: startOfDay
-          }
-        }
-      },
+      { $match: { createdAt: { $gte: startOfDay } } },
       {
         $group: {
           _id: '$movementType',
-          count: {
-            $sum: 1
-          },
-          quantity: {
-            $sum: '$quantityChanged'
-          }
+          count: { $sum: 1 },
+          quantity: { $sum: '$quantityChanged' }
         }
       },
-      {
-        $sort: {
-          count: -1
-        }
-      }
+      { $sort: { count: -1 } }
     ]),
 
     Product.aggregate([
-      {
-        $match: {
-          isArchived: false
-        }
-      },
+      { $match: { isArchived: false } },
       {
         $lookup: {
           from: 'categories',
@@ -115,80 +185,53 @@ export async function summary(req, res) {
       {
         $group: {
           _id: {
-            $ifNull: [
-              '$category.name',
-              'Uncategorized'
-            ]
+            $ifNull: ['$category.name', 'Uncategorized']
           },
-          quantity: {
-            $sum: '$currentStock'
-          },
-          value: {
-            $sum: '$inventoryValue'
-          }
+          quantity: { $sum: '$currentStock' },
+          value: { $sum: '$inventoryValue' }
         }
       },
-      {
-        $sort: {
-          value: -1
-        }
-      }
+      { $sort: { value: -1 } }
     ]),
 
     LowStockAlert.countDocuments({
-      status: {
-        $ne: 'resolved'
-      }
+      status: { $ne: 'resolved' }
     }),
 
     ExpirationAlert.countDocuments({
-      status: {
-        $ne: 'resolved'
-      }
+      status: { $ne: 'resolved' }
     }),
 
     StockMovement.distinct('product', {
       movementType: 'damaged',
       createdAt: { $gte: startOfDay }
-    }).then(ids => ids.length)
-  ]);
+    }),
 
-  // Sales metrics (all-time, today, this week)
-  const [
-    allTimeSalesAgg,
-    todaySalesAgg,
-    weekSalesAgg
-  ] = await Promise.all([
-    Sale.aggregate([
-      {
-        $match: { status: 'completed' }
-      },
-      {
-        $group: {
-          _id: null,
-          revenue: { $sum: '$totalAmount' },
-          itemsSold: { $sum: { $sum: '$items.quantity' } },
-          transactions: { $sum: 1 }
-        }
-      }
-    ]),
+    salesTotals({ status: 'completed' }),
 
-    Sale.aggregate([
-      {
-        $match: {
-          status: 'completed',
-          createdAt: { $gte: startOfDay }
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          revenue: { $sum: '$totalAmount' },
-          itemsSold: { $sum: { $sum: '$items.quantity' } },
-          transactions: { $sum: 1 }
-        }
-      }
-    ]),
+    salesTotals({
+      status: 'completed',
+      createdAt: { $gte: startOfDay }
+    }),
+
+    salesTotals({
+      status: 'completed',
+      createdAt: { $gte: startOfWeek }
+    }),
+
+    refundTotals(),
+
+    refundTotals({
+      createdAt: { $gte: startOfDay }
+    }),
+
+    refundTotals({
+      createdAt: { $gte: startOfWeek }
+    }),
+
+    SaleReturn.countDocuments({
+      createdAt: { $gte: startOfDay }
+    }),
 
     Sale.aggregate([
       {
@@ -197,123 +240,251 @@ export async function summary(req, res) {
           createdAt: { $gte: startOfWeek }
         }
       },
+      { $unwind: '$items' },
       {
         $group: {
-          _id: null,
-          revenue: { $sum: '$totalAmount' },
-          itemsSold: { $sum: { $sum: '$items.quantity' } },
+          _id: '$items.product',
+          name: { $first: '$items.name' },
+          barcode: { $first: '$items.barcode' },
+          quantitySold: { $sum: '$items.quantity' },
+          revenue: { $sum: '$items.subtotal' }
+        }
+      },
+      { $sort: { quantitySold: -1, revenue: -1, _id: 1 } },
+      { $limit: 1 }
+    ]),
+
+    StockMovement.aggregate([
+      { $match: { createdAt: chartRange } },
+      { $addFields: { chartDay } },
+      {
+        $group: {
+          _id: {
+            day: '$chartDay',
+            product: '$product',
+            type: '$movementType'
+          },
+          unitsMoved: {
+            $sum: {
+              $abs: { $ifNull: ['$quantityChanged', 0] }
+            }
+          },
+          netChange: { $sum: '$quantityChanged' },
+          records: { $sum: 1 }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            day: '$_id.day',
+            product: '$_id.product'
+          },
+          unitsMoved: { $sum: '$unitsMoved' },
+          records: { $sum: '$records' },
+          movements: {
+            $push: {
+              type: '$_id.type',
+              unitsMoved: '$unitsMoved',
+              netChange: '$netChange',
+              records: '$records'
+            }
+          }
+        }
+      },
+      {
+        $lookup: {
+          from: Product.collection.name,
+          localField: '_id.product',
+          foreignField: '_id',
+          as: 'productInfo'
+        }
+      },
+      {
+        $unwind: {
+          path: '$productInfo',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          day: '$_id.day',
+          id: '$_id.product',
+          name: {
+            $ifNull: ['$productInfo.name', 'Deleted or unknown product']
+          },
+          barcode: { $ifNull: ['$productInfo.barcode', ''] },
+          unitsMoved: 1,
+          records: 1,
+          movements: 1
+        }
+      },
+      { $sort: { day: 1, unitsMoved: -1, name: 1, id: 1 } }
+    ]),
+
+    Sale.aggregate([
+      {
+        $match: {
+          status: 'completed',
+          createdAt: chartRange
+        }
+      },
+      { $addFields: { chartDay } },
+      {
+        $group: {
+          _id: '$chartDay',
+          grossRevenue: { $sum: '$totalAmount' },
           transactions: { $sum: 1 }
+        }
+      }
+    ]),
+
+    SaleReturn.aggregate([
+      { $match: { createdAt: chartRange } },
+      { $addFields: { chartDay } },
+      {
+        $group: {
+          _id: '$chartDay',
+          totalRefund: { $sum: '$totalRefund' }
+        }
+      }
+    ]),
+
+    Sale.aggregate([
+      {
+        $match: {
+          status: 'completed',
+          createdAt: chartRange
+        }
+      },
+      { $addFields: { chartDay } },
+      { $unwind: '$items' },
+      {
+        $group: {
+          _id: {
+            day: '$chartDay',
+            product: '$items.product'
+          },
+          name: { $first: '$items.name' },
+          barcode: { $first: '$items.barcode' },
+          quantitySold: { $sum: '$items.quantity' },
+          revenue: { $sum: '$items.subtotal' }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          day: '$_id.day',
+          id: '$_id.product',
+          name: 1,
+          barcode: 1,
+          quantitySold: 1,
+          revenue: 1
+        }
+      },
+      {
+        $sort: {
+          day: 1,
+          revenue: -1,
+          quantitySold: -1,
+          name: 1,
+          id: 1
         }
       }
     ])
   ]);
 
-  // Refunds and net revenue (all-time, today, this week)
-  const [
-    allTimeRefundsAgg,
-    todayRefundsAgg,
-    weekRefundsAgg,
-    returnsTodayCount
-  ] = await Promise.all([
-    SaleReturn.aggregate([
-      {
-        $group: {
-          _id: null,
-          totalRefund: { $sum: '$totalRefund' }
-        }
-      }
-    ]),
+  const allTime = allTimeSalesAgg[0] || {};
+  const today = todaySalesAgg[0] || {};
+  const week = weekSalesAgg[0] || {};
 
-    SaleReturn.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startOfDay }
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          totalRefund: { $sum: '$totalRefund' }
-        }
-      }
-    ]),
-
-    SaleReturn.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startOfWeek }
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          totalRefund: { $sum: '$totalRefund' }
-        }
-      }
-    ]),
-
-    SaleReturn.countDocuments({
-      createdAt: { $gte: startOfDay }
-    })
-  ]);
-
-  const allTime = allTimeSalesAgg[0] || {
-    revenue: 0,
-    itemsSold: 0,
-    transactions: 0
-  };
-  const today = todaySalesAgg[0] || {
-    revenue: 0,
-    itemsSold: 0,
-    transactions: 0
-  };
-  const week = weekSalesAgg[0] || {
-    revenue: 0,
-    itemsSold: 0,
-    transactions: 0
-  };
-
-  const allTimeRefunds =
-    allTimeRefundsAgg[0]?.totalRefund || 0;
-  const todayRefunds =
-    todayRefundsAgg[0]?.totalRefund || 0;
-  const weekRefunds =
-    weekRefundsAgg[0]?.totalRefund || 0;
-
-  const allTimeNetRevenue = Math.max(
-    (allTime.revenue || 0) - allTimeRefunds,
-    0
+  const allTimeRefunds = numeric(
+    allTimeRefundsAgg[0]?.totalRefund
   );
-  const todayNetRevenue = Math.max(
-    (today.revenue || 0) - todayRefunds,
-    0
+  const todayRefunds = numeric(
+    todayRefundsAgg[0]?.totalRefund
   );
-  const weekNetRevenue = Math.max(
-    (week.revenue || 0) - weekRefunds,
-    0
+  const weekRefunds = numeric(
+    weekRefundsAgg[0]?.totalRefund
   );
 
-  // Best seller this week (by quantity)
-  const bestSellerAgg = await Sale.aggregate([
-    {
-      $match: {
-        status: 'completed',
-        createdAt: { $gte: startOfWeek }
-      }
-    },
-    { $unwind: '$items' },
-    {
-      $group: {
-        _id: '$items.product',
-        name: { $first: '$items.name' },
-        barcode: { $first: '$items.barcode' },
-        quantitySold: { $sum: '$items.quantity' },
-        revenue: { $sum: '$items.subtotal' }
-      }
-    },
-    { $sort: { quantitySold: -1 } },
-    { $limit: 1 }
-  ]);
+  const movementsByDay = new Map();
+  for (const row of movementProductAgg) {
+    const day = numeric(row.day);
+    if (!movementsByDay.has(day)) movementsByDay.set(day, []);
+
+    movementsByDay.get(day).push({
+      id: row.id,
+      name: row.name,
+      barcode: row.barcode || '',
+      unitsMoved: numeric(row.unitsMoved),
+      records: numeric(row.records),
+      movements: (row.movements || []).sort((a, b) =>
+        String(a.type || '').localeCompare(String(b.type || ''))
+      )
+    });
+  }
+
+  const saleProductsByDay = new Map();
+  for (const row of salesProductAgg) {
+    const day = numeric(row.day);
+    if (!saleProductsByDay.has(day)) saleProductsByDay.set(day, []);
+
+    saleProductsByDay.get(day).push({
+      id: row.id,
+      name: row.name || 'Unknown product',
+      barcode: row.barcode || '',
+      quantitySold: numeric(row.quantitySold),
+      revenue: numeric(row.revenue)
+    });
+  }
+
+  const salesByDay = new Map(
+    salesByDayAgg.map(row => [numeric(row._id), row])
+  );
+
+  const refundsByDay = new Map(
+    refundsByDayAgg.map(row => [
+      numeric(row._id),
+      numeric(row.totalRefund)
+    ])
+  );
+
+  const weeklyActivity = last7Days.map((day, index) => {
+    const dayProducts = movementsByDay.get(index) || [];
+
+    return {
+      date: day.date,
+      label: day.label,
+      fullDate: day.fullDate,
+      value: dayProducts.reduce(
+        (total, product) => total + product.unitsMoved,
+        0
+      ),
+      movementCount: dayProducts.reduce(
+        (total, product) => total + product.records,
+        0
+      ),
+      products: dayProducts
+    };
+  });
+
+  const salesActivity = last7Days.map((day, index) => {
+    const salesRow = salesByDay.get(index) || {};
+    const grossRevenue = numeric(salesRow.grossRevenue);
+    const refunds = refundsByDay.get(index) || 0;
+
+    return {
+      date: day.date,
+      label: day.label,
+      fullDate: day.fullDate,
+      grossRevenue,
+      refunds,
+      netRevenue: netRevenue(grossRevenue, refunds),
+      transactions: numeric(salesRow.transactions),
+      products: saleProductsByDay.get(index) || []
+    };
+  });
 
   const bestSeller = bestSellerAgg[0]
     ? {
@@ -325,178 +496,42 @@ export async function summary(req, res) {
       }
     : null;
 
-  // Weekly activity: last 7 days item movement
-  const last7Days = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(startOfDay);
-    d.setDate(d.getDate() - i);
-    const next = new Date(d);
-    next.setDate(next.getDate() + 1);
-
-    last7Days.push({
-      date: d,
-      label: d.toLocaleDateString('en-PH', {
-        weekday: 'short'
-      }),
-      start: d,
-      end: next
-    });
-  }
-
-  const weeklyActivityAgg = await StockMovement.aggregate([
-    {
-      $match: {
-        createdAt: {
-          $gte: last7Days[0].start,
-          $lt: last7Days[last7Days.length - 1].end
-        }
-      }
-    },
-    {
-      $group: {
-        _id: {
-          year: { $year: '$createdAt' },
-          month: { $month: '$createdAt' },
-          day: { $dayOfMonth: '$createdAt' }
-        },
-        quantity: { $sum: { $abs: '$quantityChanged' } }
-      }
-    },
-    { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } }
-  ]);
-
-  const byDayMap = new Map();
-  for (const row of weeklyActivityAgg) {
-    const key = `${row._id.year}-${row._id.month}-${row._id.day}`;
-    byDayMap.set(key, row.quantity);
-  }
-
-  const weeklyActivity = last7Days.map(d => {
-    const key = `${d.date.getFullYear()}-${d.date.getMonth() + 1}-${d.date.getDate()}`;
-    return {
-      label: d.label,
-      value: byDayMap.get(key) || 0
-    };
-  });
-
-  // Sales activity: last 7 days net revenue
-  const salesByDayAgg = await Sale.aggregate([
-    {
-      $match: {
-        status: 'completed',
-        createdAt: {
-          $gte: last7Days[0].start,
-          $lt: last7Days[last7Days.length - 1].end
-        }
-      }
-    },
-    {
-      $group: {
-        _id: {
-          year: { $year: '$createdAt' },
-          month: { $month: '$createdAt' },
-          day: { $dayOfMonth: '$createdAt' }
-        },
-        grossRevenue: { $sum: '$totalAmount' },
-        transactions: { $sum: 1 }
-      }
-    },
-    { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } }
-  ]);
-
-  const refundsByDayAgg = await SaleReturn.aggregate([
-    {
-      $match: {
-        createdAt: {
-          $gte: last7Days[0].start,
-          $lt: last7Days[last7Days.length - 1].end
-        }
-      }
-    },
-    {
-      $group: {
-        _id: {
-          year: { $year: '$createdAt' },
-          month: { $month: '$createdAt' },
-          day: { $dayOfMonth: '$createdAt' }
-        },
-        totalRefund: { $sum: '$totalRefund' }
-      }
-    },
-    { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } }
-  ]);
-
-  const salesByDayMap = new Map();
-  for (const row of salesByDayAgg) {
-    const key = `${row._id.year}-${row._id.month}-${row._id.day}`;
-    salesByDayMap.set(key, row);
-  }
-
-  const refundsByDayMap = new Map();
-  for (const row of refundsByDayAgg) {
-    const key = `${row._id.year}-${row._id.month}-${row._id.day}`;
-    refundsByDayMap.set(key, row.totalRefund || 0);
-  }
-
-  const salesActivity = last7Days.map(d => {
-    const key = `${d.date.getFullYear()}-${d.date.getMonth() + 1}-${d.date.getDate()}`;
-    const salesRow = salesByDayMap.get(key) || {
-      grossRevenue: 0,
-      transactions: 0
-    };
-    const refundsTotal =
-      refundsByDayMap.get(key) || 0;
-
-    const netRevenue = Math.max(
-      (salesRow.grossRevenue || 0) - refundsTotal,
-      0
-    );
-
-    return {
-      label: d.label,
-      grossRevenue: salesRow.grossRevenue || 0,
-      refunds: refundsTotal,
-      netRevenue,
-      transactions: salesRow.transactions || 0
-    };
-  });
-
   res.json({
     totals: {
       products,
-      totalStockQuantity: value[0]?.quantity || 0,
-      inventoryValue: value[0]?.total || 0,
+      totalStockQuantity: numeric(value[0]?.quantity),
+      inventoryValue: numeric(value[0]?.total),
       lowStock,
       outOfStock,
       movementsToday: movementToday,
       activeAlerts: lowStockAlerts,
       expirationAlerts,
-      defectiveProducts,
+      defectiveProducts: defectiveIds.length,
 
-      // Sales totals (gross)
-      allTimeRevenue: allTime.revenue || 0,
-      allTimeItemsSold: allTime.itemsSold || 0,
-      allTimeTransactions: allTime.transactions || 0,
+      allTimeRevenue: numeric(allTime.revenue),
+      allTimeItemsSold: numeric(allTime.itemsSold),
+      allTimeTransactions: numeric(allTime.transactions),
 
-      todayRevenue: today.revenue || 0,
-      todayItemsSold: today.itemsSold || 0,
-      todayTransactions: today.transactions || 0,
+      todayRevenue: numeric(today.revenue),
+      todayItemsSold: numeric(today.itemsSold),
+      todayTransactions: numeric(today.transactions),
 
-      weekRevenue: week.revenue || 0,
-      weekItemsSold: week.itemsSold || 0,
-      weekTransactions: week.transactions || 0,
+      weekRevenue: numeric(week.revenue),
+      weekItemsSold: numeric(week.itemsSold),
+      weekTransactions: numeric(week.transactions),
 
-      // Refunds and net revenue
       allTimeRefunds,
-      allTimeNetRevenue,
+      allTimeNetRevenue: netRevenue(
+        allTime.revenue,
+        allTimeRefunds
+      ),
 
       todayRefunds,
-      todayNetRevenue,
+      todayNetRevenue: netRevenue(today.revenue, todayRefunds),
 
       weekRefunds,
-      weekNetRevenue,
+      weekNetRevenue: netRevenue(week.revenue, weekRefunds),
 
-      // Returns count
       returnsToday: returnsTodayCount || 0
     },
     movementTypes,
@@ -509,9 +544,7 @@ export async function summary(req, res) {
 
 export async function realtimeStock(req, res) {
   const [recent, lowStock, outOfStock] = await Promise.all([
-    Product.find({
-      isArchived: false
-    })
+    Product.find({ isArchived: false })
       .sort({ updatedAt: -1 })
       .limit(10)
       .populate('category supplier', 'name'),
@@ -531,11 +564,7 @@ export async function realtimeStock(req, res) {
       .limit(10)
   ]);
 
-  res.json({
-    recent,
-    lowStock,
-    outOfStock
-  });
+  res.json({ recent, lowStock, outOfStock });
 }
 
 export async function getExpirySummary(req, res) {
@@ -551,7 +580,6 @@ export async function getExpirySummary(req, res) {
   const plus30 = new Date(today);
   plus30.setDate(plus30.getDate() + 30);
 
-  // Base query: active batches with non-null expiry
   const baseQuery = {
     quantity: { $gt: 0 },
     expirationDate: { $ne: null }
@@ -563,26 +591,22 @@ export async function getExpirySummary(req, res) {
 
   const [count0to7, count8to14, count15to30] =
     await Promise.all([
-      // 0–7 days
       ProductBatch.countDocuments({
         ...baseQuery,
         expirationDate: { $gte: today, $lte: plus7 }
       }),
 
-      // 8–14 days
       ProductBatch.countDocuments({
         ...baseQuery,
         expirationDate: { $gt: plus7, $lte: plus14 }
       }),
 
-      // 15–30 days
       ProductBatch.countDocuments({
         ...baseQuery,
         expirationDate: { $gt: plus14, $lte: plus30 }
       })
     ]);
 
-  // Optional: top 5 most urgent batches (earliest expiry)
   const urgentBatches = await ProductBatch.find({
     ...baseQuery,
     expirationDate: { $lte: plus7 }
@@ -592,22 +616,22 @@ export async function getExpirySummary(req, res) {
     .limit(5)
     .lean();
 
-  const rows = urgentBatches.map(b => {
-    const product = b.product || {};
-    const exp = new Date(b.expirationDate);
-    const diff = exp.getTime() - today.getTime();
+  const rows = urgentBatches.map(batch => {
+    const product = batch.product || {};
+    const expiration = new Date(batch.expirationDate);
     const daysLeft = Math.ceil(
-      diff / (1000 * 60 * 60 * 24)
+      (expiration.getTime() - today.getTime()) /
+        (1000 * 60 * 60 * 24)
     );
 
     return {
-      batchId: b._id,
-      batchNumber: b.batchNumber,
+      batchId: batch._id,
+      batchNumber: batch.batchNumber,
       productName: product.name || 'Deleted product',
       barcode: product.barcode || '',
       sku: product.sku || '',
-      quantity: b.quantity,
-      expirationDate: b.expirationDate,
+      quantity: batch.quantity,
+      expirationDate: batch.expirationDate,
       daysLeft
     };
   });

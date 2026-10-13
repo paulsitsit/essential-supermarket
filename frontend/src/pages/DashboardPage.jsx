@@ -4,6 +4,7 @@ import {
   useRef,
   useState
 } from 'react';
+
 import {
   AlertTriangle,
   ArrowDownToLine,
@@ -19,9 +20,10 @@ import {
   Trophy,
   Wallet
 } from 'lucide-react';
+
 import { Link } from 'react-router-dom';
+
 import {
-  Area,
   Bar,
   BarChart,
   CartesianGrid,
@@ -47,18 +49,251 @@ const peso = value =>
   new Intl.NumberFormat('en-PH', {
     style: 'currency',
     currency: 'PHP'
-  }).format(value || 0);
+  }).format(Number(value) || 0);
+
+const number = value =>
+  Number(value || 0).toLocaleString('en-PH');
 
 function getGreeting(hour) {
-  if (hour >= 5 && hour < 12) {
-    return 'Good morning';
-  }
-
-  if (hour >= 12 && hour < 17) {
-    return 'Good afternoon';
-  }
-
+  if (hour >= 5 && hour < 12) return 'Good morning';
+  if (hour >= 12 && hour < 17) return 'Good afternoon';
   return 'Good evening';
+}
+
+function movementLabel(value) {
+  return String(value || 'unknown')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, character => character.toUpperCase());
+}
+
+function ActivityDetails({ kind, row, compact = false }) {
+  if (!row) return null;
+
+  const isSales = kind === 'sales';
+  const products = Array.isArray(row.products) ? row.products : [];
+  const visibleProducts = compact ? products.slice(0, 5) : products;
+  const top = products[0];
+
+  const metrics = isSales
+    ? [
+        ['Gross sales', peso(row.grossRevenue)],
+        ['Refunds', peso(row.refunds)],
+        ['Net revenue', peso(row.netRevenue)],
+        ['Transactions', number(row.transactions)]
+      ]
+    : [
+        ['Units moved', number(row.value)],
+        ['Movement records', number(row.movementCount)]
+      ];
+
+  return (
+    <div style={{ fontSize: 12, lineHeight: 1.5 }}>
+      <div style={{ fontWeight: 700, marginBottom: 10 }}>
+        {row.fullDate || row.label}
+      </div>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+          gap: 10,
+          marginBottom: 14
+        }}
+      >
+        {metrics.map(([label, value]) => (
+          <div key={label}>
+            <div style={{ opacity: 0.75, fontSize: 11 }}>
+              {label}
+            </div>
+            <div style={{ fontWeight: 700 }}>{value}</div>
+          </div>
+        ))}
+      </div>
+
+      {top && (
+        <div
+          style={{
+            marginBottom: 12,
+            padding: 10,
+            borderRadius: 10,
+            background: isSales
+              ? 'rgba(59, 130, 246, 0.10)'
+              : 'rgba(34, 197, 94, 0.10)',
+            overflowWrap: 'anywhere'
+          }}
+        >
+          <div style={{ fontSize: 11, opacity: 0.8 }}>
+            {isSales
+              ? 'Highest product sales value'
+              : 'Most active product'}
+            {' '}
+            (ties may occur)
+          </div>
+
+          <div style={{ fontWeight: 700 }}>{top.name}</div>
+
+          <div>
+            {isSales
+              ? `${number(top.quantitySold)} sold · ${peso(top.revenue)} gross`
+              : `${number(top.unitsMoved)} units moved`}
+          </div>
+        </div>
+      )}
+
+      <div style={{ fontWeight: 700, marginBottom: 8 }}>
+        {isSales
+          ? 'Products ranked by gross sales value'
+          : 'Products ranked by movement volume'}
+      </div>
+
+      {!products.length ? (
+        <div style={{ opacity: 0.8, padding: '8px 0' }}>
+          {isSales
+            ? 'No completed sales recorded for this day.'
+            : 'No inventory movements recorded for this day.'}
+        </div>
+      ) : (
+        <div
+          style={{
+            display: 'grid',
+            gap: 9,
+            maxHeight: compact ? undefined : 360,
+            overflowY: compact ? undefined : 'auto'
+          }}
+        >
+          {visibleProducts.map((product, index) => (
+            <div
+              key={product.id || `${product.name}-${index}`}
+              style={{
+                paddingBottom: 9,
+                borderBottom: '1px solid rgba(148, 163, 184, 0.22)',
+                overflowWrap: 'anywhere'
+              }}
+            >
+              <div style={{ fontWeight: 600 }}>
+                {index + 1}. {product.name || 'Unknown product'}
+              </div>
+
+              {product.barcode && (
+                <div style={{ fontSize: 10, opacity: 0.7 }}>
+                  {product.barcode}
+                </div>
+              )}
+
+              {isSales ? (
+                <div>
+                  {number(product.quantitySold)} sold ·{' '}
+                  {peso(product.revenue)} gross
+                </div>
+              ) : (
+                <>
+                  <div>
+                    {number(product.unitsMoved)} units moved
+                  </div>
+
+                  {(product.movements || []).map((movement, i) => (
+                    <div
+                      key={`${movement.type}-${i}`}
+                      style={{ fontSize: 11, opacity: 0.85 }}
+                    >
+                      {movementLabel(movement.type)}:{' '}
+                      {number(movement.unitsMoved)} units moved
+                      {!compact && (
+                        <>
+                          {' '}· signed change:{' '}
+                          {movement.netChange > 0 ? '+' : ''}
+                          {number(movement.netChange)}
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {compact && products.length > 5 && (
+        <div style={{ marginTop: 8, opacity: 0.75 }}>
+          +{products.length - 5} more products. Click to view all.
+        </div>
+      )}
+
+      {isSales && (
+        <div style={{ marginTop: 10, fontSize: 10, opacity: 0.75 }}>
+          Product values are gross item subtotals.
+          Refunds are shown at day level, not allocated to products.
+        </div>
+      )}
+
+      {compact && (
+        <div style={{ marginTop: 10, fontSize: 10, opacity: 0.75 }}>
+          Click a bar, point, or day button to keep details open.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ActivityTooltip({ active, payload, kind }) {
+  const row = payload?.[0]?.payload;
+
+  if (!active || !row) return null;
+
+  return (
+    <div
+      style={{
+        width: 'min(310px, calc(100vw - 40px))',
+        padding: 14,
+        border: '1px solid #cbd5e1',
+        borderRadius: 12,
+        background: '#ffffff',
+        color: '#1e293b',
+        boxShadow: '0 12px 32px rgba(0, 0, 0, 0.18)',
+        pointerEvents: 'none'
+      }}
+    >
+      <ActivityDetails kind={kind} row={row} compact />
+    </div>
+  );
+}
+
+function DayButtons({ rows, selectedDate, onSelect }) {
+  return (
+    <div
+      aria-label="Choose a day to view activity details"
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 6,
+        marginTop: 8
+      }}
+    >
+      {rows.map(row => (
+        <button
+          key={row.date || row.label}
+          type="button"
+          className="secondary-btn"
+          aria-pressed={selectedDate === row.date}
+          aria-label={`View activity for ${row.fullDate || row.label}`}
+          title={row.fullDate || row.label}
+          onClick={() => onSelect(row)}
+          style={{
+            minHeight: 34,
+            padding: '0 10px',
+            fontSize: 11,
+            outline:
+              selectedDate === row.date
+                ? '2px solid #22c55e'
+                : undefined
+          }}
+        >
+          {row.label}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 export default function DashboardPage() {
@@ -69,39 +304,34 @@ export default function DashboardPage() {
   const [stock, setStock] = useState(null);
   const [error, setError] = useState('');
 
-  /*
-   * Desktop/tablet only:
-   * false = show just the first responsive row of cards.
-   * true = show all cards.
-   */
   const [statsExpanded, setStatsExpanded] = useState(false);
-
-  /*
-   * Measured dynamically from the responsive grid so "first row"
-   * means the actual number of cards that fit at the current width.
-   */
   const [firstRowCount, setFirstRowCount] = useState(1);
-
-  /*
-   * Mobile is 767px and below.
-   * On mobile all dashboard stat cards are shown automatically,
-   * with no expand/collapse dropdown.
-   */
   const [isMobile, setIsMobile] = useState(false);
 
+  // Store only the selection so socket refreshes use fresh chart data.
+  const [selectedActivity, setSelectedActivity] = useState(null);
+
   const summaryMeasureRef = useRef(null);
+  const detailsRef = useRef(null);
+  const requestSequence = useRef(0);
 
   async function load() {
+    const requestId = ++requestSequence.current;
+
     try {
       const [summary, realtime] = await Promise.all([
         client.get('/dashboard/summary'),
         client.get('/dashboard/real-time-stock')
       ]);
 
+      if (requestId !== requestSequence.current) return;
+
       setData(summary.data);
       setStock(realtime.data);
       setError('');
     } catch (err) {
+      if (requestId !== requestSequence.current) return;
+
       setError(
         err.response?.data?.message ||
           'Unable to load dashboard data'
@@ -111,54 +341,30 @@ export default function DashboardPage() {
 
   useEffect(() => {
     load();
-  }, []);
-
-  useEffect(() => {
-    if (lastEvent) {
-      load();
-    }
-  }, [lastEvent]);
-
-  /*
-   * Watches the mobile breakpoint.
-   * This updates immediately if the user rotates a device or resizes
-   * the browser window while the dashboard is open.
-   */
-  useEffect(() => {
-    const mediaQuery = window.matchMedia(
-      '(max-width: 767px)'
-    );
-
-    function updateMobileState() {
-      setIsMobile(mediaQuery.matches);
-    }
-
-    updateMobileState();
-
-    mediaQuery.addEventListener(
-      'change',
-      updateMobileState
-    );
 
     return () => {
-      mediaQuery.removeEventListener(
-        'change',
-        updateMobileState
-      );
+      requestSequence.current += 1;
     };
   }, []);
 
-  /*
-   * Uses an invisible copy of the same grid to count the cards in
-   * its first responsive row. No fixed number of cards is assumed.
-   */
+  useEffect(() => {
+    if (lastEvent) load();
+  }, [lastEvent]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const update = () => setIsMobile(mediaQuery.matches);
+
+    update();
+    mediaQuery.addEventListener('change', update);
+
+    return () => mediaQuery.removeEventListener('change', update);
+  }, []);
+
   useLayoutEffect(() => {
     function measureFirstRow() {
       const grid = summaryMeasureRef.current;
-
-      if (!grid) {
-        return;
-      }
+      if (!grid) return;
 
       const children = Array.from(grid.children);
 
@@ -167,17 +373,15 @@ export default function DashboardPage() {
         return;
       }
 
-      const firstCardTop = Math.round(
+      const firstTop = Math.round(
         children[0].getBoundingClientRect().top
       );
 
-      const count = children.filter(card => {
-        const cardTop = Math.round(
-          card.getBoundingClientRect().top
-        );
-
-        return Math.abs(cardTop - firstCardTop) <= 2;
-      }).length;
+      const count = children.filter(card =>
+        Math.abs(
+          Math.round(card.getBoundingClientRect().top) - firstTop
+        ) <= 2
+      ).length;
 
       setFirstRowCount(Math.max(1, count));
     }
@@ -189,30 +393,53 @@ export default function DashboardPage() {
         ? new ResizeObserver(measureFirstRow)
         : null;
 
-    if (summaryMeasureRef.current && observer) {
-      observer.observe(summaryMeasureRef.current);
+    if (summaryMeasureRef.current) {
+      observer?.observe(summaryMeasureRef.current);
     }
 
-    window.addEventListener(
-      'resize',
-      measureFirstRow
-    );
+    window.addEventListener('resize', measureFirstRow);
 
     return () => {
       observer?.disconnect();
-
-      window.removeEventListener(
-        'resize',
-        measureFirstRow
-      );
+      window.removeEventListener('resize', measureFirstRow);
     };
   }, [data]);
+
+  useEffect(() => {
+    if (selectedActivity) {
+      detailsRef.current?.focus({ preventScroll: true });
+    }
+  }, [selectedActivity]);
+
+  function selectDay(kind, row) {
+    if (!row?.date) return;
+    setSelectedActivity({ kind, date: row.date });
+  }
+
+  function handleChartClick(kind, chartState, rows) {
+    const payload = chartState?.activePayload?.[0]?.payload;
+
+    if (payload?.date) {
+      selectDay(kind, payload);
+      return;
+    }
+
+    const index = chartState?.activeTooltipIndex;
+
+    if (
+      index !== null &&
+      index !== undefined &&
+      index !== '' &&
+      rows[Number(index)]
+    ) {
+      selectDay(kind, rows[Number(index)]);
+    }
+  }
 
   if (error) {
     return (
       <div className="page-error">
         <p>{error}</p>
-
         <button
           type="button"
           className="secondary-btn"
@@ -233,8 +460,19 @@ export default function DashboardPage() {
   }
 
   const totals = data.totals || {};
-  const currentHour = new Date().getHours();
-  const greeting = getGreeting(currentHour);
+  const weeklyActivity = data.weeklyActivity || [];
+  const salesActivity = data.salesActivity || [];
+  const categoryData = data.categoryData || [];
+  const bestSeller = data.bestSeller;
+
+  const selectedRows =
+    selectedActivity?.kind === 'sales'
+      ? salesActivity
+      : weeklyActivity;
+
+  const selectedRow = selectedRows.find(
+    row => row.date === selectedActivity?.date
+  );
 
   const firstName = account?.fullName
     ? account.fullName.split(' ')[0]
@@ -263,11 +501,6 @@ export default function DashboardPage() {
     }
   ].filter(item => item.value > 0);
 
-  const weeklyActivity = data.weeklyActivity || [];
-  const salesActivity = data.salesActivity || [];
-  const categoryData = data.categoryData || [];
-  const bestSeller = data.bestSeller;
-
   const cards = [
     {
       label: 'Total Products',
@@ -279,9 +512,7 @@ export default function DashboardPage() {
     },
     {
       label: 'Total Stock Quantity',
-      value: Number(
-        totals.totalStockQuantity || 0
-      ).toLocaleString(),
+      value: number(totals.totalStockQuantity),
       detail: 'Units currently available',
       icon: Boxes,
       tone: 'blue',
@@ -337,9 +568,7 @@ export default function DashboardPage() {
     },
     {
       label: 'Products Sold (All-time)',
-      value: Number(
-        totals.allTimeItemsSold || 0
-      ).toLocaleString(),
+      value: number(totals.allTimeItemsSold),
       detail: 'Total items sold via POS',
       icon: ShoppingCart,
       tone: 'blue',
@@ -379,22 +608,12 @@ export default function DashboardPage() {
     }
   ];
 
-  /*
-   * Mobile: all cards are always visible.
-   * Desktop/tablet: first row is visible while collapsed.
-   */
   const visibleCards =
     isMobile || statsExpanded
       ? cards
       : cards.slice(0, firstRowCount);
 
-  /*
-   * The chevron exists only above the mobile breakpoint, and only
-   * if there are cards outside the first visible row.
-   */
-  const hasMoreCards =
-    !isMobile &&
-    cards.length > firstRowCount;
+  const hasMoreCards = !isMobile && cards.length > firstRowCount;
 
   function renderSummaryCard(card) {
     const Icon = card.icon;
@@ -406,9 +625,7 @@ export default function DashboardPage() {
         key={card.label}
       >
         <GlassCard className="summary-card">
-          <div
-            className={`summary-icon tone-${card.tone}`}
-          >
+          <div className={`summary-icon tone-${card.tone}`}>
             <Icon size={21} />
           </div>
 
@@ -422,6 +639,9 @@ export default function DashboardPage() {
     );
   }
 
+  const axisTick = { fill: '#86a18c', fontSize: 10 };
+  const chartMargin = { top: 10, right: 15, left: 0, bottom: 0 };
+
   return (
     <div className="dashboard-page">
       <div className="page-heading">
@@ -429,12 +649,10 @@ export default function DashboardPage() {
           <p className="eyebrow">OVERVIEW</p>
 
           <h1>
-            {greeting}, {firstName}
+            {getGreeting(new Date().getHours())}, {firstName}
           </h1>
 
-          <p>
-            A Web-Based Inventory Management System
-          </p>
+          <p>A Web-Based Inventory Management System</p>
 
           <p>
             with Real-Time Stock Monitoring and Automated
@@ -444,26 +662,19 @@ export default function DashboardPage() {
 
         <div className="heading-actions">
           {account?.role === 'admin' && (
-            <Link
-              className="primary-btn"
-              to="/products/new"
-            >
+            <Link className="primary-btn" to="/products/new">
               <Package size={17} />
               Add Product
             </Link>
           )}
 
-          <Link
-            className="secondary-btn"
-            to="/scanner"
-          >
+          <Link className="secondary-btn" to="/scanner">
             <ScanLine size={17} />
             Open Scanner
           </Link>
         </div>
       </div>
 
-      {/* Hidden grid used only to find first-row card count. */}
       <div
         ref={summaryMeasureRef}
         className="summary-grid summary-grid-measure"
@@ -491,25 +702,15 @@ export default function DashboardPage() {
             <button
               type="button"
               className={`summary-toggle ${
-                statsExpanded
-                  ? 'summary-toggle-expanded'
-                  : ''
+                statsExpanded ? 'summary-toggle-expanded' : ''
               }`}
-              onClick={() =>
-                setStatsExpanded(
-                  current => !current
-                )
-              }
+              onClick={() => setStatsExpanded(current => !current)}
               aria-expanded={statsExpanded}
               aria-label={
-                statsExpanded
-                  ? 'Show fewer stats'
-                  : 'Show more stats'
+                statsExpanded ? 'Show fewer stats' : 'Show more stats'
               }
               title={
-                statsExpanded
-                  ? 'Show fewer stats'
-                  : 'Show more stats'
+                statsExpanded ? 'Show fewer stats' : 'Show more stats'
               }
             >
               <ChevronDown size={20} />
@@ -518,43 +719,33 @@ export default function DashboardPage() {
         )}
       </section>
 
-      {/* Weekly Activity and Sales Activity */}
       <div
         style={{
           display: 'grid',
           gridTemplateColumns:
-            'repeat(auto-fit, minmax(300px, 1fr))',
-          gap: '16px',
-          marginTop: '16px',
-          marginBottom: '16px'
+            'repeat(auto-fit, minmax(min(100%, 300px), 1fr))',
+          gap: 16,
+          marginTop: 16,
+          marginBottom: 16
         }}
       >
         <GlassCard className="stock-line-card">
           <div className="section-heading">
             <div>
               <h3>Weekly Activity</h3>
-              <p>
-                Inventory movement trend (last 7 days)
-              </p>
+              <p>Inventory movement trend (last 7 days)</p>
+              <p>Hover for a preview. Click or tap for details.</p>
             </div>
-
-            <span className="analytics-badge">
-              Last 7 days
-            </span>
+            <span className="analytics-badge">Last 7 days</span>
           </div>
 
-          <ResponsiveContainer
-            width="100%"
-            height={260}
-          >
+          <ResponsiveContainer width="100%" height={260}>
             <BarChart
               data={weeklyActivity}
-              margin={{
-                top: 10,
-                right: 10,
-                left: 0,
-                bottom: 0
-              }}
+              margin={chartMargin}
+              onClick={state =>
+                handleChartClick('movement', state, weeklyActivity)
+              }
             >
               <CartesianGrid
                 strokeDasharray="4 4"
@@ -564,94 +755,66 @@ export default function DashboardPage() {
 
               <XAxis
                 dataKey="label"
-                tick={{
-                  fill: '#86a18c',
-                  fontSize: 10
-                }}
-                axisLine={{
-                  stroke:
-                    'rgba(22, 101, 52, 0.12)'
-                }}
-                tickLine={false}
-              />
-
-              <YAxis
-                tick={{
-                  fill: '#86a18c',
-                  fontSize: 10
-                }}
+                tick={axisTick}
                 axisLine={false}
                 tickLine={false}
               />
 
+              <YAxis
+                tick={axisTick}
+                axisLine={false}
+                tickLine={false}
+                allowDecimals={false}
+              />
+
               <Tooltip
-                contentStyle={{
-                  border:
-                    '1px solid rgba(22, 101, 52, 0.12)',
-                  borderRadius: '10px',
-                  background: '#ffffff',
-                  color: '#285737',
-                  fontSize: '11px'
-                }}
+                content={<ActivityTooltip kind="movement" />}
+                wrapperStyle={{ zIndex: 20 }}
+                cursor={{ fill: 'rgba(34, 197, 94, 0.08)' }}
               />
 
               <Bar
                 dataKey="value"
+                name="Units moved"
                 fill="#22c55e"
                 radius={[6, 6, 0, 0]}
+                style={{ cursor: 'pointer' }}
+                onClick={entry =>
+                  selectDay('movement', entry?.payload || entry)
+                }
               />
             </BarChart>
           </ResponsiveContainer>
+
+          <DayButtons
+            rows={weeklyActivity}
+            selectedDate={
+              selectedActivity?.kind === 'movement'
+                ? selectedActivity.date
+                : null
+            }
+            onSelect={row => selectDay('movement', row)}
+          />
         </GlassCard>
 
         <GlassCard className="stock-line-card">
           <div className="section-heading">
             <div>
               <h3>Sales Activity</h3>
-              <p>
-                Net revenue trend (last 7 days)
-              </p>
+              <p>Net revenue trend (last 7 days)</p>
+              <p>Hover for a preview. Click or tap for details.</p>
             </div>
-
-            <span className="analytics-badge">
-              Last 7 days
-            </span>
+            <span className="analytics-badge">Last 7 days</span>
           </div>
 
-          <ResponsiveContainer
-            width="100%"
-            height={260}
-          >
+          <ResponsiveContainer width="100%" height={260}>
             <LineChart
               data={salesActivity}
-              margin={{
-                top: 10,
-                right: 10,
-                left: 0,
-                bottom: 0
-              }}
+              margin={chartMargin}
+              onClick={state =>
+                handleChartClick('sales', state, salesActivity)
+              }
             >
-              <defs>
-                <linearGradient
-                  id="salesLineFill"
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
-                  <stop
-                    offset="0%"
-                    stopColor="#3b82f6"
-                    stopOpacity={0.36}
-                  />
-                  <stop
-                    offset="100%"
-                    stopColor="#3b82f6"
-                    stopOpacity={0.03}
-                  />
-                </linearGradient>
-              </defs>
-
               <CartesianGrid
                 strokeDasharray="4 4"
                 stroke="rgba(59, 130, 246, 0.12)"
@@ -660,72 +823,105 @@ export default function DashboardPage() {
 
               <XAxis
                 dataKey="label"
-                tick={{
-                  fill: '#64748b',
-                  fontSize: 10
-                }}
-                axisLine={{
-                  stroke:
-                    'rgba(59, 130, 246, 0.12)'
-                }}
+                tick={{ fill: '#94a3b8', fontSize: 10 }}
+                axisLine={false}
                 tickLine={false}
               />
 
               <YAxis
-                tick={{
-                  fill: '#64748b',
-                  fontSize: 10
-                }}
+                tick={{ fill: '#94a3b8', fontSize: 10 }}
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={value =>
-                  value >= 1000
-                    ? `${(value / 1000).toFixed(0)}k`
+                  Math.abs(value) >= 1000
+                    ? `${(value / 1000).toFixed(1)}k`
                     : value
                 }
               />
 
               <Tooltip
-                contentStyle={{
-                  border:
-                    '1px solid rgba(59, 130, 246, 0.12)',
-                  borderRadius: '10px',
-                  background: '#ffffff',
-                  color: '#1e3a8a',
-                  fontSize: '11px'
-                }}
-                formatter={value => [
-                  peso(value),
-                  'Net Revenue'
-                ]}
-              />
-
-              <Area
-                type="monotone"
-                dataKey="netRevenue"
-                stroke="none"
-                fill="url(#salesLineFill)"
+                content={<ActivityTooltip kind="sales" />}
+                wrapperStyle={{ zIndex: 20 }}
               />
 
               <Line
                 type="monotone"
                 dataKey="netRevenue"
+                name="Net revenue"
                 stroke="#2563eb"
                 strokeWidth={2.5}
-                dot={false}
-                activeDot={{
-                  r: 5,
+                dot={{
+                  r: 4,
                   fill: '#3b82f6',
                   stroke: '#ffffff',
-                  strokeWidth: 2
+                  strokeWidth: 1
+                }}
+                activeDot={{
+                  r: 7,
+                  fill: '#3b82f6',
+                  stroke: '#ffffff',
+                  strokeWidth: 2,
+                  onClick: (event, point) =>
+                    selectDay('sales', point?.payload)
                 }}
               />
             </LineChart>
           </ResponsiveContainer>
+
+          <DayButtons
+            rows={salesActivity}
+            selectedDate={
+              selectedActivity?.kind === 'sales'
+                ? selectedActivity.date
+                : null
+            }
+            onSelect={row => selectDay('sales', row)}
+          />
         </GlassCard>
       </div>
 
-      {/* Best Seller below activity charts */}
+      {selectedActivity && (
+        <section
+          ref={detailsRef}
+          tabIndex={-1}
+          aria-label="Selected day activity details"
+          style={{ marginBottom: 16, scrollMarginTop: 90 }}
+        >
+          <GlassCard className="stock-line-card">
+            <div className="section-heading">
+              <div>
+                <h3>
+                  {selectedActivity.kind === 'sales'
+                    ? 'Sales details'
+                    : 'Inventory movement details'}
+                </h3>
+                <p>
+                  Details stay open until you close them or select
+                  another day.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => setSelectedActivity(null)}
+              >
+                Close
+              </button>
+            </div>
+
+            {selectedRow ? (
+              <ActivityDetails
+                kind={selectedActivity.kind}
+                row={selectedRow}
+              />
+            ) : (
+              <p>This day is no longer in the current seven-day range.</p>
+            )}
+          </GlassCard>
+        </section>
+      )}
+
       <div className="stock-price-section">
         <GlassCard className="stock-line-card">
           <div className="section-heading">
@@ -733,10 +929,7 @@ export default function DashboardPage() {
               <h3>Best Seller (This Week)</h3>
               <p>Top product by quantity sold</p>
             </div>
-
-            <span className="analytics-badge">
-              Last 7 days
-            </span>
+            <span className="analytics-badge">Since Sunday</span>
           </div>
 
           {bestSeller ? (
@@ -744,7 +937,7 @@ export default function DashboardPage() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '16px',
+                gap: 16,
                 padding: '12px 0'
               }}
             >
@@ -752,33 +945,31 @@ export default function DashboardPage() {
                 style={{
                   width: 48,
                   height: 48,
+                  flexShrink: 0,
                   borderRadius: 10,
                   background:
                     'linear-gradient(135deg, #fbbf24, #d97706)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#fff',
-                  fontSize: 20
+                  display: 'grid',
+                  placeItems: 'center',
+                  color: '#fff'
                 }}
               >
                 <Trophy size={24} />
               </div>
 
-              <div style={{ flex: 1 }}>
+              <div style={{ minWidth: 0 }}>
                 <strong style={{ fontSize: 16 }}>
                   {bestSeller.name}
                 </strong>
-
                 <div
                   style={{
                     fontSize: 12,
-                    color: '#6b7280',
+                    opacity: 0.75,
                     marginTop: 4
                   }}
                 >
                   {bestSeller.barcode} ·{' '}
-                  {bestSeller.quantitySold} sold ·{' '}
+                  {number(bestSeller.quantitySold)} sold ·{' '}
                   {peso(bestSeller.revenue)}
                 </div>
               </div>
@@ -791,7 +982,6 @@ export default function DashboardPage() {
         </GlassCard>
       </div>
 
-      {/* Category and stock-status charts */}
       <div className="chart-grid">
         <GlassCard className="chart-card">
           <div className="section-heading">
@@ -801,10 +991,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <ResponsiveContainer
-            width="100%"
-            height={260}
-          >
+          <ResponsiveContainer width="100%" height={260}>
             <PieChart>
               <Pie
                 data={categoryData}
@@ -829,7 +1016,6 @@ export default function DashboardPage() {
                   />
                 ))}
               </Pie>
-
               <Tooltip />
               <Legend />
             </PieChart>
@@ -840,16 +1026,11 @@ export default function DashboardPage() {
           <div className="section-heading">
             <div>
               <h3>Current Stock Status</h3>
-              <p>
-                Normal, low-stock, and unavailable products
-              </p>
+              <p>Normal, low-stock, and unavailable products</p>
             </div>
           </div>
 
-          <ResponsiveContainer
-            width="100%"
-            height={260}
-          >
+          <ResponsiveContainer width="100%" height={260}>
             <PieChart>
               <Pie
                 data={statusData}
@@ -860,13 +1041,9 @@ export default function DashboardPage() {
                 paddingAngle={3}
               >
                 {statusData.map(entry => (
-                  <Cell
-                    key={entry.name}
-                    fill={entry.color}
-                  />
+                  <Cell key={entry.name} fill={entry.color} />
                 ))}
               </Pie>
-
               <Tooltip />
               <Legend />
             </PieChart>
@@ -881,40 +1058,30 @@ export default function DashboardPage() {
               <h3>Recently updated products</h3>
               <p>Latest inventory changes</p>
             </div>
-
             <Link to="/inventory">View all</Link>
           </div>
 
           <div className="mini-list">
             {stock?.recent?.length ? (
               stock.recent.map(product => (
-                <div
-                  className="mini-row"
-                  key={product._id}
-                >
+                <div className="mini-row" key={product._id}>
                   <div className="product-avatar">
                     {product.name?.charAt(0)}
                   </div>
 
                   <div className="mini-info">
                     <strong>{product.name}</strong>
-
                     <small>
-                      {product.barcode} ·{' '}
-                      {product.currentStock}{' '}
+                      {product.barcode} · {product.currentStock}{' '}
                       {product.unitType}
                     </small>
                   </div>
 
-                  <StatusBadge
-                    status={product.status}
-                  />
+                  <StatusBadge status={product.status} />
                 </div>
               ))
             ) : (
-              <div className="empty-state">
-                No products found.
-              </div>
+              <div className="empty-state">No products found.</div>
             )}
           </div>
         </GlassCard>
@@ -923,38 +1090,26 @@ export default function DashboardPage() {
           <div className="section-heading">
             <div>
               <h3>Low-stock attention</h3>
-
-              <p>
-                Products at or below reorder level
-              </p>
+              <p>Products at or below reorder level</p>
             </div>
-
             <Link to="/alerts">View alerts</Link>
           </div>
 
           <div className="mini-list">
             {stock?.lowStock?.length ? (
               stock.lowStock.map(product => (
-                <div
-                  className="mini-row"
-                  key={product._id}
-                >
-                  <div className="product-avatar warning-avatar">
-                    !
-                  </div>
+                <div className="mini-row" key={product._id}>
+                  <div className="product-avatar warning-avatar">!</div>
 
                   <div className="mini-info">
                     <strong>{product.name}</strong>
-
                     <small>
-                      {product.currentStock} remaining ·
-                      Reorder at {product.reorderLevel}
+                      {product.currentStock} remaining · Reorder at{' '}
+                      {product.reorderLevel}
                     </small>
                   </div>
 
-                  <StatusBadge
-                    status={product.status}
-                  />
+                  <StatusBadge status={product.status} />
                 </div>
               ))
             ) : (

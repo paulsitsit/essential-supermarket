@@ -21,7 +21,8 @@ const syncOperationSchema = new mongoose.Schema(
       required: true,
       enum: [
         'product_create',
-        'product_update'
+        'product_update',
+        'stock_receive'
       ]
     },
 
@@ -40,7 +41,20 @@ const syncOperationSchema = new mongoose.Schema(
 
     product: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Product'
+      ref: 'Product',
+      default: null
+    },
+
+    batch: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'ProductBatch',
+      default: null
+    },
+
+    movement: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'StockMovement',
+      default: null
     },
 
     response: {

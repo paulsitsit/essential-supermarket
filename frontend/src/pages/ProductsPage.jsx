@@ -63,7 +63,10 @@ function escapeCsvValue(value) {
     stringValue.includes('"') ||
     stringValue.includes('\n')
   ) {
-    return `"${stringValue.replace(/"/g, '""')}"`;
+    return `"${stringValue.replace(
+      /"/g,
+      '""'
+    )}"`;
   }
 
   return stringValue;
@@ -95,30 +98,40 @@ function downloadCsv(filename, rows) {
     product.reorderLevel,
     product.unitPrice,
     product.inventoryValue,
-    product.branch?.name || product.branch || ''
+    product.branch?.name ||
+      product.branch ||
+      ''
   ]);
 
   const csvContent = [
     headers,
     ...csvRows
   ]
-    .map(row => row.map(escapeCsvValue).join(','))
+    .map(row =>
+      row.map(escapeCsvValue).join(',')
+    )
     .join('\n');
 
-  const blob = new Blob([csvContent], {
-    type: 'text/csv;charset=utf-8;'
-  });
+  const blob = new Blob(
+    [csvContent],
+    {
+      type: 'text/csv;charset=utf-8;'
+    }
+  );
 
   const url = URL.createObjectURL(blob);
+
   const link = document.createElement('a');
 
   link.href = url;
   link.download = filename;
 
   document.body.appendChild(link);
+
   link.click();
 
   link.remove();
+
   URL.revokeObjectURL(url);
 }
 
@@ -130,9 +143,13 @@ export default function ProductsPage() {
   const requestSequence = useRef(0);
 
   const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [suppliers, setSuppliers] = useState([]);
-  const [filters, setFilters] = useState(initialFilters);
+  const [categories, setCategories] =
+    useState([]);
+  const [suppliers, setSuppliers] =
+    useState([]);
+  const [filters, setFilters] = useState(
+    initialFilters
+  );
 
   const [
     selectedProduct,
@@ -145,16 +162,39 @@ export default function ProductsPage() {
   ] = useState(null);
 
   const [confirm, setConfirm] = useState(null);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [exporting, setExporting] = useState(false);
-  const [cacheInfo, setCacheInfo] = useState(null);
 
+  const [error, setError] = useState('');
+
+  const [loading, setLoading] = useState(true);
+
+  const [exporting, setExporting] =
+    useState(false);
+
+  const [cacheInfo, setCacheInfo] =
+    useState(null);
+
+  /*
+   * General catalog-changing actions remain
+   * read-only while showing cached data.
+   *
+   * Do not include !isOnline here: offline
+   * Receive Stock is intentionally allowed
+   * through the dedicated stock receipt outbox.
+   */
   const readOnly =
-    !isOnline ||
     Boolean(cacheInfo) ||
     loading ||
     Boolean(error);
+
+  /*
+   * Receiving stock can use a cached product
+   * record while offline. The modal will save
+   * a receipt locally and synchronize it later.
+   */
+  const canReceiveStock =
+    !loading &&
+    !error &&
+    products.length > 0;
 
   async function load() {
     const requestId =
@@ -175,7 +215,9 @@ export default function ProductsPage() {
         categoryRes,
         supplierRes
       ] = await Promise.all([
-        cachedGet(`/products?${query.toString()}`),
+        cachedGet(
+          `/products?${query.toString()}`
+        ),
         cachedGet('/categories'),
         cachedGet('/suppliers')
       ]);
@@ -188,16 +230,21 @@ export default function ProductsPage() {
 
       const sort = filters.sort;
 
-      const rows = [...productRes.data].sort(
-        (a, b) =>
-          sort === 'name'
-            ? a.name.localeCompare(b.name)
-            : sort === 'currentStock'
-              ? a.currentStock - b.currentStock
-              : sort === 'inventoryValue'
-                ? b.inventoryValue - a.inventoryValue
-                : new Date(b.updatedAt) -
-                  new Date(a.updatedAt)
+      const rows = [
+        ...productRes.data
+      ].sort((a, b) =>
+        sort === 'name'
+          ? String(a.name || '').localeCompare(
+              String(b.name || '')
+            )
+          : sort === 'currentStock'
+            ? Number(a.currentStock || 0) -
+              Number(b.currentStock || 0)
+            : sort === 'inventoryValue'
+              ? Number(b.inventoryValue || 0) -
+                Number(a.inventoryValue || 0)
+              : new Date(b.updatedAt) -
+                new Date(a.updatedAt)
       );
 
       setProducts(rows);
@@ -250,7 +297,7 @@ export default function ProductsPage() {
   ]);
 
   async function exportInventory() {
-    if (readOnly) {
+    if (readOnly || !isOnline) {
       setError(
         'Connect and load fresh data before exporting inventory.'
       );
@@ -311,7 +358,7 @@ export default function ProductsPage() {
   }
 
   async function archive() {
-    if (readOnly) {
+    if (readOnly || !isOnline) {
       setError(
         'Connect and load fresh data before changing products.'
       );
@@ -325,9 +372,21 @@ export default function ProductsPage() {
       return;
     }
 
+    const productId =
+      product._id ||
+      product.id;
+
+    if (!productId) {
+      setError(
+        'This product does not have a valid server ID.'
+      );
+
+      return;
+    }
+
     try {
       await client.patch(
-        `/products/${product._id}/archive`
+        `/products/${productId}/archive`
       );
 
       setConfirm(null);
@@ -344,7 +403,7 @@ export default function ProductsPage() {
   }
 
   async function remove() {
-    if (readOnly) {
+    if (readOnly || !isOnline) {
       setError(
         'Connect and load fresh data before changing products.'
       );
@@ -358,9 +417,21 @@ export default function ProductsPage() {
       return;
     }
 
+    const productId =
+      product._id ||
+      product.id;
+
+    if (!productId) {
+      setError(
+        'This product does not have a valid server ID.'
+      );
+
+      return;
+    }
+
     try {
       await client.delete(
-        `/products/${product._id}`
+        `/products/${productId}`
       );
 
       setConfirm(null);
@@ -377,9 +448,25 @@ export default function ProductsPage() {
   }
 
   function receive(product) {
-    if (readOnly) {
+    if (!product) {
+      return;
+    }
+
+    if (!canReceiveStock) {
       setError(
-        'Stock receiving requires a connection and fresh data.'
+        'Wait for product data to finish loading before receiving stock.'
+      );
+
+      return;
+    }
+
+    const productId =
+      product._id ||
+      product.id;
+
+    if (!productId) {
+      setError(
+        'This product has not synchronized with the server yet. Connect to the internet and wait for the product draft to synchronize before receiving stock.'
       );
 
       return;
@@ -407,7 +494,8 @@ export default function ProductsPage() {
           </h1>
 
           <p>
-            Manage registered products and inventory details.
+            Manage registered products and inventory
+            details.
           </p>
         </div>
 
@@ -421,7 +509,8 @@ export default function ProductsPage() {
               onClick={exportInventory}
               disabled={
                 exporting ||
-                readOnly
+                readOnly ||
+                !isOnline
               }
             >
               <Download size={16} />
@@ -469,7 +558,9 @@ export default function ProductsPage() {
             className="secondary-btn"
             onClick={load}
             disabled={loading}
-            style={{ marginLeft: 10 }}
+            style={{
+              marginLeft: 10
+            }}
           >
             Retry
           </button>
@@ -484,11 +575,11 @@ export default function ProductsPage() {
           Showing saved product data from{' '}
           {new Date(
             cacheInfo.savedAt
-          ).toLocaleString()}.
-          {' '}
-          Stock actions are unavailable. Admin
-          catalog edits can be saved as local drafts
-          while offline.
+          ).toLocaleString()}
+          . Catalog changes are unavailable while
+          using saved data. You can still save a
+          Receive Stock receipt on this device for
+          synchronization after reconnecting.
         </div>
       )}
 
@@ -509,6 +600,7 @@ export default function ProductsPage() {
             products={products}
             account={account}
             readOnly={readOnly}
+            allowOfflineReceive
             onView={setDetailsProduct}
             onReceive={receive}
             onArchive={product =>
@@ -532,7 +624,7 @@ export default function ProductsPage() {
         )}
       </GlassCard>
 
-      {selectedProduct && !readOnly && (
+      {selectedProduct && (
         <ReceiveStockModal
           product={selectedProduct}
           onClose={() =>
@@ -540,7 +632,16 @@ export default function ProductsPage() {
           }
           onSaved={() => {
             setSelectedProduct(null);
-            load();
+
+            /*
+             * Online receipts update server stock,
+             * so refresh. Offline drafts remain
+             * pending and do not change shared stock
+             * until synchronization completes.
+             */
+            if (isOnline) {
+              load();
+            }
           }}
         />
       )}
@@ -552,9 +653,25 @@ export default function ProductsPage() {
             setDetailsProduct(null)
           }
           onReceive={product => {
-            if (readOnly) {
+            if (!product) {
+              return;
+            }
+
+            if (!canReceiveStock) {
               setError(
-                'Stock receiving requires a connection and fresh data.'
+                'Wait for product data to finish loading before receiving stock.'
+              );
+
+              return;
+            }
+
+            const productId =
+              product._id ||
+              product.id;
+
+            if (!productId) {
+              setError(
+                'This product has not synchronized with the server yet. Connect to the internet and wait for synchronization before receiving stock.'
               );
 
               return;

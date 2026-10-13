@@ -37,9 +37,9 @@ function getProductImageUrl(product) {
   ).trim();
 
   /*
-   * Legacy Base64 product images can be multiple
-   * megabytes each and make the product list slow.
-   * Do not render them in the table.
+   * Do not load legacy Base64 product images
+   * in the product table. They can be multiple
+   * megabytes per product.
    */
   if (
     !imageUrl ||
@@ -49,12 +49,8 @@ function getProductImageUrl(product) {
   }
 
   /*
-   * Cloudinary thumbnails:
-   * - 120px square crop for the table
-   * - automatic format selection
-   * - automatic quality optimization
-   *
-   * External Open Food Facts URLs stay unchanged.
+   * Use small optimized Cloudinary thumbnails
+   * in the product list.
    */
   if (
     imageUrl.includes(
@@ -68,6 +64,12 @@ function getProductImageUrl(product) {
     );
   }
 
+  /*
+   * Keep external URLs working for now.
+   * If external image loading remains slow,
+   * change this final return to '' so the table
+   * always uses the fallback avatar instead.
+   */
   return imageUrl;
 }
 
@@ -80,8 +82,9 @@ function ProductTableImage({ product }) {
   const imageUrl =
     getProductImageUrl(product);
 
-  const productName =
-    String(product?.name || 'Product');
+  const productName = String(
+    product?.name || 'Product'
+  );
 
   React.useEffect(() => {
     setImageFailed(false);
@@ -126,7 +129,8 @@ export default function ProductTable({
   onReceive,
   onArchive,
   onDelete,
-  readOnly = false
+  readOnly = false,
+  allowOfflineReceive = false
 }) {
   const safeProducts = Array.isArray(products)
     ? products.filter(
@@ -160,12 +164,21 @@ export default function ProductTable({
             const productId =
               getProductId(product);
 
+            const canReceive =
+              Boolean(productId) &&
+              (
+                !readOnly ||
+                allowOfflineReceive
+              );
+
             return (
               <tr
                 key={
                   productId ||
                   `${product.name || 'product'}-${
-                    product.barcode || product.sku || ''
+                    product.barcode ||
+                    product.sku ||
+                    ''
                   }`
                 }
               >
@@ -268,11 +281,17 @@ export default function ProductTable({
                       type="button"
                       className="row-icon"
                       title={
-                        readOnly
-                          ? 'Unavailable in cached view'
-                          : 'Add stock'
+                        !productId
+                          ? 'This product has not synchronized with the server yet'
+                          : readOnly &&
+                              !allowOfflineReceive
+                            ? 'Unavailable in cached view'
+                            : readOnly &&
+                                allowOfflineReceive
+                              ? 'Save a Receive Stock receipt on this device while offline'
+                              : 'Add stock'
                       }
-                      disabled={readOnly}
+                      disabled={!canReceive}
                       onClick={() =>
                         onReceive?.(product)
                       }
@@ -287,10 +306,27 @@ export default function ProductTable({
                             className="row-icon"
                             title={
                               readOnly
-                                ? 'Open editor; offline saves remain local'
+                                ? 'Editing requires an internet connection'
                                 : 'Edit'
                             }
                             to={`/products/${productId}/edit`}
+                            onClick={event => {
+                              if (readOnly) {
+                                event.preventDefault();
+                              }
+                            }}
+                            aria-disabled={
+                              readOnly
+                            }
+                            style={
+                              readOnly
+                                ? {
+                                    opacity: 0.45,
+                                    pointerEvents:
+                                      'none'
+                                  }
+                                : undefined
+                            }
                           >
                             <Pencil size={16} />
                           </Link>
@@ -322,7 +358,7 @@ export default function ProductTable({
                           className="row-icon warning-icon"
                           title={
                             readOnly
-                              ? 'Unavailable in cached view'
+                              ? 'Archiving requires an internet connection'
                               : 'Archive'
                           }
                           disabled={readOnly}
@@ -338,7 +374,7 @@ export default function ProductTable({
                           className="row-icon danger-icon"
                           title={
                             readOnly
-                              ? 'Unavailable in cached view'
+                              ? 'Deleting requires an internet connection'
                               : 'Delete'
                           }
                           disabled={readOnly}

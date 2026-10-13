@@ -1,53 +1,114 @@
-import React, { useEffect } from 'react';
+import React, {
+  useEffect,
+  useRef
+} from 'react';
+
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
+
+import {
+  BrowserRouter
+} from 'react-router-dom';
+
+import {
+  Toaster
+} from 'react-hot-toast';
 
 import App from './App';
-import { AuthProvider } from './context/AuthContext';
-import { SocketProvider } from './context/SocketContext';
+
+import {
+  AuthProvider
+} from './context/AuthContext';
+
+import {
+  SocketProvider
+} from './context/SocketContext';
+
 import ErrorBoundary from './components/common/ErrorBoundary';
 
-import { useOnlineStatus } from './hooks/useOnlineStatus.js';
 import {
-  syncPendingProductDrafts,
-  hasSyncableProductDrafts
+  useOnlineStatus
+} from './hooks/useOnlineStatus.js';
+
+import {
+  hasSyncableProductDrafts,
+  syncPendingProductDrafts
 } from './services/productOutbox.js';
+
+import {
+  hasSyncableStockReceipts,
+  syncPendingStockReceipts
+} from './services/stockOutbox.js';
 
 import './styles.css';
 
-function OfflineProductSyncWatcher() {
+function OfflineSyncWatcher() {
   const isOnline = useOnlineStatus();
 
+  const syncingRef = useRef(false);
+
   useEffect(() => {
-    if (!isOnline) {
+    if (!isOnline || syncingRef.current) {
       return;
     }
 
-    if (!hasSyncableProductDrafts()) {
+    const hasProductDrafts =
+      hasSyncableProductDrafts();
+
+    const hasStockReceipts =
+      hasSyncableStockReceipts();
+
+    if (
+      !hasProductDrafts &&
+      !hasStockReceipts
+    ) {
       return;
     }
 
     let cancelled = false;
 
     async function runSync() {
-      try {
-        const result =
-          await syncPendingProductDrafts();
+      syncingRef.current = true;
 
-        if (
-          !cancelled &&
-          result.synced > 0
-        ) {
-          console.log(
-            `Synchronized ${result.synced} offline product draft(s).`
-          );
+      try {
+        /*
+         * Product creation must happen before stock
+         * receiving in case a user created a product
+         * offline, then prepared a stock receipt for it.
+         */
+        if (hasProductDrafts) {
+          const productResult =
+            await syncPendingProductDrafts();
+
+          if (
+            !cancelled &&
+            productResult.synced > 0
+          ) {
+            console.log(
+              `Synchronized ${productResult.synced} offline product draft(s).`
+            );
+          }
+        }
+
+        if (hasStockReceipts) {
+          const stockResult =
+            await syncPendingStockReceipts();
+
+          if (
+            !cancelled &&
+            stockResult.synced > 0
+          ) {
+            console.log(
+              `Synchronized ${stockResult.synced} offline stock receipt(s).`
+            );
+          }
         }
       } catch (error) {
         console.error(
-          'Automatic offline product synchronization failed:',
+          'Automatic offline synchronization failed:',
           error
         );
+      } finally {
+        syncingRef.current = false;
       }
     }
 
@@ -87,7 +148,7 @@ ReactDOM.createRoot(
       <ErrorBoundary>
         <AuthProvider>
           <SocketProvider>
-            <OfflineProductSyncWatcher />
+            <OfflineSyncWatcher />
 
             <App />
 

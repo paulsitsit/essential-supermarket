@@ -257,10 +257,25 @@ export async function listProducts(
   }
 
   const products = await Product.find(filter)
+    .select('-legacyBase64Image')
     .populate('category supplier', 'name')
     .sort({
       updatedAt: -1
-    });
+    })
+    .lean();
+
+  /*
+   * Legacy Base64 images can be several MB each and make
+   * this response huge. Never send them in the list.
+   */
+  for (const product of products) {
+    if (
+      typeof product.imageUrl === 'string' &&
+      product.imageUrl.startsWith('data:image/')
+    ) {
+      product.imageUrl = '';
+    }
+  }
 
   res.json(products);
 }

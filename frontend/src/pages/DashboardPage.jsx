@@ -216,7 +216,7 @@ function ActivityDetails({ kind, row, compact = false }) {
 
       {compact && products.length > 5 && (
         <div style={{ marginTop: 8, opacity: 0.75 }}>
-          +{products.length - 5} more products. Click to view all.
+          +{products.length - 5} more products.
         </div>
       )}
 
@@ -224,12 +224,6 @@ function ActivityDetails({ kind, row, compact = false }) {
         <div style={{ marginTop: 10, fontSize: 10, opacity: 0.75 }}>
           Product values are gross item subtotals.
           Refunds are shown at day level, not allocated to products.
-        </div>
-      )}
-
-      {compact && (
-        <div style={{ marginTop: 10, fontSize: 10, opacity: 0.75 }}>
-          Click a bar, point, or day button to keep details open.
         </div>
       )}
     </div>
@@ -259,43 +253,6 @@ function ActivityTooltip({ active, payload, kind }) {
   );
 }
 
-function DayButtons({ rows, selectedDate, onSelect }) {
-  return (
-    <div
-      aria-label="Choose a day to view activity details"
-      style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 6,
-        marginTop: 8
-      }}
-    >
-      {rows.map(row => (
-        <button
-          key={row.date || row.label}
-          type="button"
-          className="secondary-btn"
-          aria-pressed={selectedDate === row.date}
-          aria-label={`View activity for ${row.fullDate || row.label}`}
-          title={row.fullDate || row.label}
-          onClick={() => onSelect(row)}
-          style={{
-            minHeight: 34,
-            padding: '0 10px',
-            fontSize: 11,
-            outline:
-              selectedDate === row.date
-                ? '2px solid #22c55e'
-                : undefined
-          }}
-        >
-          {row.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 export default function DashboardPage() {
   const { account } = useAuth();
   const { lastEvent } = useSocket();
@@ -308,11 +265,7 @@ export default function DashboardPage() {
   const [firstRowCount, setFirstRowCount] = useState(1);
   const [isMobile, setIsMobile] = useState(false);
 
-  // Store only the selection so socket refreshes use fresh chart data.
-  const [selectedActivity, setSelectedActivity] = useState(null);
-
   const summaryMeasureRef = useRef(null);
-  const detailsRef = useRef(null);
   const requestSequence = useRef(0);
 
   async function load() {
@@ -419,36 +372,6 @@ export default function DashboardPage() {
     };
   }, [data]);
 
-  useEffect(() => {
-    if (selectedActivity) {
-      detailsRef.current?.focus({ preventScroll: true });
-    }
-  }, [selectedActivity]);
-
-  function selectDay(kind, row) {
-    if (!row?.date) return;
-    setSelectedActivity({ kind, date: row.date });
-  }
-
-  function handleChartClick(kind, chartState, rows) {
-    const payload = chartState?.activePayload?.[0]?.payload;
-
-    if (payload?.date) {
-      selectDay(kind, payload);
-      return;
-    }
-
-    const index = chartState?.activeTooltipIndex;
-
-    if (
-      index !== null &&
-      index !== undefined &&
-      index !== '' &&
-      rows[Number(index)]
-    ) {
-      selectDay(kind, rows[Number(index)]);
-    }
-  }
 
   if (error) {
     return (
@@ -479,14 +402,6 @@ export default function DashboardPage() {
   const categoryData = data.categoryData || [];
   const bestSeller = data.bestSeller;
 
-  const selectedRows =
-    selectedActivity?.kind === 'sales'
-      ? salesActivity
-      : weeklyActivity;
-
-  const selectedRow = selectedRows.find(
-    row => row.date === selectedActivity?.date
-  );
 
   const firstName = account?.fullName
     ? account.fullName.split(' ')[0]
@@ -748,7 +663,6 @@ export default function DashboardPage() {
             <div>
               <h3>Weekly Activity</h3>
               <p>Inventory movement trend (last 7 days)</p>
-              <p>Hover for a preview. Click or tap for details.</p>
             </div>
             <span className="analytics-badge">Last 7 days</span>
           </div>
@@ -757,9 +671,6 @@ export default function DashboardPage() {
             <BarChart
               data={weeklyActivity}
               margin={chartMargin}
-              onClick={state =>
-                handleChartClick('movement', state, weeklyActivity)
-              }
             >
               <CartesianGrid
                 strokeDasharray="4 4"
@@ -792,23 +703,10 @@ export default function DashboardPage() {
                 name="Units moved"
                 fill="#22c55e"
                 radius={[6, 6, 0, 0]}
-                style={{ cursor: 'pointer' }}
-                onClick={entry =>
-                  selectDay('movement', entry?.payload || entry)
-                }
               />
             </BarChart>
           </ResponsiveContainer>
 
-          <DayButtons
-            rows={weeklyActivity}
-            selectedDate={
-              selectedActivity?.kind === 'movement'
-                ? selectedActivity.date
-                : null
-            }
-            onSelect={row => selectDay('movement', row)}
-          />
         </GlassCard>
 
         <GlassCard className="stock-line-card">
@@ -816,7 +714,6 @@ export default function DashboardPage() {
             <div>
               <h3>Sales Activity</h3>
               <p>Net revenue trend (last 7 days)</p>
-              <p>Hover for a preview. Click or tap for details.</p>
             </div>
             <span className="analytics-badge">Last 7 days</span>
           </div>
@@ -825,9 +722,6 @@ export default function DashboardPage() {
             <LineChart
               data={salesActivity}
               margin={chartMargin}
-              onClick={state =>
-                handleChartClick('sales', state, salesActivity)
-              }
             >
               <CartesianGrid
                 strokeDasharray="4 4"
@@ -874,67 +768,14 @@ export default function DashboardPage() {
                   r: 7,
                   fill: '#3b82f6',
                   stroke: '#ffffff',
-                  strokeWidth: 2,
-                  onClick: (event, point) =>
-                    selectDay('sales', point?.payload)
+                  strokeWidth: 2
                 }}
               />
             </LineChart>
           </ResponsiveContainer>
 
-          <DayButtons
-            rows={salesActivity}
-            selectedDate={
-              selectedActivity?.kind === 'sales'
-                ? selectedActivity.date
-                : null
-            }
-            onSelect={row => selectDay('sales', row)}
-          />
         </GlassCard>
       </div>
-
-      {selectedActivity && (
-        <section
-          ref={detailsRef}
-          tabIndex={-1}
-          aria-label="Selected day activity details"
-          style={{ marginBottom: 16, scrollMarginTop: 90 }}
-        >
-          <GlassCard className="stock-line-card">
-            <div className="section-heading">
-              <div>
-                <h3>
-                  {selectedActivity.kind === 'sales'
-                    ? 'Sales details'
-                    : 'Inventory movement details'}
-                </h3>
-                <p>
-                  Details stay open until you close them or select
-                  another day.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                className="secondary-btn"
-                onClick={() => setSelectedActivity(null)}
-              >
-                Close
-              </button>
-            </div>
-
-            {selectedRow ? (
-              <ActivityDetails
-                kind={selectedActivity.kind}
-                row={selectedRow}
-              />
-            ) : (
-              <p>This day is no longer in the current seven-day range.</p>
-            )}
-          </GlassCard>
-        </section>
-      )}
 
       <div className="stock-price-section">
         <GlassCard className="stock-line-card">

@@ -186,11 +186,11 @@ export default function App() {
               />
             </Route>
 
-            {/* All signed-in inventory roles */}
+            {/* Admin and Manager only: Sales and alerts */}
             <Route
               element={
                 <ProtectedRoute
-                  roles={STAFF_ROLES}
+                  roles={MANAGEMENT_ROLES}
                 />
               }
             >
@@ -205,11 +205,6 @@ export default function App() {
               />
 
               <Route
-                path="scanner"
-                element={<ScannerPage />}
-              />
-
-              <Route
                 path="alerts/low-stock"
                 element={<LowStockAlertsPage />}
               />
@@ -217,6 +212,20 @@ export default function App() {
               <Route
                 path="alerts/expiration"
                 element={<ExpirationAlertsPage />}
+              />
+            </Route>
+
+            {/* All signed-in inventory roles: Scanner */}
+            <Route
+              element={
+                <ProtectedRoute
+                  roles={STAFF_ROLES}
+                />
+              }
+            >
+              <Route
+                path="scanner"
+                element={<ScannerPage />}
               />
             </Route>
           </Route>

@@ -1,3 +1,4 @@
+
 import {
   Navigate,
   Outlet,
@@ -45,9 +46,14 @@ export default function ProtectedRoute({
     allowedRoles &&
     !allowedRoles.includes(userRole)
   ) {
+    const fallbackPath =
+      userRole === 'staff'
+        ? '/scanner'
+        : '/dashboard';
+
     return (
       <Navigate
-        to="/sales"
+        to={fallbackPath}
         replace
       />
     );

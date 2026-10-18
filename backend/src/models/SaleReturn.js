@@ -68,4 +68,6 @@ const schema = new mongoose.Schema(
   { timestamps: true, collection: 'saleReturns' }
 );
 
+schema.index({ createdAt: -1 });
+
 export default mongoose.model('SaleReturn', schema);

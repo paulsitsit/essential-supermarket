@@ -318,17 +318,25 @@ export default function DashboardPage() {
   async function load() {
     const requestId = ++requestSequence.current;
 
+    // Load the two requests independently so the slow summary
+    // does not block the stock panel (and vice versa).
+    const summaryRequest = client
+      .get('/dashboard/summary')
+      .then(res => {
+        if (requestId !== requestSequence.current) return;
+        setData(res.data);
+        setError('');
+      });
+
+    const stockRequest = client
+      .get('/dashboard/real-time-stock')
+      .then(res => {
+        if (requestId !== requestSequence.current) return;
+        setStock(res.data);
+      });
+
     try {
-      const [summary, realtime] = await Promise.all([
-        client.get('/dashboard/summary'),
-        client.get('/dashboard/real-time-stock')
-      ]);
-
-      if (requestId !== requestSequence.current) return;
-
-      setData(summary.data);
-      setStock(realtime.data);
-      setError('');
+      await Promise.all([summaryRequest, stockRequest]);
     } catch (err) {
       if (requestId !== requestSequence.current) return;
 
@@ -347,8 +355,14 @@ export default function DashboardPage() {
     };
   }, []);
 
+  // Debounce socket-triggered refreshes: a burst of stock events
+  // would otherwise rerun the whole dashboard aggregation each time.
   useEffect(() => {
-    if (lastEvent) load();
+    if (!lastEvent) return undefined;
+
+    const timer = setTimeout(load, 1500);
+
+    return () => clearTimeout(timer);
   }, [lastEvent]);
 
   useEffect(() => {

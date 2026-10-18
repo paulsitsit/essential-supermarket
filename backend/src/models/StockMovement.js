@@ -142,6 +142,8 @@ schema.pre('findOneAndUpdate', function(next) {
   next();
 });
 
+// Dashboard counts/aggregates filter by createdAt alone.
+schema.index({ createdAt: -1 });
 schema.index({ product: 1, createdAt: -1 });
 schema.index({ movementType: 1, createdAt: -1 });
 schema.index({ referenceType: 1, referenceId: 1 });

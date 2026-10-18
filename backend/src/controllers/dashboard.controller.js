@@ -543,26 +543,49 @@ export async function summary(req, res) {
 }
 
 export async function realtimeStock(req, res) {
+  // lean + no Base64 backup: these rows can otherwise carry
+  // multi-MB legacy Base64 images.
+  const projection = '-legacyBase64Image';
+
   const [recent, lowStock, outOfStock] = await Promise.all([
     Product.find({ isArchived: false })
+      .select(projection)
       .sort({ updatedAt: -1 })
       .limit(10)
-      .populate('category supplier', 'name'),
+      .populate('category supplier', 'name')
+      .lean(),
 
     Product.find({
       isArchived: false,
       status: 'low_stock'
     })
+      .select(projection)
       .sort({ currentStock: 1 })
-      .limit(10),
+      .limit(10)
+      .lean(),
 
     Product.find({
       isArchived: false,
       status: 'out_of_stock'
     })
+      .select(projection)
       .sort({ updatedAt: -1 })
       .limit(10)
+      .lean()
   ]);
+
+  for (const product of [
+    ...recent,
+    ...lowStock,
+    ...outOfStock
+  ]) {
+    if (
+      typeof product.imageUrl === 'string' &&
+      product.imageUrl.startsWith('data:image/')
+    ) {
+      product.imageUrl = '';
+    }
+  }
 
   res.json({ recent, lowStock, outOfStock });
 }

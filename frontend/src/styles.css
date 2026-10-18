@@ -4438,20 +4438,26 @@ body.dark-mode .sidebar .logout-btn {
 }
 
 /* =========================================================
-   NON-DASHBOARD PAGE SCROLL CONTAINERS
-   Dashboard layout is intentionally excluded.
+   NON-DASHBOARD TABLE SCROLLING
+   Keep normal page scrolling; constrain scrolling to tables.
+   Dashboard charts and cards are not targeted.
    ========================================================= */
-.main-shell,
-.page-content {
+
+.table-card,
+.table-card.glass-card {
   min-width: 0;
   max-width: 100%;
+  overflow: hidden;
 }
 
-/* Confine horizontal and vertical scrolling to data tables. */
-.table-wrap {
+/* Scroll inside the table only when it exceeds the available height or width.
+   max-height lets short tables remain compact. */
+.table-card .table-wrap {
+  display: block;
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  max-height: min(62vh, 620px);
   overflow: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
@@ -4459,92 +4465,49 @@ body.dark-mode .sidebar .logout-btn {
   scrollbar-color: #64748b rgba(148, 163, 184, 0.12);
 }
 
-.data-table {
-  width: 100%;
+/* Keep columns readable; horizontal scrolling stays inside .table-wrap. */
+.table-card .data-table {
+  width: max-content;
   min-width: 1100px;
   border-collapse: collapse;
 }
 
-.data-table th,
-.data-table td {
-  white-space: nowrap;
-}
-
-.table-wrap .data-table thead th {
+/* Keep the header visible while scrolling vertically inside the table. */
+.table-card .table-wrap .data-table thead th {
   position: sticky;
   top: 0;
   z-index: 2;
   background: #1b293c;
 }
 
-.table-wrap .row-actions {
+/* Keep row action buttons together without shrinking. */
+.table-card .table-wrap .row-actions {
   display: flex;
   flex-wrap: nowrap;
   gap: 4px;
   width: max-content;
 }
 
-.table-card,
-.table-card.glass-card,
-.report-result,
-.alerts-container {
-  min-width: 0;
-  max-width: 100%;
-}
-
-.table-wrap::-webkit-scrollbar {
+.table-card .table-wrap::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
-.table-wrap::-webkit-scrollbar-thumb {
+.table-card .table-wrap::-webkit-scrollbar-thumb {
   background: #64748b;
   border-radius: 10px;
 }
 
-.table-wrap::-webkit-scrollbar-track {
+.table-card .table-wrap::-webkit-scrollbar-track {
   background: rgba(148, 163, 184, 0.10);
 }
 
-@media (max-width: 850px) {
-  .page-content {
-    padding-left: 18px;
-    padding-right: 18px;
-  }
-
-  .table-card {
-    overflow: hidden;
-  }
-
-  .table-wrap {
-    max-height: 65vh;
-  }
-
-  .filter-panel {
-    min-width: 0;
-  }
-
-  .filter-panel > * {
-    min-width: 0;
-    max-width: 100%;
-  }
-}
-
 @media (max-width: 620px) {
-  .page-content {
-    padding: 16px 12px;
-  }
-
-  .table-wrap {
+  .table-card .table-wrap {
     max-height: 60vh;
   }
 
-  .table-card,
-  .table-card.glass-card {
-    border-radius: 14px;
-  }
-
-  .data-table {
+  .table-card .data-table {
     min-width: 1100px;
   }
 }

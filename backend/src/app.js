@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import compression from 'compression';
 import morgan from 'morgan';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -105,10 +106,16 @@ const corsOptions = {
     'X-Requested-With'
   ],
 
+  // let browsers cache the preflight for 24h (saves a round trip per request)
+  maxAge: 86400,
+
   optionsSuccessStatus: 204
 };
 
 app.use(helmet());
+
+// gzip JSON responses (compression was installed but never used)
+app.use(compression());
 
 app.use(cors(corsOptions));
 

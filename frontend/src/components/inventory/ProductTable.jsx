@@ -65,12 +65,10 @@ function getProductImageUrl(product) {
   }
 
   /*
-   * Keep external URLs working for now.
-   * If external image loading remains slow,
-   * change this final return to '' so the table
-   * always uses the fallback avatar instead.
+   * External URLs (e.g. Open Food Facts) are slow and
+   * block the table, so use the fallback avatar instead.
    */
-  return imageUrl;
+  return '';
 }
 
 function ProductTableImage({ product }) {

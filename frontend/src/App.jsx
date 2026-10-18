@@ -1,3 +1,4 @@
+
 import {
   Navigate,
   Route,
@@ -61,11 +62,12 @@ export default function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
+            {/* Default route */}
             <Route
               index
               element={
                 <Navigate
-                  to="/sales"
+                  to="/dashboard"
                   replace
                 />
               }
@@ -220,11 +222,12 @@ export default function App() {
           </Route>
         </Route>
 
+        {/* Unknown routes return to Dashboard */}
         <Route
           path="*"
           element={
             <Navigate
-              to="/sales"
+              to="/dashboard"
               replace
             />
           }

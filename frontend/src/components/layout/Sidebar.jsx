@@ -1,3 +1,4 @@
+
 import { NavLink } from 'react-router-dom';
 
 import {
@@ -77,7 +78,7 @@ const groups = [
         label: 'Sales',
         path: '/sales',
         icon: ShoppingCart,
-        roles: ['admin', 'manager', 'staff']
+        roles: ['admin', 'manager']
       },
       {
         label: 'Inventory',
@@ -113,13 +114,13 @@ const groups = [
         label: 'Low-stock alerts',
         path: '/alerts/low-stock',
         icon: ShieldAlert,
-        roles: ['admin', 'manager', 'staff']
+        roles: ['admin', 'manager']
       },
       {
         label: 'Expiration alerts',
         path: '/alerts/expiration',
         icon: CalendarClock,
-        roles: ['admin', 'manager', 'staff']
+        roles: ['admin', 'manager']
       }
     ]
   },

@@ -4353,3 +4353,58 @@ body.dark-mode .sidebar .logout-btn {
   overflow-wrap: anywhere;
 }
 }
+/* Fix dashboard summary cards: prevent values from overlapping neighboring cards */
+.summary-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 165px), 1fr));
+}
+
+.summary-grid .summary-link {
+  min-width: 0;
+  width: 100%;
+}
+
+.summary-grid .summary-card {
+  min-width: 0;
+  width: 100%;
+  gap: 10px;
+}
+
+.summary-grid .summary-card > div:last-child {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.summary-grid .summary-card p,
+.summary-grid .summary-card h2,
+.summary-grid .summary-card small {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.summary-grid .summary-card h2 {
+  font-size: clamp(15px, 1.35vw, 22px);
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+}
+
+@media (max-width: 620px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .summary-grid .summary-card {
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .summary-grid .summary-card h2 {
+    font-size: clamp(15px, 4vw, 19px);
+  }
+}
+
+@media (max-width: 390px) {
+  .summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

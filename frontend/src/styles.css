@@ -5244,3 +5244,296 @@ body.dark-mode .sidebar .logout-btn {
     transition: none;
   }
 }
+
+/* =====================================================
+   MOBILE RESPONSIVE LOGIN — FINAL OVERRIDES
+   ===================================================== */
+
+@media (max-width: 760px) {
+  .login-showcase {
+    display: block;
+    width: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 16px 12px;
+    overflow-x: clip;
+    overflow-y: auto;
+  }
+
+  .login-showcase-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 22px;
+    width: 100%;
+    min-width: 0;
+    min-height: auto;
+    padding: clamp(16px, 4vw, 25px);
+    border-radius: 22px;
+  }
+
+  .login-intro {
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* Compact branding */
+  .showcase-brand {
+    gap: 11px;
+    min-width: 0;
+  }
+
+  .showcase-logo {
+    width: 52px;
+    height: 52px;
+    flex: 0 0 52px;
+  }
+
+  .showcase-brand-copy {
+    min-width: 0;
+  }
+
+  .showcase-brand-copy h1 {
+    font-size: clamp(15px, 4vw, 20px);
+    overflow-wrap: anywhere;
+  }
+
+  .showcase-brand-copy p {
+    font-size: 10px;
+    line-height: 1.5;
+  }
+
+  /* Text stays readable over the blended team photo */
+  .intro-copy {
+    position: relative;
+    z-index: 2;
+    max-width: 100%;
+    margin-top: 27px;
+  }
+
+  .intro-copy h2 {
+    max-width: 100%;
+    font-size: clamp(30px, 7.5vw, 43px);
+    line-height: 1.08;
+    overflow-wrap: anywhere;
+  }
+
+  .intro-copy h2 > small {
+    font-size: 0.66em;
+    line-height: 1.25;
+  }
+
+  .intro-description {
+    max-width: 100%;
+    font-size: 12px;
+    line-height: 1.7;
+  }
+
+  .team-photo-wrap {
+    top: 65px;
+    right: -8px;
+    width: 75%;
+    height: 290px;
+    opacity: 0.28;
+  }
+
+  /* Keep all three feature cards visible */
+  .feature-grid {
+    position: relative;
+    z-index: 2;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 20px;
+    padding-top: 0;
+  }
+
+  .feature-card {
+    min-width: 0;
+    padding: 12px 9px;
+    border-radius: 12px;
+    overflow-wrap: anywhere;
+  }
+
+  .feature-icon {
+    width: 22px;
+    height: 22px;
+    margin-bottom: 8px;
+  }
+
+  .feature-card h3 {
+    font-size: 10px;
+    line-height: 1.4;
+  }
+
+  .feature-card p {
+    font-size: 9px;
+    line-height: 1.5;
+  }
+
+  .intro-footnote {
+    margin-top: 14px;
+    font-size: 10px;
+  }
+
+  /* Login card fills the available width */
+  .login-showcase .showcase-login-card {
+    align-self: stretch;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    padding: clamp(19px, 5vw, 27px);
+    border-radius: 18px;
+  }
+
+  .login-showcase .login-logo {
+    min-width: 0;
+    gap: 10px;
+    padding-bottom: 18px;
+  }
+
+  .login-showcase .brand-mark.large {
+    width: 46px;
+    height: 46px;
+    flex: 0 0 46px;
+  }
+
+  .login-showcase .login-logo > div:last-child {
+    min-width: 0;
+  }
+
+  .login-showcase .login-logo h1 {
+    font-size: clamp(12px, 3.5vw, 16px);
+    overflow-wrap: anywhere;
+  }
+
+  .login-showcase .login-logo p {
+    font-size: 9px;
+    line-height: 1.5;
+  }
+
+  .login-showcase .login-heading {
+    margin: 24px 0 20px;
+  }
+
+  .login-showcase .login-heading h2 {
+    font-size: clamp(24px, 6vw, 30px);
+  }
+
+  .login-showcase .login-heading p {
+    font-size: 11px;
+    line-height: 1.7;
+  }
+
+  .login-showcase .login-card form {
+    gap: 17px;
+  }
+
+  .login-showcase .input-wrap {
+    width: 100%;
+    min-width: 0;
+    min-height: 48px;
+  }
+
+  .login-showcase .input-wrap input {
+    min-width: 0;
+    width: 100%;
+    height: 46px;
+    font-size: 12px;
+  }
+
+  .login-showcase .showcase-submit {
+    min-height: 49px;
+    margin-top: 2px;
+  }
+
+  .showcase-login-footer {
+    margin-top: 20px;
+    padding-top: 15px;
+  }
+}
+
+/* Narrow phones */
+@media (max-width: 420px) {
+  .login-showcase {
+    padding: 10px 8px;
+  }
+
+  .login-showcase-panel {
+    gap: 18px;
+    padding: 15px 12px;
+    border-radius: 18px;
+  }
+
+  .showcase-brand-copy h1 {
+    font-size: 15px;
+  }
+
+  .intro-copy {
+    margin-top: 22px;
+  }
+
+  .intro-copy h2 {
+    font-size: clamp(28px, 8vw, 34px);
+  }
+
+  /* Cards become a readable vertical list on very narrow phones */
+  .feature-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .feature-card {
+    display: grid;
+    grid-template-columns: 27px minmax(0, 1fr);
+    column-gap: 10px;
+    align-items: center;
+    padding: 11px 12px;
+  }
+
+  .feature-icon {
+    grid-row: 1 / span 2;
+    margin: 0;
+  }
+
+  .feature-card h3 {
+    font-size: 11px;
+  }
+
+  .feature-card p {
+    margin-top: 3px;
+    font-size: 10px;
+  }
+
+  .login-showcase .showcase-login-card {
+    padding: 19px 14px;
+  }
+
+  .showcase-login-footer p {
+    font-size: 9px;
+  }
+}
+
+/* Extra-small screens */
+@media (max-width: 350px) {
+  .login-showcase-panel {
+    padding: 12px 9px;
+  }
+
+  .showcase-logo {
+    width: 44px;
+    height: 44px;
+    flex-basis: 44px;
+  }
+
+  .showcase-brand-copy h1 {
+    font-size: 13px;
+  }
+
+  .intro-copy h2 {
+    font-size: 27px;
+  }
+
+  .login-showcase .showcase-login-card {
+    padding: 17px 11px;
+  }
+}

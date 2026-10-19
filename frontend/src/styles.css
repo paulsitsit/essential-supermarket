@@ -5537,3 +5537,48 @@ body.dark-mode .sidebar .logout-btn {
     padding: 17px 11px;
   }
 }
+
+/* Make the team photo larger and more visible */
+@media (min-width: 761px) {
+  .login-showcase-panel {
+    grid-template-columns: minmax(0, 1.25fr) minmax(350px, 0.8fr);
+  }
+
+  .team-photo-wrap {
+    top: 75px;
+    right: -25px;
+    width: 82%;
+    height: 550px;
+    max-width: 650px;
+    opacity: 1;
+  }
+
+  .team-photo {
+    object-position: center 25%;
+    opacity: 0.92;
+  }
+
+  .intro-copy {
+    max-width: 650px;
+  }
+
+  .feature-grid {
+    margin-top: auto;
+  }
+}
+
+/* Larger photo on mobile too */
+@media (max-width: 760px) {
+  .team-photo-wrap {
+    top: 65px;
+    right: -5%;
+    width: 95%;
+    height: 340px;
+    opacity: 0.48;
+  }
+
+  .team-photo {
+    object-position: center 25%;
+    opacity: 1;
+  }
+}

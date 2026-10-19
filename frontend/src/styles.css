@@ -6295,3 +6295,123 @@ body.dark-mode .sidebar .logout-btn {
     transition-duration: 0.01ms !important;
   }
 }
+/* MOBILE LOGIN — MATCH THE REFERENCE IMAGE */
+@media (max-width: 760px) {
+  .login-showcase .login-showcase-panel {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch;
+    gap: 22px;
+    width: 100%;
+    max-width: 100%;
+    min-height: auto;
+    overflow: hidden;
+  }
+
+  .login-showcase .login-intro {
+    position: relative !important;
+    display: flex;
+    flex-direction: column;
+    min-height: auto;
+    overflow: visible !important;
+    isolation: isolate;
+  }
+
+  .login-showcase .showcase-brand,
+  .login-showcase .intro-copy {
+    position: relative;
+    z-index: 2;
+  }
+
+  /* Photo overlays the headline and feature cards */
+  .login-showcase .team-photo-wrap {
+    position: absolute !important;
+    top: 145px !important;
+    right: -5% !important;
+    bottom: 90px !important;
+    left: auto !important;
+
+    width: 110% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    aspect-ratio: auto !important;
+    margin: 0 !important;
+
+    display: block !important;
+    overflow: visible !important;
+    opacity: .58 !important;
+    z-index: 0 !important;
+    pointer-events: none;
+  }
+
+  .login-showcase .team-photo-wrap::before {
+    content: none !important;
+  }
+
+  .login-showcase .team-photo {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    object-fit: contain !important;
+    object-position: center top !important;
+    opacity: 1 !important;
+  }
+
+  /* Feature cards remain in normal flow and above the photo */
+  .login-showcase .feature-grid {
+    position: relative !important;
+    z-index: 3 !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 12px !important;
+    margin-top: 22px !important;
+    padding-top: 0 !important;
+  }
+
+  .login-showcase .feature-card {
+    display: grid !important;
+    grid-template-columns: 44px minmax(0, 1fr);
+    align-items: center;
+    column-gap: 12px;
+    row-gap: 4px;
+    min-height: 90px;
+    padding: 15px;
+  }
+
+  .login-showcase .feature-icon {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    margin: 0;
+  }
+
+  .login-showcase .feature-card h3,
+  .login-showcase .feature-card p {
+    grid-column: 2;
+    min-width: 0;
+  }
+
+  .login-showcase .intro-footnote {
+    position: relative;
+    z-index: 3;
+  }
+
+  .login-showcase .showcase-login-card {
+    position: relative;
+    z-index: 4;
+    align-self: stretch;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .login-showcase .team-photo-wrap {
+    top: 155px !important;
+    right: -7% !important;
+    bottom: 85px !important;
+    width: 114% !important;
+  }
+}

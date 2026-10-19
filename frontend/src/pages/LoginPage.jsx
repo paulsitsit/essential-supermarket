@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import {
   Activity,
@@ -14,7 +15,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../context/AuthContext';
 import Logo from '../assets/logo.png';
-import TeamPhoto from '../assets/team-photo.jpg';
+import TeamPhoto from '../assets/team-photo-transparent.png';
 import GhostFibers from './GhostFibers';
 
 const features = [
@@ -62,17 +63,15 @@ export default function LoginPage() {
 
     try {
       const account = await login(
-        form.email,
+        form.email.trim(),
         form.password
       );
 
       if (account?.role === 'cashier') {
         await logout({ redirect: false });
-
         setError(
           'Cashier accounts can only sign in through the Point of Sale system.'
         );
-
         return;
       }
 
@@ -100,8 +99,8 @@ export default function LoginPage() {
 
   return (
     <main className="login-page login-showcase">
-      {/* Keep the existing GhostFibers animation unchanged. */}
-      <div className="login-background">
+      {/* Existing animated background: GhostFibers.jsx is unchanged. */}
+      <div className="login-background" aria-hidden="true">
         <GhostFibers
           lineColor="#22C55E"
           glowColor="#FFFFFF"
@@ -143,7 +142,7 @@ export default function LoginPage() {
       />
 
       <div className="login-showcase-panel">
-        {/* LEFT: branding, team photo and feature cards */}
+        {/* LEFT: branding, large transparent team image and features */}
         <section className="login-intro">
           <div className="showcase-brand">
             <div className="showcase-logo">
@@ -156,14 +155,6 @@ export default function LoginPage() {
               </h1>
               <p>Inventory management system</p>
             </div>
-          </div>
-
-          <div className="team-photo-wrap" aria-hidden="true">
-            <img
-              className="team-photo"
-              src={TeamPhoto}
-              alt=""
-            />
           </div>
 
           <div className="intro-copy">
@@ -184,6 +175,16 @@ export default function LoginPage() {
             </p>
           </div>
 
+          {/* Transparent cutout, no rectangular photo background. */}
+          <div className="team-photo-wrap">
+            <img
+              className="team-photo"
+              src={TeamPhoto}
+              alt="The Essential Supermarket project team"
+              fetchPriority="high"
+            />
+          </div>
+
           <div className="feature-grid">
             {features.map(({ icon: Icon, title, description }) => (
               <article className="feature-card" key={title}>
@@ -191,6 +192,7 @@ export default function LoginPage() {
                   className="feature-icon"
                   size={27}
                   strokeWidth={2.2}
+                  aria-hidden="true"
                 />
                 <h3>{title}</h3>
                 <p>{description}</p>
@@ -199,12 +201,12 @@ export default function LoginPage() {
           </div>
 
           <p className="intro-footnote">
-            <ShieldCheck size={15} />
+            <ShieldCheck size={15} aria-hidden="true" />
             Smarter stock management starts here.
           </p>
         </section>
 
-        {/* RIGHT: actual working login form */}
+        {/* RIGHT: functional login form */}
         <section className="login-card glass-card showcase-login-card">
           <div className="login-logo">
             <div className="brand-mark large">
@@ -215,7 +217,7 @@ export default function LoginPage() {
               />
             </div>
 
-            <div>
+            <div className="login-logo-copy">
               <h1>
                 Essential<span>Supermarket</span>
               </h1>
@@ -267,7 +269,6 @@ export default function LoginPage() {
                   id="login-password"
                   type={showPassword ? 'text' : 'password'}
                   required
-                  minLength={8}
                   autoComplete="current-password"
                   value={form.password}
                   onChange={event =>
@@ -306,7 +307,7 @@ export default function LoginPage() {
           </form>
 
           <div className="showcase-login-footer">
-            <ShieldCheck size={15} />
+            <ShieldCheck size={15} aria-hidden="true" />
             <p>
               Authorized inventory accounts only.
               <span>

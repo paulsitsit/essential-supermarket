@@ -5582,3 +5582,716 @@ body.dark-mode .sidebar .logout-btn {
     opacity: 1;
   }
 }
+
+/* ==========================================================
+   ESSENTIAL SUPERMARKET LOGIN — TRANSPARENT TEAM PHOTO FIX
+   Append after the existing login styles.
+   ========================================================== */
+
+.login-showcase {
+  --team-green: #27ed9a;
+  --team-white: #f5fff9;
+  --team-muted: rgba(235, 255, 244, 0.78);
+
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: clamp(14px, 3vw, 44px);
+  overflow-x: clip;
+  background: #061812;
+}
+
+.login-showcase .login-background {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.login-showcase .login-background canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.login-showcase-panel {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.78fr);
+  align-items: stretch;
+  gap: clamp(24px, 3.5vw, 55px);
+  width: min(1600px, 100%);
+  min-width: 0;
+  min-height: min(720px, calc(100dvh - 48px));
+  padding: clamp(24px, 3.5vw, 56px);
+  border: 1px solid rgba(214, 255, 237, 0.5);
+  border-radius: 28px;
+  background: linear-gradient(
+    125deg,
+    rgba(15, 76, 60, 0.34),
+    rgba(7, 34, 35, 0.3),
+    rgba(27, 85, 82, 0.3)
+  );
+  box-shadow:
+    0 24px 90px rgba(0, 0, 0, 0.2),
+    inset 0 1px rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+}
+
+/* Left showcase panel */
+
+.login-showcase .login-intro {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 590px;
+  isolation: isolate;
+  color: var(--team-white);
+}
+
+.login-showcase .showcase-brand {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  min-width: 0;
+}
+
+.login-showcase .showcase-logo {
+  display: grid;
+  place-items: center;
+  width: clamp(64px, 7vw, 104px);
+  height: clamp(64px, 7vw, 104px);
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 2px solid rgba(101, 255, 179, 0.9);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 25px rgba(39, 237, 154, 0.2);
+}
+
+.login-showcase .showcase-logo img {
+  width: 100%;
+  height: 100%;
+  padding: 3px;
+  object-fit: contain;
+}
+
+.login-showcase .showcase-brand-copy {
+  min-width: 0;
+}
+
+.login-showcase .showcase-brand-copy h1 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(18px, 2.3vw, 32px);
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.05em;
+  overflow-wrap: anywhere;
+}
+
+.login-showcase .showcase-brand-copy h1 span,
+.login-showcase .login-logo h1 span {
+  color: var(--team-green);
+}
+
+.login-showcase .showcase-brand-copy p {
+  margin: 7px 0 0;
+  color: var(--team-muted);
+  font-size: 12px;
+}
+
+/* Text sits above the photo */
+
+.login-showcase .intro-copy {
+  position: relative;
+  z-index: 2;
+  max-width: 610px;
+  margin-top: clamp(35px, 5vh, 62px);
+}
+
+.login-showcase .showcase-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 13px;
+  color: #8fffc0;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.login-showcase .status-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: #4bffa9;
+  box-shadow: 0 0 12px rgba(75, 255, 169, 0.8);
+}
+
+.login-showcase .intro-copy h2 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(34px, 4vw, 59px);
+  font-weight: 800;
+  line-height: 1.04;
+  letter-spacing: -0.055em;
+  overflow-wrap: anywhere;
+}
+
+.login-showcase .intro-copy h2 > span,
+.login-showcase .intro-copy h2 > small {
+  display: block;
+}
+
+.login-showcase .intro-copy h2 > span {
+  color: var(--team-green);
+}
+
+.login-showcase .intro-copy h2 > small {
+  margin-top: 7px;
+  color: #fff;
+  font-size: 0.65em;
+  line-height: 1.2;
+  letter-spacing: -0.035em;
+}
+
+.login-showcase .intro-description {
+  max-width: 480px;
+  margin: 17px 0 0;
+  color: var(--team-muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+/* Large transparent cutout.
+   No masks, no fading, and no cropping of the faces. */
+
+.login-showcase .team-photo-wrap {
+  position: absolute;
+  z-index: 1;
+  right: -12px;
+  bottom: 48px;
+  width: min(78%, 690px);
+  height: 74%;
+  min-height: 390px;
+  max-height: 570px;
+  margin: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.login-showcase .team-photo {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: contain;
+  object-position: center bottom;
+  opacity: 1;
+  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.12));
+}
+
+/* Feature cards remain above the lower part of the cutout */
+
+.login-showcase .feature-grid {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 26px;
+}
+
+.login-showcase .feature-card {
+  min-width: 0;
+  padding: 15px 12px;
+  border: 1px solid rgba(104, 255, 189, 0.32);
+  border-radius: 15px;
+  background: rgba(3, 34, 29, 0.67);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.login-showcase .feature-icon {
+  margin-bottom: 10px;
+  color: var(--team-green);
+}
+
+.login-showcase .feature-card h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.login-showcase .feature-card p {
+  margin: 7px 0 0;
+  color: var(--team-muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.login-showcase .intro-footnote {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 15px 0 0;
+  color: rgba(224, 255, 239, 0.68);
+  font-size: 10px;
+}
+
+/* Right login card */
+
+.login-showcase .showcase-login-card {
+  position: relative;
+  z-index: 4;
+  align-self: center;
+  width: 100%;
+  min-width: 0;
+  padding: clamp(24px, 3vw, 43px);
+  border: 1px solid rgba(223, 255, 242, 0.65);
+  border-radius: 23px;
+  background: rgba(189, 238, 225, 0.14);
+  box-shadow:
+    0 24px 65px rgba(0, 0, 0, 0.16),
+    inset 0 1px rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.login-showcase .login-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding-bottom: 22px;
+  border-bottom: 1px solid rgba(232, 255, 243, 0.15);
+}
+
+.login-showcase .brand-mark.large {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
+  overflow: hidden;
+  border: 1px solid rgba(113, 255, 183, 0.75);
+  border-radius: 50%;
+  background: #fff;
+}
+
+.login-showcase .brand-logo-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 2px;
+  object-fit: contain;
+}
+
+.login-showcase .login-logo-copy {
+  min-width: 0;
+}
+
+.login-showcase .login-logo h1 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(13px, 1.4vw, 19px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  overflow-wrap: anywhere;
+}
+
+.login-showcase .login-logo p {
+  margin: 5px 0 0;
+  color: var(--team-muted);
+  font-size: 10px;
+}
+
+.login-showcase .login-heading {
+  margin: 28px 0 23px;
+}
+
+.login-showcase .login-heading h2 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(25px, 2.4vw, 35px);
+  font-weight: 800;
+  letter-spacing: -0.05em;
+}
+
+.login-showcase .login-heading p {
+  margin: 9px 0 0;
+  color: var(--team-muted);
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.login-showcase .login-card form {
+  display: flex;
+  flex-direction: column;
+  gap: 19px;
+}
+
+.login-showcase .login-card label {
+  display: block;
+  color: #f0fff6;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.login-showcase .input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  min-height: 50px;
+  margin-top: 7px;
+  padding: 0 12px;
+  color: #edfff5;
+  border: 1px solid rgba(227, 255, 242, 0.4);
+  border-radius: 12px;
+  background: rgba(228, 255, 245, 0.09);
+}
+
+.login-showcase .input-wrap:focus-within {
+  border-color: #5df9ae;
+  box-shadow: 0 0 0 3px rgba(39, 237, 154, 0.13);
+}
+
+.login-showcase .input-wrap > svg {
+  flex: 0 0 auto;
+}
+
+.login-showcase .input-wrap input {
+  width: 100%;
+  min-width: 0;
+  height: 48px;
+  padding: 0;
+  color: #fff;
+  background: transparent;
+  font-size: 12px;
+}
+
+.login-showcase .input-wrap input::placeholder {
+  color: rgba(235, 255, 245, 0.55);
+}
+
+.login-showcase .input-action {
+  display: grid;
+  place-items: center;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 36px;
+  padding: 0;
+  color: #edfff5;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.login-showcase .showcase-submit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 51px;
+  margin-top: 2px;
+  color: #fff;
+  border: 1px solid rgba(139, 255, 195, 0.65);
+  border-radius: 12px;
+  background: linear-gradient(105deg, #28e997, #0c995a);
+  box-shadow: 0 9px 25px rgba(0, 213, 120, 0.2);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.login-showcase .showcase-submit:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.login-showcase .showcase-login-footer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 22px;
+  padding-top: 17px;
+  border-top: 1px solid rgba(232, 255, 243, 0.15);
+  color: var(--team-muted);
+  text-align: center;
+}
+
+.login-showcase .showcase-login-footer > svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: #91f7bc;
+}
+
+.login-showcase .showcase-login-footer p {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.7;
+}
+
+.login-showcase .showcase-login-footer span {
+  display: block;
+}
+
+.login-showcase .form-error {
+  margin-bottom: 15px;
+  color: #ffe5e5;
+  border-color: rgba(255, 130, 130, 0.5);
+  background: rgba(128, 24, 36, 0.4);
+}
+
+/* Tablet: reduce the panel and image proportionally */
+
+@media (min-width: 761px) and (max-width: 1100px) {
+  .login-showcase-panel {
+    grid-template-columns: minmax(0, 1fr) minmax(310px, 0.86fr);
+    gap: 24px;
+    padding: 26px;
+  }
+
+  .login-showcase .login-intro {
+    min-height: 570px;
+  }
+
+  .login-showcase .team-photo-wrap {
+    right: -10px;
+    bottom: 65px;
+    width: 82%;
+    height: 62%;
+    min-height: 330px;
+  }
+
+  .login-showcase .intro-copy h2 {
+    font-size: clamp(32px, 4vw, 44px);
+  }
+
+  .login-showcase .feature-grid {
+    gap: 7px;
+  }
+
+  .login-showcase .feature-card {
+    padding: 12px 9px;
+  }
+}
+
+/* Mobile: stack the content and show the entire cutout */
+
+@media (max-width: 760px) {
+  .login-showcase {
+    display: block;
+    padding: 12px;
+    overflow-x: clip;
+    overflow-y: auto;
+  }
+
+  .login-showcase-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20px;
+    width: 100%;
+    min-height: auto;
+    padding: clamp(14px, 4vw, 24px);
+    border-radius: 20px;
+  }
+
+  .login-showcase .login-intro {
+    display: flex;
+    flex-direction: column;
+    min-height: auto;
+  }
+
+  .login-showcase .showcase-brand {
+    gap: 11px;
+  }
+
+  .login-showcase .showcase-logo {
+    width: 54px;
+    height: 54px;
+  }
+
+  .login-showcase .showcase-brand-copy h1 {
+    font-size: clamp(15px, 4vw, 21px);
+  }
+
+  .login-showcase .showcase-brand-copy p {
+    font-size: 10px;
+  }
+
+  .login-showcase .intro-copy {
+    margin-top: 25px;
+  }
+
+  .login-showcase .intro-copy h2 {
+    font-size: clamp(31px, 7.8vw, 46px);
+  }
+
+  .login-showcase .intro-copy h2 > small {
+    font-size: 0.67em;
+  }
+
+  .login-showcase .intro-description {
+    max-width: 100%;
+    font-size: 12px;
+  }
+
+  /* Important: mobile image is in normal document flow.
+     This prevents it from covering the form or being clipped. */
+  .login-showcase .team-photo-wrap {
+    position: relative;
+    inset: auto;
+    z-index: 1;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    aspect-ratio: 4 / 3;
+    margin: 8px auto 0;
+    overflow: visible;
+  }
+
+  .login-showcase .team-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center bottom;
+  }
+
+  .login-showcase .feature-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 0;
+  }
+
+  .login-showcase .feature-card {
+    padding: 11px 8px;
+    border-radius: 12px;
+  }
+
+  .login-showcase .feature-icon {
+    width: 22px;
+    height: 22px;
+    margin-bottom: 8px;
+  }
+
+  .login-showcase .feature-card h3 {
+    font-size: 10px;
+  }
+
+  .login-showcase .feature-card p {
+    font-size: 9px;
+  }
+
+  .login-showcase .showcase-login-card {
+    align-self: stretch;
+    width: 100%;
+    padding: clamp(19px, 5vw, 27px);
+    border-radius: 18px;
+  }
+
+  .login-showcase .login-logo {
+    padding-bottom: 17px;
+  }
+
+  .login-showcase .login-heading {
+    margin: 23px 0 19px;
+  }
+
+  .login-showcase .login-heading h2 {
+    font-size: clamp(25px, 6vw, 31px);
+  }
+}
+
+/* Small phones */
+
+@media (max-width: 420px) {
+  .login-showcase {
+    padding: 8px;
+  }
+
+  .login-showcase-panel {
+    gap: 16px;
+    padding: 14px 11px;
+  }
+
+  .login-showcase .showcase-logo {
+    width: 46px;
+    height: 46px;
+  }
+
+  .login-showcase .showcase-brand-copy h1 {
+    font-size: 15px;
+  }
+
+  .login-showcase .intro-copy h2 {
+    font-size: clamp(28px, 8vw, 34px);
+  }
+
+  .login-showcase .team-photo-wrap {
+    aspect-ratio: 1 / 1;
+  }
+
+  .login-showcase .feature-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .login-showcase .feature-card {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    column-gap: 10px;
+    align-items: center;
+  }
+
+  .login-showcase .feature-icon {
+    grid-row: 1 / span 2;
+    margin: 0;
+  }
+
+  .login-showcase .feature-card h3 {
+    font-size: 11px;
+  }
+
+  .login-showcase .feature-card p {
+    margin-top: 3px;
+    font-size: 10px;
+  }
+
+  .login-showcase .showcase-login-card {
+    padding: 19px 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-showcase *,
+  .login-showcase *::before,
+  .login-showcase *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

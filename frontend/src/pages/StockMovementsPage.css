@@ -1,0 +1,45 @@
+.stock-movements-actions { flex-wrap: wrap; }
+.stock-movements-print-header { display: none; }
+.movement-report-summary { margin-bottom: 16px; }
+.movement-summary-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.movement-summary-heading h2 { margin: 0; color: #1e5030; font-size: 14px; }
+.movement-summary-heading p { margin: 5px 0 0; color: #789484; font-size: 11px; }
+.movement-summary-heading > strong { flex: 0 0 auto; padding: 6px 10px; border-radius: 999px; color: #166534; background: #dcfce7; font-size: 11px; }
+.movement-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 9px; }
+.movement-summary-card { display: grid; gap: 5px; min-width: 0; padding: 12px; border: 1px solid rgba(22, 101, 52, .12); border-radius: 12px; background: rgba(255, 255, 255, .58); }
+.movement-summary-card span { overflow-wrap: anywhere; color: #64806d; font-size: 10px; font-weight: 600; }
+.movement-summary-card strong { color: #166534; font-size: 21px; letter-spacing: -.03em; }
+.movement-summary-card small { color: #789484; font-size: 10px; }
+.stock-movements-print-area .stock-movements-table-card { min-width: 0; }
+@media (max-width: 850px) {
+  .stock-movements-actions { margin-top: 16px; }
+  .stock-movements-actions .secondary-btn { flex: 1 1 auto; }
+}
+@media print {
+  @page { size: landscape; margin: 10mm; }
+  body.print-stock-movements, body.print-stock-movements #root { width: 100% !important; min-width: 0 !important; max-width: none !important; height: auto !important; overflow: visible !important; background: #fff !important; }
+  body.print-stock-movements * { visibility: hidden !important; }
+  body.print-stock-movements .stock-movements-print-area,
+  body.print-stock-movements .stock-movements-print-area * { visibility: visible !important; }
+  body.print-stock-movements .stock-movements-print-area { position: absolute !important; inset: 0 auto auto 0 !important; width: 100% !important; max-width: none !important; padding: 0 !important; margin: 0 !important; color: #111 !important; background: #fff !important; font-family: Arial, sans-serif !important; }
+  body.print-stock-movements .stock-movements-print-header { display: block !important; margin-bottom: 14px !important; }
+  body.print-stock-movements .stock-movements-print-header h1 { margin: 0 0 4px !important; color: #166534 !important; font-size: 18pt !important; }
+  body.print-stock-movements .stock-movements-print-header h2 { margin: 0 0 6px !important; color: #111 !important; font-size: 13pt !important; }
+  body.print-stock-movements .stock-movements-print-header p { margin: 3px 0 !important; color: #444 !important; font-size: 8pt !important; }
+  body.print-stock-movements .movement-report-summary { margin: 0 0 12px !important; break-inside: avoid; }
+  body.print-stock-movements .movement-summary-heading { margin-bottom: 6px !important; }
+  body.print-stock-movements .movement-summary-heading h2 { color: #111 !important; font-size: 10pt !important; }
+  body.print-stock-movements .movement-summary-heading p, body.print-stock-movements .movement-summary-heading > strong { display: none !important; }
+  body.print-stock-movements .movement-summary-grid { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; gap: 4px !important; }
+  body.print-stock-movements .movement-summary-card { gap: 2px !important; padding: 5px !important; border: 1px solid #ddd !important; border-radius: 0 !important; background: #fff !important; break-inside: avoid; }
+  body.print-stock-movements .movement-summary-card span, body.print-stock-movements .movement-summary-card small { color: #333 !important; font-size: 6.5pt !important; }
+  body.print-stock-movements .movement-summary-card strong { color: #111 !important; font-size: 10pt !important; }
+  body.print-stock-movements .stock-movements-table-card, body.print-stock-movements .stock-movements-table-card > * { border: 0 !important; border-radius: 0 !important; background: #fff !important; box-shadow: none !important; backdrop-filter: none !important; }
+  body.print-stock-movements .stock-movements-table-card { overflow: visible !important; }
+  body.print-stock-movements .table-wrap { width: 100% !important; overflow: visible !important; }
+  body.print-stock-movements .data-table { width: 100% !important; min-width: 0 !important; border-collapse: collapse !important; table-layout: fixed !important; }
+  body.print-stock-movements .data-table thead { display: table-header-group; }
+  body.print-stock-movements .data-table tr { break-inside: avoid; }
+  body.print-stock-movements .data-table th, body.print-stock-movements .data-table td { padding: 5px 4px !important; color: #111 !important; border: 1px solid #ccc !important; background: #fff !important; font-size: 7pt !important; overflow-wrap: anywhere; white-space: normal !important; }
+  body.print-stock-movements .movement-pill { color: #111 !important; border: 0 !important; background: transparent !important; padding: 0 !important; font-size: 7pt !important; }
+}

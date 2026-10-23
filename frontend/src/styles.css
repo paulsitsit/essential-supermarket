@@ -6415,3 +6415,47 @@ body.dark-mode .sidebar .logout-btn {
     width: 114% !important;
   }
 }
+/* MOBILE: SHOW LOGIN ONLY — KEEP DESKTOP SHOWCASE */
+@media (max-width: 760px) {
+  .login-page.login-showcase {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    place-items: center;
+    min-height: 100dvh;
+    padding: 18px 12px;
+    overflow-x: hidden;
+  }
+
+  /* Hide branding intro, team photo, headline, and feature cards */
+  .login-showcase .login-intro {
+    display: none !important;
+  }
+
+  /* Remove the outer showcase panel styling */
+  .login-showcase .login-showcase-panel {
+    display: block !important;
+    width: 100%;
+    max-width: 480px;
+    min-width: 0;
+    min-height: 0;
+    margin: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    overflow: visible;
+  }
+
+  /* Keep the login form visible and responsive */
+  .login-showcase .showcase-login-card {
+    display: block !important;
+    width: 100%;
+    max-width: 480px;
+    margin: 0;
+    padding: clamp(22px, 6vw, 32px);
+    border-radius: 24px;
+  }
+}

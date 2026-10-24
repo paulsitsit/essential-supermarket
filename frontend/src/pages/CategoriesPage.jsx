@@ -1,17 +1,332 @@
-import { useEffect, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Boxes,
+  Download,
+  PackageOpen,
+  Printer,
+  RefreshCw,
+  X
+} from 'lucide-react';
 import client from '../api/client';
 import GlassCard from '../components/common/GlassCard';
+import EmptyState from '../components/common/EmptyState';
 import ManagementTable from '../components/management/ManagementTable';
 import CategoryForm from '../components/management/CategoryForm';
 import ConfirmDialog from '../components/common/ConfirmDialog';
+import { dateTime, dateOnly } from '../utils/format';
 import { getErrorMessage } from '../utils/errors';
+import './CategoriesPage.css';
+
+function escapeCsvValue(value) {
+  if (value === null || value === undefined) return '';
+  let text = String(value);
+  // Prevent spreadsheet formula execution from imported/user-entered text.
+  if (/^[=+@\-\t\r]/.test(text)) text = `'${text}`;
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function downloadCategoryCsv(category, products) {
+  const headers = [
+    'Product', 'SKU', 'Barcode', 'Brand', 'Category', 'Supplier',
+    'Current Stock', 'Unit', 'Reorder Level', 'Status', 'Updated'
+  ];
+  const rows = products.map(product => [
+    product.name,
+    product.sku,
+    product.barcode,
+    product.brand,
+    product.category?.name || category.name,
+    product.supplier?.name || '',
+    Number(product.currentStock || 0),
+    product.unitType || 'piece',
+    Number(product.reorderLevel || 0),
+    product.status || '',
+    product.updatedAt ? dateTime(product.updatedAt) : ''
+  ]);
+  const csv = [headers, ...rows]
+    .map(row => row.map(escapeCsvValue).join(','))
+    .join('\r\n');
+  const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${String(category.name || 'category').trim().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'category'}-products-${new Date().toLocaleDateString('en-CA')}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 export default function CategoriesPage() {
-  const [rows, setRows] = useState([]); const [editing, setEditing] = useState(null); const [formOpen, setFormOpen] = useState(false); const [confirm, setConfirm] = useState(null); const [error, setError] = useState('');
-  async function load() { try { const { data } = await client.get('/categories'); setRows(data); } catch (err) { setError(getErrorMessage(err)); } }
-  useEffect(() => { load(); }, []);
-  async function remove() { try { await client.delete(`/categories/${confirm._id}`); setConfirm(null); load(); } catch (err) { setError(getErrorMessage(err)); setConfirm(null); } }
-  const columns = [{ key: 'name', label: 'Category', render: row => <strong>{row.name}</strong> }, { key: 'description', label: 'Description' }, { key: 'productCount', label: 'Products' }, { key: 'totalQuantity', label: 'Total quantity' }, { key: 'status', label: 'Status', render: row => <span className={`simple-status ${row.status}`}>{row.status}</span> }, { key: 'createdAt', label: 'Created' }];
-  return <div><div className="page-heading"><div><p className="eyebrow">PRODUCT ORGANIZATION</p><h1>Categories</h1><p>Organize registered supermarket products.</p></div><button className="primary-btn" onClick={() => { setEditing(null); setFormOpen(true); }}><Plus size={17} /> Add Category</button></div>{error && <div className="form-error page-message">{error}</div>}<GlassCard className="table-card"><ManagementTable columns={columns} rows={rows} onEdit={row => { setEditing(row); setFormOpen(true); }} onDelete={setConfirm} empty="No categories have been created." /></GlassCard>{formOpen && <div className="modal-backdrop"><div className="modal-card management-modal"><div className="modal-header"><h3>{editing ? 'Edit category' : 'Create category'}</h3></div><CategoryForm category={editing} onCancel={() => setFormOpen(false)} onSaved={() => { setFormOpen(false); load(); }} /></div></div>}<ConfirmDialog open={Boolean(confirm)} title="Delete category?" message={`Delete ${confirm?.name || 'this category'}? Categories assigned to products cannot be deleted.`} onCancel={() => setConfirm(null)} onConfirm={remove} danger confirmText="Delete" /></div>;
+  const [rows, setRows] = useState([]);
+  const [editing, setEditing] = useState(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [confirm, setConfirm] = useState(null);
+  const [error, setError] = useState('');
+  const [loadingCategories, setLoadingCategories] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [categoryProducts, setCategoryProducts] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [productsError, setProductsError] = useState('');
+  const productsRequest = useRef(0);
+
+  async function load() {
+    setLoadingCategories(true);
+    setError('');
+    try {
+      const { data } = await client.get('/categories');
+      const categories = Array.isArray(data) ? data : [];
+      setRows(categories);
+      setSelectedCategory(current => {
+        if (!current) return current;
+        return categories.find(item => item._id === current._id) || null;
+      });
+    } catch (err) {
+      setError(getErrorMessage(err, 'Unable to load categories.'));
+    } finally {
+      setLoadingCategories(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    return () => {
+      productsRequest.current += 1;
+    };
+  }, []);
+
+  async function openCategory(category) {
+    const requestId = ++productsRequest.current;
+    setSelectedCategory(category);
+    setCategoryProducts([]);
+    setProductsError('');
+    setLoadingProducts(true);
+    try {
+      const query = new URLSearchParams({ category: category._id });
+      const { data } = await client.get(`/products?${query.toString()}`);
+      if (requestId === productsRequest.current) {
+        setCategoryProducts(Array.isArray(data) ? data : []);
+      }
+    } catch (err) {
+      if (requestId === productsRequest.current) {
+        setProductsError(getErrorMessage(err, 'Unable to load products in this category.'));
+      }
+    } finally {
+      if (requestId === productsRequest.current) setLoadingProducts(false);
+    }
+  }
+
+  async function remove() {
+    if (!confirm) return;
+    try {
+      await client.delete(`/categories/${confirm._id}`);
+      if (selectedCategory?._id === confirm._id) {
+        productsRequest.current += 1;
+        setSelectedCategory(null);
+        setCategoryProducts([]);
+      }
+      setConfirm(null);
+      await load();
+    } catch (err) {
+      setError(getErrorMessage(err));
+      setConfirm(null);
+    }
+  }
+
+  function printReport() {
+    if (!selectedCategory) return;
+    const cleanup = () => document.body.classList.remove('print-category-report');
+    document.body.classList.add('print-category-report');
+    window.addEventListener('afterprint', cleanup, { once: true });
+    window.print();
+  }
+
+  const columns = [
+    { key: 'name', label: 'Category', render: row => <strong>{row.name}</strong> },
+    { key: 'description', label: 'Description' },
+    { key: 'productCount', label: 'Products' },
+    { key: 'totalQuantity', label: 'Total quantity' },
+    { key: 'status', label: 'Status', render: row => <span className={`simple-status ${row.status}`}>{row.status}</span> },
+    { key: 'createdAt', label: 'Created' }
+  ];
+
+  const totalStock = categoryProducts.reduce(
+    (total, product) => total + (Number(product.currentStock) || 0),
+    0
+  );
+
+  return (
+    <div className="categories-page">
+      <div className="page-heading category-screen-only">
+        <div>
+          <p className="eyebrow">PRODUCT ORGANIZATION</p>
+          <h1>Categories</h1>
+          <p>Choose a category to view its products, stock totals, and reports.</p>
+        </div>
+        <button
+          type="button"
+          className="primary-btn"
+          onClick={() => { setEditing(null); setFormOpen(true); }}
+        >
+          <Boxes size={17} /> Add Category
+        </button>
+      </div>
+
+      {error && <div className="form-error page-message category-screen-only">{error}</div>}
+
+      <section className="category-card-section category-screen-only">
+        <div className="category-section-heading">
+          <div>
+            <h2>Browse Categories</h2>
+            <p>Cards update automatically when categories are created or edited.</p>
+          </div>
+          <span className="category-count-badge">{rows.length} {rows.length === 1 ? 'category' : 'categories'}</span>
+        </div>
+
+        {loadingCategories ? (
+          <div className="page-loading">Loading categories...</div>
+        ) : rows.length ? (
+          <div className="category-card-grid">
+            {rows.map(category => (
+              <button
+                type="button"
+                key={category._id}
+                className={`category-overview-card${selectedCategory?._id === category._id ? ' selected' : ''}`}
+                onClick={() => openCategory(category)}
+                aria-pressed={selectedCategory?._id === category._id}
+              >
+                <span className="category-card-icon"><PackageOpen size={23} /></span>
+                <span className="category-card-main">
+                  <strong>{category.name}</strong>
+                  <small>{category.description || 'No description provided'}</small>
+                </span>
+                <span className="category-card-metrics">
+                  <span><strong>{Number(category.productCount || 0)}</strong><small>Products</small></span>
+                  <span><strong>{Number(category.totalQuantity || 0).toLocaleString()}</strong><small>Units in stock</small></span>
+                </span>
+                <span className={`category-card-status ${category.status === 'active' ? 'active' : 'inactive'}`}>
+                  {category.status || 'active'}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <GlassCard><EmptyState title="No categories yet" description="Add a category to create your first category card." /></GlassCard>
+        )}
+      </section>
+
+      {selectedCategory && (
+        <section className="category-report-section category-print-area">
+          <div className="category-report-print-heading">
+            <h1>Essential Supermarket</h1>
+            <h2>{selectedCategory.name} — Product Report</h2>
+            <p>{selectedCategory.description || 'Category inventory report'}</p>
+            <p>Generated: {dateTime(new Date())}</p>
+          </div>
+
+          <div className="category-report-toolbar category-screen-only">
+            <div className="category-report-title">
+              <span className="category-card-icon"><PackageOpen size={21} /></span>
+              <div>
+                <p className="eyebrow">CATEGORY DETAILS</p>
+                <h2>{selectedCategory.name}</h2>
+                <p>{selectedCategory.description || 'No description provided'}</p>
+              </div>
+            </div>
+            <div className="heading-actions">
+              <button type="button" className="secondary-btn" onClick={() => openCategory(selectedCategory)} disabled={loadingProducts}>
+                <RefreshCw size={15} /> Refresh
+              </button>
+              <button type="button" className="secondary-btn" onClick={() => downloadCategoryCsv(selectedCategory, categoryProducts)} disabled={loadingProducts || Boolean(productsError) || categoryProducts.length === 0}>
+                <Download size={15} /> Export CSV
+              </button>
+              <button type="button" className="primary-btn" onClick={printReport} disabled={loadingProducts || Boolean(productsError) || categoryProducts.length === 0}>
+                <Printer size={15} /> Print Report
+              </button>
+              <button type="button" className="row-icon" aria-label="Close category report" title="Close" onClick={() => { productsRequest.current += 1; setSelectedCategory(null); setCategoryProducts([]); }}>
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+
+          {productsError && <div className="form-error category-screen-only">{productsError}</div>}
+
+          <div className="category-report-metrics">
+            <article><span>Products in category</span><strong>{loadingProducts ? '…' : categoryProducts.length}</strong></article>
+            <article><span>Total units in stock</span><strong>{loadingProducts ? '…' : totalStock.toLocaleString()}</strong></article>
+            <article><span>Low / out of stock</span><strong>{loadingProducts ? '…' : categoryProducts.filter(product => ['low_stock', 'out_of_stock'].includes(product.status)).length}</strong></article>
+          </div>
+
+          <GlassCard className="table-card category-products-card">
+            {loadingProducts ? (
+              <div className="page-loading">Loading {selectedCategory.name} products...</div>
+            ) : productsError ? (
+              <EmptyState title="Products could not be loaded" description="Refresh the category report to try again." />
+            ) : categoryProducts.length ? (
+              <div className="table-wrap">
+                <table className="data-table category-products-table">
+                  <thead><tr><th>Product</th><th>SKU</th><th>Barcode</th><th>Supplier</th><th>Current stock</th><th>Reorder level</th><th>Status</th></tr></thead>
+                  <tbody>
+                    {categoryProducts.map(product => (
+                      <tr key={product._id}>
+                        <td><strong>{product.name || 'Unnamed product'}</strong><small className="table-subtext">{product.brand || ''}</small></td>
+                        <td>{product.sku || '—'}</td>
+                        <td>{product.barcode || '—'}</td>
+                        <td>{product.supplier?.name || '—'}</td>
+                        <td>{Number(product.currentStock || 0).toLocaleString()} {product.unitType || 'piece'}</td>
+                        <td>{Number(product.reorderLevel || 0).toLocaleString()}</td>
+                        <td><span className={`status-badge ${`status-${product.status || 'normal'}`}`}>{String(product.status || 'normal').replaceAll('_', ' ')}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <EmptyState title="No products in this category" description="Products assigned to this category will appear here. The category card remains available." />
+            )}
+          </GlassCard>
+        </section>
+      )}
+
+      <section className="category-management-section category-screen-only">
+        <div className="category-section-heading">
+          <div><h2>Manage Categories</h2><p>Edit category details or remove an unused category.</p></div>
+        </div>
+        <GlassCard className="table-card">
+          <ManagementTable
+            columns={columns}
+            rows={rows}
+            onEdit={row => { setEditing(row); setFormOpen(true); }}
+            onDelete={setConfirm}
+            empty="No categories have been created."
+          />
+        </GlassCard>
+      </section>
+
+      {formOpen && (
+        <div className="modal-backdrop category-screen-only">
+          <div className="modal-card management-modal">
+            <div className="modal-header"><h3>{editing ? 'Edit category' : 'Create category'}</h3></div>
+            <CategoryForm
+              category={editing}
+              onCancel={() => setFormOpen(false)}
+              onSaved={() => { setFormOpen(false); load(); }}
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="category-screen-only">
+        <ConfirmDialog
+          open={Boolean(confirm)}
+          title="Delete category?"
+          message={`Delete ${confirm?.name || 'this category'}? Categories assigned to products cannot be deleted.`}
+          onCancel={() => setConfirm(null)}
+          onConfirm={remove}
+          danger
+          confirmText="Delete"
+        />
+      </div>
+    </div>
+  );
 }

@@ -6461,43 +6461,464 @@ body.dark-mode .sidebar .logout-btn {
 }
 
 
-/* ======================================================
-   GLOBAL CATEGORY NAME CONTRAST — WHITE TEXT IN DARK MODE ONLY
-   Keeps category names readable across the whole app
-   without changing light-mode colors or other labels.
-   ====================================================== */
-html.dark .category-name-text,
-body.dark-mode .category-name-text {
+/* =====================================================================
+   APP-WIDE DARK MODE FIX — WHITE TEXT / DARK SURFACES
+   This block intentionally comes last so it overrides older light-mode
+   component declarations when either supported dark-mode class is active.
+   Light-mode styles are not changed.
+   ===================================================================== */
+
+/* 1) Global text baseline. Target text-bearing elements and common wrappers
+      rather than assigning color to every DOM node. */
+html.dark body :is(
+  h1, h2, h3, h4, h5, h6, p, span, strong, b, em, label, legend,
+  dt, dd, li, a, th, td, small, div, section, article, header, footer,
+  main, aside, nav, summary, figcaption, caption, blockquote, pre, code,
+  time, output, button
+),
+body.dark-mode :is(
+  h1, h2, h3, h4, h5, h6, p, span, strong, b, em, label, legend,
+  dt, dd, li, a, th, td, small, div, section, article, header, footer,
+  main, aside, nav, summary, figcaption, caption, blockquote, pre, code,
+  time, output, button
+) {
   color: #ffffff !important;
-  font-weight: 700;
 }
 
-html.dark .category-name-field strong,
-body.dark-mode .category-name-field strong {
+/* Explicitly white primary headings and table text across pages. */
+html.dark body :is(.page-heading h1, .placeholder-page h1, .section-heading h3,
+  .modal-header h3, .compact-modal h3, .form-section h3, .settings-heading h3,
+  .scanner-panel-heading h3, .scan-product-heading h3, .table-product strong,
+  .data-table td > strong, .mini-info strong, .notification-content strong,
+  .alert-title-row h3, .alert-metrics strong, .summary-card h2,
+  .alert-summary-card strong, .report-stat strong, .stock-summary strong,
+  .switch-row strong, .category-name-text, .category-name-field strong),
+body.dark-mode :is(.page-heading h1, .placeholder-page h1, .section-heading h3,
+  .modal-header h3, .compact-modal h3, .form-section h3, .settings-heading h3,
+  .scanner-panel-heading h3, .scan-product-heading h3, .table-product strong,
+  .data-table td > strong, .mini-info strong, .notification-content strong,
+  .alert-title-row h3, .alert-metrics strong, .summary-card h2,
+  .alert-summary-card strong, .report-stat strong, .stock-summary strong,
+  .switch-row strong, .category-name-text, .category-name-field strong) {
   color: #ffffff !important;
-  font-weight: 700;
 }
 
-html.dark .category-name-select,
-body.dark-mode .category-name-select {
-  color: #ffffff !important;
+/* Secondary/supporting text remains softer, but still readable. */
+html.dark body :is(
+  small, .table-subtext, .field-hint, .details-description,
+  .page-heading p:not(.eyebrow), .section-heading p, .mini-info small,
+  .summary-card p, .summary-card small, .report-option small,
+  .settings-heading p, .switch-row small, .report-note, .pagination,
+  .empty-state, .page-loading, .placeholder-page, .notification-content small,
+  .notification-header small, .alert-title-row p, .alert-metrics span,
+  .alert-card-subtitle, .alert-footer-meta, .scan-product-heading span,
+  .scan-details span, .scan-status span, .field-description, .help-text,
+  .form-description, .muted-text, .text-muted
+),
+body.dark-mode :is(
+  small, .table-subtext, .field-hint, .details-description,
+  .page-heading p:not(.eyebrow), .section-heading p, .mini-info small,
+  .summary-card p, .summary-card small, .report-option small,
+  .settings-heading p, .switch-row small, .report-note, .pagination,
+  .empty-state, .page-loading, .placeholder-page, .notification-content small,
+  .notification-header small, .alert-title-row p, .alert-metrics span,
+  .alert-card-subtitle, .alert-footer-meta, .scan-product-heading span,
+  .scan-details span, .scan-status span, .field-description, .help-text,
+  .form-description, .muted-text, .text-muted
+) {
+  color: #cbd5e1 !important;
+}
+
+/* 2) Darken common cards, panels, popovers and containers whose original
+      light-mode backgrounds would be hard to read with white text. */
+html.dark body :is(
+  .app-shell, .main-shell, .page-content, .sidebar, .topbar,
+  .glass-card, .summary-card, .table-card, .form-card, .chart-card,
+  .stock-line-card, .alerts-container, .settings-card, .report-result,
+  .scanner-panel, .scan-result-panel, .modal-card, .modal-panel,
+  .compact-modal, .management-modal, .qr-modal, .notification-dropdown,
+  .search-suggestions, .search-status, .report-option, .category-card,
+  .product-card, .details-card, .detail-card, .filter-panel,
+  .mini-row, .stock-summary, .valuation-preview, .report-stat,
+  .report-note, .switch-row, .settings-info, .success-message,
+  .success-empty, .scan-product-heading, .scan-status, .large-empty,
+  .notification-item, .search-suggestion, .form-section,
+  .stock-price-section, .alert-card, .alert-summary-card
+),
+body.dark-mode :is(
+  .app-shell, .main-shell, .page-content, .sidebar, .topbar,
+  .glass-card, .summary-card, .table-card, .form-card, .chart-card,
+  .stock-line-card, .alerts-container, .settings-card, .report-result,
+  .scanner-panel, .scan-result-panel, .modal-card, .modal-panel,
+  .compact-modal, .management-modal, .qr-modal, .notification-dropdown,
+  .search-suggestions, .search-status, .report-option, .category-card,
+  .product-card, .details-card, .detail-card, .filter-panel,
+  .mini-row, .stock-summary, .valuation-preview, .report-stat,
+  .report-note, .switch-row, .settings-info, .success-message,
+  .success-empty, .scan-product-heading, .scan-status, .large-empty,
+  .notification-item, .search-suggestion, .form-section,
+  .stock-price-section, .alert-card, .alert-summary-card
+) {
   background-color: #1e293b !important;
-  border-color: rgba(148, 163, 184, 0.38) !important;
+  border-color: rgba(148, 163, 184, 0.24) !important;
+  color: #ffffff !important;
 }
 
-html.dark .category-name-select option,
+html.dark body,
+body.dark-mode {
+  color: #ffffff;
+  background-color: #0f172a;
+}
+
+html.dark body .topbar,
+body.dark-mode .topbar {
+  background: rgba(15, 23, 42, 0.96) !important;
+  border-bottom-color: rgba(148, 163, 184, 0.2) !important;
+}
+
+html.dark body .sidebar,
+body.dark-mode .sidebar {
+  background: rgba(15, 23, 42, 0.98) !important;
+  border-right-color: rgba(148, 163, 184, 0.2) !important;
+}
+
+html.dark body .data-table,
+body.dark-mode .data-table {
+  background: #1e293b !important;
+}
+html.dark body .data-table th,
+body.dark-mode .data-table th {
+  color: #e2e8f0 !important;
+  border-bottom-color: rgba(148, 163, 184, 0.24) !important;
+}
+html.dark body .data-table td,
+body.dark-mode .data-table td {
+  color: #ffffff !important;
+  border-bottom-color: rgba(148, 163, 184, 0.15) !important;
+}
+html.dark body .data-table tbody tr:hover,
+body.dark-mode .data-table tbody tr:hover {
+  background: #334155 !important;
+}
+
+/* 3) Form fields: dark background, white entered/selected text and gray hints. */
+html.dark body :is(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  select, textarea
+),
+body.dark-mode :is(
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  select, textarea
+) {
+  color: #ffffff !important;
+  background-color: #0f172a !important;
+  border-color: #475569 !important;
+  caret-color: #ffffff;
+}
+html.dark body :is(.global-search input, .filter-search input, .input-wrap input),
+body.dark-mode :is(.global-search input, .filter-search input, .input-wrap input) {
+  background-color: transparent !important;
+}
+html.dark body :is(input, textarea)::placeholder,
+body.dark-mode :is(input, textarea)::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1;
+}
+html.dark body option,
+body.dark-mode option {
+  color: #ffffff !important;
+  background: #0f172a !important;
+}
+html.dark body :is(input[type="checkbox"], input[type="radio"]),
+body.dark-mode :is(input[type="checkbox"], input[type="radio"]) {
+  accent-color: #22c55e;
+}
+
+/* 4) Navigation, buttons, search suggestions and clickable surfaces. */
+html.dark body :is(.nav-item, .notification-btn, .icon-btn, .row-icon,
+  .secondary-btn, .table-btn, .alert-action-btn, .scanner-control,
+  .camera-select, .filter-search, .global-search, .icon-text-btn,
+  .alert-filter, .back-link, .manual-toggle),
+body.dark-mode :is(.nav-item, .notification-btn, .icon-btn, .row-icon,
+  .secondary-btn, .table-btn, .alert-action-btn, .scanner-control,
+  .camera-select, .filter-search, .global-search, .icon-text-btn,
+  .alert-filter, .back-link, .manual-toggle) {
+  color: #f8fafc !important;
+  background-color: #1e293b !important;
+  border-color: rgba(148, 163, 184, 0.28) !important;
+}
+html.dark body :is(.primary-btn, .danger-btn, .nav-item.active),
+body.dark-mode :is(.primary-btn, .danger-btn, .nav-item.active) {
+  color: #ffffff !important;
+}
+html.dark body :is(.secondary-btn:hover, .table-btn:hover,
+  .alert-action-btn:hover, .nav-item:hover, .scanner-control:hover,
+  .search-suggestion:hover, .search-suggestion:focus),
+body.dark-mode :is(.secondary-btn:hover, .table-btn:hover,
+  .alert-action-btn:hover, .nav-item:hover, .scanner-control:hover,
+  .search-suggestion:hover, .search-suggestion:focus) {
+  color: #ffffff !important;
+  background-color: #334155 !important;
+}
+html.dark body :is(.eyebrow, .notification-footer-links a),
+body.dark-mode :is(.eyebrow, .notification-footer-links a) {
+  color: #86efac !important;
+}
+
+/* 5) Category names are white everywhere, including selects and chart legend. */
+html.dark body :is(.category-name-text, .category-name-field,
+  .category-name-field strong, .category-card-main > strong,
+  .category-distribution-chart .recharts-legend-item-text),
+body.dark-mode :is(.category-name-text, .category-name-field,
+  .category-name-field strong, .category-card-main > strong,
+  .category-distribution-chart .recharts-legend-item-text) {
+  color: #ffffff !important;
+  font-weight: 700;
+}
+html.dark body :is(.category-name-select),
+body.dark-mode :is(.category-name-select) {
+  color: #ffffff !important;
+  background-color: #0f172a !important;
+  border-color: #475569 !important;
+}
+html.dark body .category-name-select option,
 body.dark-mode .category-name-select option {
   color: #ffffff !important;
-  background-color: #1e293b !important;
+  background-color: #0f172a !important;
+}
+html.dark body .category-distribution-chart .recharts-tooltip-wrapper,
+body.dark-mode .category-distribution-chart .recharts-tooltip-wrapper {
+  color: #e2e8f0 !important;
+}
+html.dark body svg text,
+body.dark-mode svg text {
+  fill: #f8fafc !important;
 }
 
-/* Category names in the Inventory by Category chart only. */
-html.dark .category-distribution-chart .recharts-legend-item-text,
-body.dark-mode .category-distribution-chart .recharts-legend-item-text {
+/* 6) Preserve meaningful status colors while making their pills dark enough
+      for contrast. These overrides deliberately follow the text baseline. */
+html.dark body :is(.status-normal, .movement-pill, .simple-status.active,
+  .role-staff, .category-card-status.active, .state-resolved),
+body.dark-mode :is(.status-normal, .movement-pill, .simple-status.active,
+  .role-staff, .category-card-status.active, .state-resolved) {
+  color: #86efac !important;
+  background: rgba(22, 101, 52, 0.32) !important;
+  border-color: rgba(74, 222, 128, 0.25) !important;
+}
+html.dark body :is(.status-low_stock, .movement-stock_adjustment,
+  .movement-manual_correction, .state-read, .read-label, .warning-text),
+body.dark-mode :is(.status-low_stock, .movement-stock_adjustment,
+  .movement-manual_correction, .state-read, .read-label, .warning-text) {
+  color: #fcd34d !important;
+}
+html.dark body :is(.status-low_stock, .movement-stock_adjustment,
+  .movement-manual_correction, .state-read),
+body.dark-mode :is(.status-low_stock, .movement-stock_adjustment,
+  .movement-manual_correction, .state-read) {
+  background: rgba(146, 64, 14, 0.28) !important;
+}
+html.dark body :is(.status-out_of_stock, .status-damaged, .status-expired,
+  .movement-damaged, .movement-expired, .state-unread, .critical-text,
+  .quantity-negative, .page-error, .form-error),
+body.dark-mode :is(.status-out_of_stock, .status-damaged, .status-expired,
+  .movement-damaged, .movement-expired, .state-unread, .critical-text,
+  .quantity-negative, .page-error, .form-error) {
+  color: #fca5a5 !important;
+}
+html.dark body :is(.status-out_of_stock, .status-damaged, .status-expired,
+  .movement-damaged, .movement-expired, .state-unread),
+body.dark-mode :is(.status-out_of_stock, .status-damaged, .status-expired,
+  .movement-damaged, .movement-expired, .state-unread) {
+  background: rgba(153, 27, 27, 0.28) !important;
+}
+html.dark body :is(.movement-returned_to_supplier, .movement-branch_transfer,
+  .role-manager),
+body.dark-mode :is(.movement-returned_to_supplier, .movement-branch_transfer,
+  .role-manager) {
+  color: #93c5fd !important;
+  background: rgba(30, 64, 175, 0.25) !important;
+}
+html.dark body .role-admin,
+body.dark-mode .role-admin {
+  color: #d8b4fe !important;
+  background: rgba(126, 34, 206, 0.25) !important;
+}
+html.dark body :is(.quantity-positive, .resolve-action, .resolved-label),
+body.dark-mode :is(.quantity-positive, .resolve-action, .resolved-label) {
+  color: #86efac !important;
+}
+html.dark body :is(.warning-icon, .warning-avatar, .warning-symbol),
+body.dark-mode :is(.warning-icon, .warning-avatar, .warning-symbol) {
+  color: #fcd34d !important;
+}
+html.dark body :is(.critical-symbol, .danger-icon),
+body.dark-mode :is(.critical-symbol, .danger-icon) {
+  color: #fca5a5 !important;
+}
+html.dark body :is(.tone-green, .product-avatar),
+body.dark-mode :is(.tone-green, .product-avatar) {
+  color: #86efac !important;
+  background: rgba(22, 101, 52, 0.32) !important;
+}
+html.dark body .tone-blue,
+body.dark-mode .tone-blue {
+  color: #7dd3fc !important;
+  background: rgba(3, 105, 161, 0.28) !important;
+}
+html.dark body .tone-purple,
+body.dark-mode .tone-purple {
+  color: #d8b4fe !important;
+  background: rgba(126, 34, 206, 0.28) !important;
+}
+html.dark body :is(.tone-amber, .active-summary, .warning-avatar),
+body.dark-mode :is(.tone-amber, .active-summary, .warning-avatar) {
+  color: #fcd34d !important;
+  background: rgba(146, 64, 14, 0.28) !important;
+}
+html.dark body :is(.tone-red, .unread-summary, .critical-symbol),
+body.dark-mode :is(.tone-red, .unread-summary, .critical-symbol) {
+  color: #fca5a5 !important;
+  background: rgba(153, 27, 27, 0.28) !important;
+}
+html.dark body .resolved-summary,
+body.dark-mode .resolved-summary {
+  color: #86efac !important;
+  background: rgba(22, 101, 52, 0.32) !important;
+}
+
+/* Alerts retain their meaning but no longer use pale light-mode surfaces. */
+html.dark body .alert-card.critical-alert,
+body.dark-mode .alert-card.critical-alert {
+  background: rgba(127, 29, 29, 0.28) !important;
+  border-color: rgba(248, 113, 113, 0.35) !important;
+}
+html.dark body .alert-card.warning-alert,
+html.dark body .low-stock-alert-card,
+body.dark-mode .alert-card.warning-alert,
+body.dark-mode .low-stock-alert-card {
+  background: rgba(120, 53, 15, 0.22) !important;
+  border-color: rgba(251, 191, 36, 0.28) !important;
+}
+html.dark body .expiration-alert-card,
+body.dark-mode .expiration-alert-card {
+  background: rgba(30, 64, 175, 0.18) !important;
+  border-color: rgba(96, 165, 250, 0.3) !important;
+}
+html.dark body .alert-card.resolved-alert,
+body.dark-mode .alert-card.resolved-alert {
+  background: rgba(30, 41, 59, 0.72) !important;
+  border-color: rgba(148, 163, 184, 0.2) !important;
+}
+html.dark body :is(.report-option:hover, .active-report, .alert-filter.active,
+  .category-count-badge),
+body.dark-mode :is(.report-option:hover, .active-report, .alert-filter.active,
+  .category-count-badge) {
+  color: #ffffff !important;
+  background: #14532d !important;
+  border-color: #166534 !important;
+}
+html.dark body :is(.notification-btn span),
+body.dark-mode :is(.notification-btn span) {
   color: #ffffff !important;
 }
 
-html.dark .category-distribution-chart .recharts-tooltip-wrapper,
-body.dark-mode .category-distribution-chart .recharts-tooltip-wrapper {
-  color: #e2e8f0;
+/* Keep product scanner and chart surfaces readable in dark mode. */
+html.dark body :is(.scanner-reader, #essential-scanner-reader),
+body.dark-mode :is(.scanner-reader, #essential-scanner-reader) {
+  background: #0f172a !important;
+  border-color: #475569 !important;
 }
+html.dark body .scan-product-heading,
+body.dark-mode .scan-product-heading {
+  background: #263548 !important;
+}
+html.dark body .stock-line-card,
+body.dark-mode .stock-line-card {
+  background: #1e293b !important;
+  border-color: #475569 !important;
+}
+
+/* Additional pale UI surfaces and icon tiles that need dark-mode counterparts. */
+html.dark body :is(.notification-header, .notification-footer, .notification-icon,
+  .alert-symbol, .alert-summary-icon, .scanner-title-icon, .light-icon,
+  .analytics-badge, .active-control, .form-error, .scanner-error,
+  .simple-status.inactive, .category-card-status.inactive),
+body.dark-mode :is(.notification-header, .notification-footer, .notification-icon,
+  .alert-symbol, .alert-summary-icon, .scanner-title-icon, .light-icon,
+  .analytics-badge, .active-control, .form-error, .scanner-error,
+  .simple-status.inactive, .category-card-status.inactive) {
+  background: #263548 !important;
+  border-color: rgba(148, 163, 184, 0.28) !important;
+}
+html.dark body .notification-icon,
+body.dark-mode .notification-icon {
+  color: #fcd34d !important;
+  background: rgba(146, 64, 14, 0.28) !important;
+}
+html.dark body .scanner-title-icon,
+body.dark-mode .scanner-title-icon {
+  color: #86efac !important;
+  background: rgba(22, 101, 52, 0.32) !important;
+}
+html.dark body .light-icon,
+body.dark-mode .light-icon {
+  color: #7dd3fc !important;
+  background: rgba(3, 105, 161, 0.28) !important;
+}
+html.dark body .alert-symbol,
+body.dark-mode .alert-symbol {
+  color: #fcd34d !important;
+  background: rgba(146, 64, 14, 0.28) !important;
+}
+html.dark body .alert-card.critical-alert .alert-symbol,
+body.dark-mode .alert-card.critical-alert .alert-symbol {
+  color: #fca5a5 !important;
+  background: rgba(153, 27, 27, 0.28) !important;
+}
+html.dark body .alert-summary-icon,
+body.dark-mode .alert-summary-icon {
+  color: #86efac !important;
+  background: rgba(22, 101, 52, 0.32) !important;
+}
+html.dark body .form-error,
+body.dark-mode .form-error {
+  color: #fca5a5 !important;
+  background: rgba(127, 29, 29, 0.28) !important;
+  border-color: rgba(248, 113, 113, 0.35) !important;
+}
+html.dark body .scanner-error,
+body.dark-mode .scanner-error {
+  color: #fcd34d !important;
+  background: rgba(120, 53, 15, 0.25) !important;
+  border-color: rgba(251, 191, 36, 0.3) !important;
+}
+html.dark body :is(.simple-status.inactive, .category-card-status.inactive),
+body.dark-mode :is(.simple-status.inactive, .category-card-status.inactive) {
+  color: #cbd5e1 !important;
+  background: #334155 !important;
+}
+html.dark body .analytics-badge,
+body.dark-mode .analytics-badge {
+  color: #86efac !important;
+  background: rgba(22, 101, 52, 0.32) !important;
+}
+html.dark body :is(.notification-header, .notification-footer),
+body.dark-mode :is(.notification-header, .notification-footer) {
+  color: #f8fafc !important;
+  background: #263548 !important;
+  border-color: rgba(148, 163, 184, 0.24) !important;
+}
+html.dark body .notification-footer:hover,
+body.dark-mode .notification-footer:hover {
+  background: #14532d !important;
+}
+html.dark body .logout-btn,
+body.dark-mode .logout-btn {
+  color: #fcd34d !important;
+}
+html.dark body .notification-content small,
+body.dark-mode .notification-content small {
+  color: #cbd5e1 !important;
+}
+
+/* End of app-wide dark-mode fix. */

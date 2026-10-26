@@ -6670,3 +6670,130 @@ html.dark body svg text,
 body.dark-mode svg text {
   fill: #f8fafc;
 }
+/*
+ * Essential Supermarket — dark-mode text contrast exceptions
+ * Append this file's contents AFTER existing dark-mode text overrides.
+ * Text colors only: no backgrounds, borders, spacing, sizing, or layout changes.
+ */
+
+/* EXPIRING SOON — the summary tiles intentionally have pale red/amber/green surfaces. */
+html.dark body .page-content > div > .page-heading + div[style*="repeat(auto-fit"] > div:nth-child(1) > strong,
+body.dark-mode .page-content > div > .page-heading + div[style*="repeat(auto-fit"] > div:nth-child(1) > strong,
+html.dark body .page-content > div > .page-message + div[style*="repeat(auto-fit"] > div:nth-child(1) > strong,
+body.dark-mode .page-content > div > .page-message + div[style*="repeat(auto-fit"] > div:nth-child(1) > strong {
+  color: #b91c1c !important;
+}
+
+html.dark body .page-content > div > .page-heading + div[style*="repeat(auto-fit"] > div:nth-child(2) > strong,
+body.dark-mode .page-content > div > .page-heading + div[style*="repeat(auto-fit"] > div:nth-child(2) > strong,
+html.dark body .page-content > div > .page-message + div[style*="repeat(auto-fit"] > div:nth-child(2) > strong,
+body.dark-mode .page-content > div > .page-message + div[style*="repeat(auto-fit"] > div:nth-child(2) > strong {
+  color: #b45309 !important;
+}
+
+html.dark body .page-content > div > .page-heading + div[style*="repeat(auto-fit"] > div:nth-child(3) > strong,
+body.dark-mode .page-content > div > .page-heading + div[style*="repeat(auto-fit"] > div:nth-child(3) > strong,
+html.dark body .page-content > div > .page-message + div[style*="repeat(auto-fit"] > div:nth-child(3) > strong,
+body.dark-mode .page-content > div > .page-message + div[style*="repeat(auto-fit"] > div:nth-child(3) > strong {
+  color: #047857 !important;
+}
+
+html.dark body .page-content > div > .page-heading + div[style*="repeat(auto-fit"] > div > span,
+body.dark-mode .page-content > div > .page-heading + div[style*="repeat(auto-fit"] > div > span,
+html.dark body .page-content > div > .page-message + div[style*="repeat(auto-fit"] > div > span,
+body.dark-mode .page-content > div > .page-message + div[style*="repeat(auto-fit"] > div > span {
+  color: #475569 !important;
+}
+
+/* SETTINGS — text inside the light controls/cards must contrast with their existing surfaces. */
+html.dark body .settings-card input:not([type="checkbox"]):not([type="radio"]),
+body.dark-mode .settings-card input:not([type="checkbox"]):not([type="radio"]),
+html.dark body .settings-card select,
+body.dark-mode .settings-card select {
+  color: #1f2937 !important;
+  -webkit-text-fill-color: #1f2937 !important;
+}
+
+html.dark body .settings-card option,
+body.dark-mode .settings-card option {
+  color: #1f2937 !important;
+}
+
+html.dark body .settings-card .settings-info,
+body.dark-mode .settings-card .settings-info,
+html.dark body .settings-card .settings-info span,
+body.dark-mode .settings-card .settings-info span {
+  color: #315c3d !important;
+}
+
+html.dark body .settings-card .switch-row strong,
+body.dark-mode .settings-card .switch-row strong {
+  color: #243b2d !important;
+}
+
+html.dark body .settings-card .switch-row small,
+body.dark-mode .settings-card .switch-row small {
+  color: #52685a !important;
+}
+
+/* REPORTS — the report choice cards remain light, so keep their text dark. */
+html.dark body .report-option,
+body.dark-mode .report-option {
+  color: #315c3d !important;
+}
+
+html.dark body .report-option strong,
+body.dark-mode .report-option strong {
+  color: #1f2937 !important;
+}
+
+html.dark body .report-option small,
+body.dark-mode .report-option small {
+  color: #64748b !important;
+}
+
+html.dark body .report-option.active-report,
+body.dark-mode .report-option.active-report {
+  color: #166534 !important;
+}
+
+html.dark body .report-option.active-report strong,
+body.dark-mode .report-option.active-report strong {
+  color: #166534 !important;
+}
+
+html.dark body .report-option.active-report small,
+body.dark-mode .report-option.active-report small {
+  color: #3f6b51 !important;
+}
+
+/* REPORT RESULTS — light green statistic tile and light note area. */
+html.dark body .report-stat span,
+body.dark-mode .report-stat span {
+  color: #52685a !important;
+}
+
+html.dark body .report-stat strong,
+body.dark-mode .report-stat strong {
+  color: #166534 !important;
+}
+
+html.dark body .report-note,
+body.dark-mode .report-note {
+  color: #475569 !important;
+}
+
+/* SETTINGS / REPORTS: preserve the original semantic warning and success colors. */
+html.dark body .settings-card .critical-text,
+body.dark-mode .settings-card .critical-text,
+html.dark body .report-stat .quantity-negative,
+body.dark-mode .report-stat .quantity-negative {
+  color: #b91c1c !important;
+}
+
+html.dark body .settings-card .quantity-positive,
+body.dark-mode .settings-card .quantity-positive,
+html.dark body .report-stat .quantity-positive,
+body.dark-mode .report-stat .quantity-positive {
+  color: #166534 !important;
+}

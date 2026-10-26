@@ -1318,6 +1318,7 @@ export default function ProductForm({
             Category
 
             <select
+              className="category-name-select"
               value={form.category || ''}
               onChange={event =>
                 change(

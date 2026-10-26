@@ -214,8 +214,9 @@ export default function ProductTable({
                 </td>
 
                 <td>
-                  {product.category?.name ||
-                    'Uncategorized'}
+                  <span className="category-name-text">
+                    {product.category?.name || 'Uncategorized'}
+                  </span>
                 </td>
 
                 <td>

@@ -133,7 +133,7 @@ export default function ScannedProductCard({
 
         <div>
           <span>Category</span>
-          <strong>{categoryName}</strong>
+          <strong className="category-name-text">{categoryName}</strong>
         </div>
 
         <div>

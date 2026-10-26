@@ -127,8 +127,9 @@ export default function ProductDetailsModal({
               </DetailItem>
 
               <DetailItem label="Category">
-                {product.category?.name ||
-                  'Uncategorized'}
+                <span className="category-name-text">
+                  {product.category?.name || 'Uncategorized'}
+                </span>
               </DetailItem>
 
               <DetailItem label="Brand">

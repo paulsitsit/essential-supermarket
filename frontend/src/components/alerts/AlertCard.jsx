@@ -155,9 +155,13 @@ function getBatchNumber(alert) {
   );
 }
 
-function InfoField({ label, value, warning = false }) {
+function InfoField({ label, value, warning = false, className = '' }) {
+  const classes = ['alert-field', warning ? 'missing-field' : '', className]
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <div className={`alert-field ${warning ? 'missing-field' : ''}`}>
+    <div className={classes}>
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
@@ -309,6 +313,7 @@ export default function AlertCard({
               <InfoField
                 label="Shelf life category"
                 value={getShelfLifeCategory(alert)}
+                className="category-name-field"
               />
 
               <InfoField

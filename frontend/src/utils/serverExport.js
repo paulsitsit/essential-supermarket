@@ -17,36 +17,31 @@ export async function downloadServerReport(
     }
   );
 
-  const extension =
-    format === 'xlsx'
-      ? 'xlsx'
-      : 'pdf';
-
+  const extension = format === 'xlsx' ? 'xlsx' : 'pdf';
   const contentType =
     response.headers?.['content-type'] ||
     'application/octet-stream';
 
-  const blob = new Blob(
-    [response.data],
-    {
-      type: contentType
-    }
-  );
+  const blob = new Blob([response.data], {
+    type: contentType
+  });
 
   const blobUrl = URL.createObjectURL(blob);
-
   const link = document.createElement('a');
+  const disposition = response.headers?.['content-disposition'] || '';
+  const filenameMatch = disposition.match(/filename\*?=(?:UTF-8''|"?)([^";]+)/i);
+  const serverFilename = filenameMatch?.[1]
+    ? decodeURIComponent(filenameMatch[1].replace(/"$/, ''))
+    : '';
 
   link.href = blobUrl;
-  link.download = `${type}-report.${extension}`;
+  link.download = serverFilename || `${type}-report.${extension}`;
 
   document.body.appendChild(link);
-
   link.click();
-
   link.remove();
 
   window.setTimeout(() => {
     URL.revokeObjectURL(blobUrl);
-  }, 500);
+  }, 1000);
 }

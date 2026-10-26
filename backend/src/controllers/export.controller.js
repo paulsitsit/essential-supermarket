@@ -2,6 +2,7 @@ import PDFDocument from 'pdfkit';
 import ExcelJS from 'exceljs';
 
 import Product from '../models/Product.js';
+import Category from '../models/Category.js';
 import StockMovement from '../models/StockMovement.js';
 import Sale from '../models/Sale.js';
 import SaleReturn from '../models/SaleReturn.js';
@@ -211,6 +212,71 @@ async function getInventoryReport(query) {
       Number(product.costPrice || 0),
       Number(product.inventoryValue || 0),
       product.status || ''
+    ])
+  };
+}
+
+async function getCategoryProductsReport(query) {
+  const categoryId = String(query.category || '');
+
+  // MongoDB ObjectIds are 24 hexadecimal characters.
+  if (!/^[a-f\d]{24}$/i.test(categoryId)) {
+    const error = new Error('A valid category ID is required.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const category = await Category.findById(categoryId).lean();
+
+  if (!category) {
+    const error = new Error('Category not found.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Filter to the requested category and exclude archived products.
+  const products = await Product.find({
+    ...productFilter(query),
+    category: category._id
+  })
+    .populate('category supplier', 'name')
+    .sort({ name: 1 })
+    .lean();
+
+  const safeCategoryName = String(category.name || 'category')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase() || 'category';
+
+  return {
+    title: `${category.name} Product Report`,
+    subtitle: `Category: ${category.name} | Products: ${products.length}`,
+    fileName: `${safeCategoryName}-products-report`,
+    columns: [
+      'Product',
+      'SKU',
+      'Barcode',
+      'Brand',
+      'Supplier',
+      'Current Stock',
+      'Unit',
+      'Reorder Level',
+      'Status',
+      'Last Updated'
+    ],
+    rows: products.map(product => [
+      product.name || '',
+      product.sku || '',
+      product.barcode || '',
+      product.brand || '',
+      product.supplier?.name || '',
+      Number(product.currentStock || 0),
+      product.unitType || 'piece',
+      Number(product.reorderLevel || 0),
+      product.status || 'normal',
+      formatDate(product.updatedAt)
     ])
   };
 }
@@ -531,6 +597,7 @@ async function getSalesReturnsReport(query) {
 function normalizeReportType(type) {
   const aliases = {
     inventory: 'inventory',
+    'category-products': 'category-products',
 
     'low-stock': 'low-stock',
     lowStock: 'low-stock',
@@ -551,6 +618,7 @@ async function getReport(type, query) {
 
   const handlers = {
     inventory: getInventoryReport,
+    'category-products': getCategoryProductsReport,
     'low-stock': getLowStockReport,
     'stock-movements': getMovementsReport,
     'sales-returns': getSalesReturnsReport
@@ -597,7 +665,7 @@ function sendPdf(res, report) {
   });
 
   const fileName =
-    `${report.type}-report.pdf`;
+    `${report.fileName || `${report.type}-report`}.pdf`;
 
   res.setHeader(
     'Content-Type',
@@ -937,7 +1005,7 @@ async function sendExcel(res, report) {
   ];
 
   const fileName =
-    `${report.type}-report.xlsx`;
+    `${report.fileName || `${report.type}-report`}.xlsx`;
 
   res.setHeader(
     'Content-Type',

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Boxes,
-  Download,
+  FileSpreadsheet,
+  FileText,
   PackageOpen,
-  Printer,
   RefreshCw,
   X
 } from 'lucide-react';
@@ -13,49 +13,9 @@ import EmptyState from '../components/common/EmptyState';
 import ManagementTable from '../components/management/ManagementTable';
 import CategoryForm from '../components/management/CategoryForm';
 import ConfirmDialog from '../components/common/ConfirmDialog';
-import { dateTime, dateOnly } from '../utils/format';
 import { getErrorMessage } from '../utils/errors';
+import { downloadServerReport } from '../utils/serverExport';
 import './CategoriesPage.css';
-
-function escapeCsvValue(value) {
-  if (value === null || value === undefined) return '';
-  let text = String(value);
-  // Prevent spreadsheet formula execution from imported/user-entered text.
-  if (/^[=+@\-\t\r]/.test(text)) text = `'${text}`;
-  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-
-function downloadCategoryCsv(category, products) {
-  const headers = [
-    'Product', 'SKU', 'Barcode', 'Brand', 'Category', 'Supplier',
-    'Current Stock', 'Unit', 'Reorder Level', 'Status', 'Updated'
-  ];
-  const rows = products.map(product => [
-    product.name,
-    product.sku,
-    product.barcode,
-    product.brand,
-    product.category?.name || category.name,
-    product.supplier?.name || '',
-    Number(product.currentStock || 0),
-    product.unitType || 'piece',
-    Number(product.reorderLevel || 0),
-    product.status || '',
-    product.updatedAt ? dateTime(product.updatedAt) : ''
-  ]);
-  const csv = [headers, ...rows]
-    .map(row => row.map(escapeCsvValue).join(','))
-    .join('\r\n');
-  const blob = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${String(category.name || 'category').trim().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'category'}-products-${new Date().toLocaleDateString('en-CA')}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
 
 export default function CategoriesPage() {
   const [rows, setRows] = useState([]);
@@ -68,6 +28,7 @@ export default function CategoriesPage() {
   const [categoryProducts, setCategoryProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [productsError, setProductsError] = useState('');
+  const [exportingFormat, setExportingFormat] = useState('');
   const productsRequest = useRef(0);
 
   async function load() {
@@ -133,12 +94,28 @@ export default function CategoriesPage() {
     }
   }
 
-  function printReport() {
-    if (!selectedCategory) return;
-    const cleanup = () => document.body.classList.remove('print-category-report');
-    document.body.classList.add('print-category-report');
-    window.addEventListener('afterprint', cleanup, { once: true });
-    window.print();
+  async function exportCategoryReport(format) {
+    if (!selectedCategory || exportingFormat) return;
+
+    setExportingFormat(format);
+    setProductsError('');
+
+    try {
+      await downloadServerReport(
+        'category-products',
+        format,
+        { category: selectedCategory._id }
+      );
+    } catch (err) {
+      setProductsError(
+        getErrorMessage(
+          err,
+          `Unable to export the ${format.toUpperCase()} category report.`
+        )
+      );
+    } finally {
+      setExportingFormat('');
+    }
   }
 
   const columns = [
@@ -216,13 +193,7 @@ export default function CategoriesPage() {
       </section>
 
       {selectedCategory && (
-        <section className="category-report-section category-print-area">
-          <div className="category-report-print-heading">
-            <h1>Essential Supermarket</h1>
-            <h2>{selectedCategory.name} — Product Report</h2>
-            <p>{selectedCategory.description || 'Category inventory report'}</p>
-            <p>Generated: {dateTime(new Date())}</p>
-          </div>
+        <section className="category-report-section">
 
           <div className="category-report-toolbar category-screen-only">
             <div className="category-report-title">
@@ -237,11 +208,23 @@ export default function CategoriesPage() {
               <button type="button" className="secondary-btn" onClick={() => openCategory(selectedCategory)} disabled={loadingProducts}>
                 <RefreshCw size={15} /> Refresh
               </button>
-              <button type="button" className="secondary-btn" onClick={() => downloadCategoryCsv(selectedCategory, categoryProducts)} disabled={loadingProducts || Boolean(productsError) || categoryProducts.length === 0}>
-                <Download size={15} /> Export CSV
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => exportCategoryReport('pdf')}
+                disabled={loadingProducts || Boolean(productsError) || categoryProducts.length === 0 || Boolean(exportingFormat)}
+              >
+                <FileText size={15} />
+                {exportingFormat === 'pdf' ? 'Exporting PDF...' : 'PDF Report'}
               </button>
-              <button type="button" className="primary-btn" onClick={printReport} disabled={loadingProducts || Boolean(productsError) || categoryProducts.length === 0}>
-                <Printer size={15} /> Print Report
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => exportCategoryReport('xlsx')}
+                disabled={loadingProducts || Boolean(productsError) || categoryProducts.length === 0 || Boolean(exportingFormat)}
+              >
+                <FileSpreadsheet size={15} />
+                {exportingFormat === 'xlsx' ? 'Exporting Excel...' : 'Excel Report'}
               </button>
               <button type="button" className="row-icon" aria-label="Close category report" title="Close" onClick={() => { productsRequest.current += 1; setSelectedCategory(null); setCategoryProducts([]); }}>
                 <X size={16} />

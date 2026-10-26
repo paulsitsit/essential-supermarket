@@ -6459,3 +6459,45 @@ body.dark-mode .sidebar .logout-btn {
     border-radius: 24px;
   }
 }
+
+
+/* ======================================================
+   GLOBAL CATEGORY NAME CONTRAST — WHITE TEXT IN DARK MODE ONLY
+   Keeps category names readable across the whole app
+   without changing light-mode colors or other labels.
+   ====================================================== */
+html.dark .category-name-text,
+body.dark-mode .category-name-text {
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+html.dark .category-name-field strong,
+body.dark-mode .category-name-field strong {
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+html.dark .category-name-select,
+body.dark-mode .category-name-select {
+  color: #ffffff !important;
+  background-color: #1e293b !important;
+  border-color: rgba(148, 163, 184, 0.38) !important;
+}
+
+html.dark .category-name-select option,
+body.dark-mode .category-name-select option {
+  color: #ffffff !important;
+  background-color: #1e293b !important;
+}
+
+/* Category names in the Inventory by Category chart only. */
+html.dark .category-distribution-chart .recharts-legend-item-text,
+body.dark-mode .category-distribution-chart .recharts-legend-item-text {
+  color: #ffffff !important;
+}
+
+html.dark .category-distribution-chart .recharts-tooltip-wrapper,
+body.dark-mode .category-distribution-chart .recharts-tooltip-wrapper {
+  color: #e2e8f0;
+}

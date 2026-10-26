@@ -186,7 +186,7 @@ export default function CategoriesPage() {
   }
 
   const columns = [
-    { key: 'name', label: 'Category', render: row => <strong>{row.name}</strong> },
+    { key: 'name', label: 'Category', render: row => <strong className="category-name-text">{row.name}</strong> },
     { key: 'description', label: 'Description' },
     { key: 'productCount', label: 'Products' },
     { key: 'totalQuantity', label: 'Total quantity' },
@@ -221,7 +221,7 @@ export default function CategoriesPage() {
       >
         <span className="category-card-icon"><PackageOpen size={23} /></span>
         <span className="category-card-main">
-          <strong>{category.name}</strong>
+          <strong className="category-name-text">{category.name}</strong>
           <small>{category.description || 'No description provided'}</small>
         </span>
         <span className="category-card-metrics">
@@ -310,7 +310,7 @@ export default function CategoriesPage() {
               <span className="category-card-icon"><PackageOpen size={21} /></span>
               <div>
                 <p className="eyebrow">CATEGORY DETAILS</p>
-                <h2>{selectedCategory.name}</h2>
+                <h2 className="category-name-text">{selectedCategory.name}</h2>
                 <p>{selectedCategory.description || 'No description provided'}</p>
               </div>
             </div>

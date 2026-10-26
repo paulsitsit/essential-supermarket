@@ -838,7 +838,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="chart-grid">
-        <GlassCard className="chart-card">
+        <GlassCard className="chart-card category-distribution-chart">
           <div className="section-heading">
             <div>
               <h3>Inventory by Category</h3>

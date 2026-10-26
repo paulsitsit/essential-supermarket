@@ -112,7 +112,8 @@
   color: #7a9382;
   font-size: 11px;
   line-height: 1.5;
-  -webkit-line-clamp: 2;
+  line-clamp: 2; /* Standard property for compatibility */
+  -webkit-line-clamp: 2; /* WebKit-based browsers */
   -webkit-box-orient: vertical;
 }
 
@@ -453,4 +454,58 @@
   .category-card-toggle svg {
     transition: none;
   }
+}
+/* Category cards: dark-mode readability fix only */
+html.dark .category-overview-card,
+body.dark-mode .category-overview-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+html.dark .category-overview-card:hover,
+body.dark-mode .category-overview-card:hover {
+  background: #263548 !important;
+}
+
+html.dark .category-overview-card.selected,
+body.dark-mode .category-overview-card.selected {
+  background: #1c3b30 !important;
+  border-color: #22c55e !important;
+}
+
+/* Category names */
+html.dark .category-overview-card .category-card-main > strong,
+body.dark-mode .category-overview-card .category-card-main > strong {
+  color: #ffffff !important;
+}
+
+/* Category descriptions */
+html.dark .category-overview-card .category-card-main > small,
+body.dark-mode .category-overview-card .category-card-main > small {
+  color: #cbd5e1 !important;
+}
+
+/* Stock totals */
+html.dark .category-overview-card .category-card-metrics strong,
+body.dark-mode .category-overview-card .category-card-metrics strong {
+  color: #ffffff !important;
+}
+
+/* Products and units-in-stock labels */
+html.dark .category-overview-card .category-card-metrics small,
+body.dark-mode .category-overview-card .category-card-metrics small {
+  color: #cbd5e1 !important;
+}
+
+/* Keep the active badge readable */
+html.dark .category-overview-card .category-card-status.active,
+body.dark-mode .category-overview-card .category-card-status.active {
+  color: #166534 !important;
+}
+
+/* Keep the category count badge readable */
+html.dark .category-count-badge,
+body.dark-mode .category-count-badge {
+  color: #166534 !important;
 }

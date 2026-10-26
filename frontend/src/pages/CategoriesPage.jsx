@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   Boxes,
+  ChevronDown,
   FileSpreadsheet,
   FileText,
   PackageOpen,
@@ -29,6 +30,13 @@ export default function CategoriesPage() {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [productsError, setProductsError] = useState('');
   const [exportingFormat, setExportingFormat] = useState('');
+
+  // Desktop category cards show only the first row until expanded.
+  // Mobile always keeps every category visible.
+  const [categoriesExpanded, setCategoriesExpanded] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [firstRowCategoryCount, setFirstRowCategoryCount] = useState(1);
+  const categoryMeasureRef = useRef(null);
   const productsRequest = useRef(0);
 
   async function load() {
@@ -55,6 +63,65 @@ export default function CategoriesPage() {
       productsRequest.current += 1;
     };
   }, []);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const updateViewport = () => {
+      const mobile = mediaQuery.matches;
+      setIsMobile(mobile);
+      if (mobile) setCategoriesExpanded(false);
+    };
+
+    updateViewport();
+    mediaQuery.addEventListener('change', updateViewport);
+
+    return () => {
+      mediaQuery.removeEventListener('change', updateViewport);
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (loadingCategories || !rows.length) {
+      setFirstRowCategoryCount(1);
+      return undefined;
+    }
+
+    function measureFirstRow() {
+      const grid = categoryMeasureRef.current;
+      if (!grid) return;
+
+      const cards = Array.from(grid.children);
+      if (!cards.length) {
+        setFirstRowCategoryCount(1);
+        return;
+      }
+
+      const firstTop = Math.round(cards[0].getBoundingClientRect().top);
+      const count = cards.filter(card =>
+        Math.abs(Math.round(card.getBoundingClientRect().top) - firstTop) <= 2
+      ).length;
+
+      setFirstRowCategoryCount(Math.max(1, count));
+    }
+
+    measureFirstRow();
+
+    const observer =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(measureFirstRow)
+        : null;
+
+    if (categoryMeasureRef.current) {
+      observer?.observe(categoryMeasureRef.current);
+    }
+
+    window.addEventListener('resize', measureFirstRow);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', measureFirstRow);
+    };
+  }, [rows, loadingCategories]);
 
   async function openCategory(category) {
     const requestId = ++productsRequest.current;
@@ -132,6 +199,42 @@ export default function CategoriesPage() {
     0
   );
 
+  const visibleCategories =
+    isMobile || categoriesExpanded
+      ? rows
+      : rows.slice(0, firstRowCategoryCount);
+
+  const hasMoreCategories =
+    !isMobile && rows.length > firstRowCategoryCount;
+
+  function renderCategoryCard(category, measureOnly = false) {
+    return (
+      <button
+        type="button"
+        key={category._id}
+        tabIndex={measureOnly ? -1 : undefined}
+        className={`category-overview-card${selectedCategory?._id === category._id ? ' selected' : ''}`}
+        onClick={() => {
+          if (!measureOnly) openCategory(category);
+        }}
+        aria-pressed={!measureOnly && selectedCategory?._id === category._id}
+      >
+        <span className="category-card-icon"><PackageOpen size={23} /></span>
+        <span className="category-card-main">
+          <strong>{category.name}</strong>
+          <small>{category.description || 'No description provided'}</small>
+        </span>
+        <span className="category-card-metrics">
+          <span><strong>{Number(category.productCount || 0)}</strong><small>Products</small></span>
+          <span><strong>{Number(category.totalQuantity || 0).toLocaleString()}</strong><small>Units in stock</small></span>
+        </span>
+        <span className={`category-card-status ${category.status === 'active' ? 'active' : 'inactive'}`}>
+          {category.status || 'active'}
+        </span>
+      </button>
+    );
+  }
+
   return (
     <div className="categories-page">
       <div className="page-heading category-screen-only">
@@ -163,30 +266,37 @@ export default function CategoriesPage() {
         {loadingCategories ? (
           <div className="page-loading">Loading categories...</div>
         ) : rows.length ? (
-          <div className="category-card-grid">
-            {rows.map(category => (
-              <button
-                type="button"
-                key={category._id}
-                className={`category-overview-card${selectedCategory?._id === category._id ? ' selected' : ''}`}
-                onClick={() => openCategory(category)}
-                aria-pressed={selectedCategory?._id === category._id}
+          <>
+            <div className="category-card-grid">
+              {visibleCategories.map(category => renderCategoryCard(category))}
+            </div>
+
+            {/* Hidden duplicate grid measures how many cards fit in the first row. */}
+            {!isMobile && (
+              <div
+                ref={categoryMeasureRef}
+                className="category-card-grid category-card-grid-measure"
+                aria-hidden="true"
               >
-                <span className="category-card-icon"><PackageOpen size={23} /></span>
-                <span className="category-card-main">
-                  <strong>{category.name}</strong>
-                  <small>{category.description || 'No description provided'}</small>
-                </span>
-                <span className="category-card-metrics">
-                  <span><strong>{Number(category.productCount || 0)}</strong><small>Products</small></span>
-                  <span><strong>{Number(category.totalQuantity || 0).toLocaleString()}</strong><small>Units in stock</small></span>
-                </span>
-                <span className={`category-card-status ${category.status === 'active' ? 'active' : 'inactive'}`}>
-                  {category.status || 'active'}
-                </span>
-              </button>
-            ))}
-          </div>
+                {rows.map(category => renderCategoryCard(category, true))}
+              </div>
+            )}
+
+            {hasMoreCategories && (
+              <div className="category-card-toggle-wrap">
+                <button
+                  type="button"
+                  className={`category-card-toggle${categoriesExpanded ? ' category-card-toggle-expanded' : ''}`}
+                  onClick={() => setCategoriesExpanded(current => !current)}
+                  aria-expanded={categoriesExpanded}
+                  aria-label={categoriesExpanded ? 'Show fewer categories' : 'Show all categories'}
+                  title={categoriesExpanded ? 'Show fewer categories' : 'Show all categories'}
+                >
+                  <ChevronDown size={20} />
+                </button>
+              </div>
+            )}
+          </>
         ) : (
           <GlassCard><EmptyState title="No categories yet" description="Add a category to create your first category card." /></GlassCard>
         )}

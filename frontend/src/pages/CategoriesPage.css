@@ -509,3 +509,22 @@ html.dark .category-count-badge,
 body.dark-mode .category-count-badge {
   color: #166534 !important;
 }
+/* Dark mode: improve category icon contrast */
+html.dark .category-overview-card .category-card-icon,
+body.dark-mode .category-overview-card .category-card-icon {
+  color: #166534 !important;
+}
+
+html.dark .category-overview-card .category-card-icon svg,
+body.dark-mode .category-overview-card .category-card-icon svg {
+  color: #166534 !important;
+  stroke: #166534 !important;
+}
+
+/* Keep active badges readable */
+html.dark .category-overview-card .category-card-status.active,
+body.dark-mode .category-overview-card .category-card-status.active {
+  color: #166534 !important;
+}
+
+/* Preserve the existing light-mode appearance */

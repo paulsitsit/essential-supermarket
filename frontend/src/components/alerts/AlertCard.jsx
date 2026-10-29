@@ -2,7 +2,6 @@ import {
   AlertTriangle,
   CalendarClock,
   CheckCircle2,
-  Clock3,
   Package,
   ShieldAlert
 } from 'lucide-react';
@@ -155,8 +154,17 @@ function getBatchNumber(alert) {
   );
 }
 
-function InfoField({ label, value, warning = false, className = '' }) {
-  const classes = ['alert-field', warning ? 'missing-field' : '', className]
+function InfoField({
+  label,
+  value,
+  warning = false,
+  className = ''
+}) {
+  const classes = [
+    'alert-field',
+    warning ? 'missing-field' : '',
+    className
+  ]
     .filter(Boolean)
     .join(' ');
 
@@ -176,24 +184,39 @@ export default function AlertCard({
 }) {
   const type = getAlertType(alert);
   const isExpiration = type === 'expiration';
-  const isResolved = alert.status === 'resolved';
 
-  const productName = getProductName(alert);
-  const severityLabel = getSeverityLabel(alert);
-  const statusLabel = getStatusLabel(
-    alert,
-    type
+  // Prefer current populated product stock over the old alert snapshot.
+  const currentStock = Number(
+    alert.product?.currentStock ?? alert.currentStock ?? 0
   );
+  const reorderLevel = Number(
+    alert.product?.reorderLevel ?? alert.reorderLevel ?? 0
+  );
+
+  const isOutOfStock = !isExpiration && currentStock <= 0;
+  const effectiveSeverity = isOutOfStock
+    ? 'critical'
+    : alert.severity;
+
+  const displayAlert = {
+    ...alert,
+    severity: effectiveSeverity
+  };
+
+  const isResolved = alert.status === 'resolved';
+  const productName = getProductName(alert);
+  const severityLabel = getSeverityLabel(displayAlert);
+  const statusLabel = getStatusLabel(displayAlert, type);
 
   const cardClassName = [
     'alert-card',
     isExpiration
       ? 'expiration-alert-card'
       : 'low-stock-alert-card',
-    alert.severity === 'critical'
+    effectiveSeverity === 'critical'
       ? 'critical-alert'
       : '',
-    alert.severity === 'warning'
+    effectiveSeverity === 'warning'
       ? 'warning-alert'
       : '',
     isResolved ? 'resolved-alert' : ''
@@ -203,7 +226,9 @@ export default function AlertCard({
 
   const Icon = isExpiration
     ? CalendarClock
-    : AlertTriangle;
+    : isOutOfStock
+      ? Package
+      : AlertTriangle;
 
   return (
     <article className={cardClassName}>
@@ -218,16 +243,16 @@ export default function AlertCard({
               <p className="alert-type-label">
                 {isExpiration
                   ? 'EXPIRATION ALERT'
-                  : 'LOW STOCK ALERT'}
+                  : isOutOfStock
+                    ? 'OUT-OF-STOCK ALERT'
+                    : 'LOW-STOCK ALERT'}
               </p>
 
               <h3>{productName}</h3>
             </div>
 
             <span
-              className={`alert-status ${getStatusClass(
-                alert
-              )}`}
+              className={`alert-status ${getStatusClass(displayAlert)}`}
             >
               {statusLabel}
             </span>
@@ -236,45 +261,45 @@ export default function AlertCard({
           <p className="alert-card-subtitle">
             {isExpiration
               ? 'Review expiry information and update inventory records.'
-              : 'Product stock is at or below its reorder level.'}
+              : isOutOfStock
+                ? 'No units are available. Replenishment is required.'
+                : 'Stock is above zero but at or below its reorder level.'}
           </p>
         </div>
       </div>
 
       <div className="alert-card-body">
         {!isExpiration ? (
-          <>
-            <div className="alert-fields-grid">
-              <InfoField
-                label="Product name"
-                value={productName}
-              />
+          <div className="alert-fields-grid">
+            <InfoField
+              label="Product name"
+              value={productName}
+            />
 
-              <InfoField
-                label="Current stock"
-                value={`${alert.currentStock ?? alert.product?.currentStock ?? 0} ${
-                  alert.product?.unitType || 'units'
-                }`}
-              />
+            <InfoField
+              label="Current stock"
+              value={`${currentStock} ${
+                alert.product?.unitType || 'units'
+              }`}
+            />
 
-              <InfoField
-                label="Reorder level"
-                value={`${alert.reorderLevel ?? alert.product?.reorderLevel ?? 0} ${
-                  alert.product?.unitType || 'units'
-                }`}
-              />
+            <InfoField
+              label="Reorder level"
+              value={`${reorderLevel} ${
+                alert.product?.unitType || 'units'
+              }`}
+            />
 
-              <InfoField
-                label="Severity level"
-                value={severityLabel}
-              />
+            <InfoField
+              label="Severity level"
+              value={severityLabel}
+            />
 
-              <InfoField
-                label="Created timestamp"
-                value={formatDate(alert.createdAt)}
-              />
-            </div>
-          </>
+            <InfoField
+              label="Created timestamp"
+              value={formatDate(alert.createdAt)}
+            />
+          </div>
         ) : (
           <>
             <div className="alert-fields-grid">
@@ -312,7 +337,7 @@ export default function AlertCard({
 
               <InfoField
                 label="Shelf life category"
-                value={getShelfLifeCategory(alert)}
+                value={getShelfLifeCategory(displayAlert)}
                 className="category-name-field"
               />
 
@@ -334,7 +359,6 @@ export default function AlertCard({
 
                   <div>
                     <strong>Expiry date not recorded</strong>
-
                     <span>
                       Action required: Update expiry date in inventory
                     </span>
@@ -358,7 +382,9 @@ export default function AlertCard({
               ? alert.daysRemaining !== undefined
                 ? `${alert.daysRemaining} days remaining`
                 : 'Expiry review required'
-              : 'Inventory replenishment review required'}
+              : isOutOfStock
+                ? 'Immediate replenishment review required'
+                : 'Inventory replenishment review required'}
           </span>
         </div>
 

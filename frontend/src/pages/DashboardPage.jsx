@@ -258,6 +258,7 @@ export default function DashboardPage() {
   const { lastEvent } = useSocket();
 
   const [data, setData] = useState(null);
+  const [cardTotals, setCardTotals] = useState(null);
   const [stock, setStock] = useState(null);
   const [error, setError] = useState('');
 
@@ -288,8 +289,17 @@ export default function DashboardPage() {
         setStock(res.data);
       });
 
+    // Card counts use their own endpoint so the existing charts and
+    // analytics response remain unchanged.
+    const cardTotalsRequest = client
+      .get('/dashboard/card-totals')
+      .then(res => {
+        if (requestId !== requestSequence.current) return;
+        setCardTotals(res.data?.totals || {});
+      });
+
     try {
-      await Promise.all([summaryRequest, stockRequest]);
+      await Promise.all([summaryRequest, stockRequest, cardTotalsRequest]);
     } catch (err) {
       if (requestId !== requestSequence.current) return;
 
@@ -396,7 +406,8 @@ export default function DashboardPage() {
     );
   }
 
-  const totals = data.totals || {};
+  // Prefer the dedicated, consistently calculated values for dashboard cards.
+  const totals = { ...(data.totals || {}), ...(cardTotals || {}) };
   const weeklyActivity = data.weeklyActivity || [];
   const salesActivity = data.salesActivity || [];
   const categoryData = data.categoryData || [];
@@ -461,7 +472,7 @@ export default function DashboardPage() {
       detail: 'Need replenishment review',
       icon: AlertTriangle,
       tone: 'amber',
-      link: '/alerts'
+      link: '/alerts/low-stock'
     },
     {
       label: 'Expiration Alerts',
@@ -469,7 +480,7 @@ export default function DashboardPage() {
       detail: 'Products expiring soon',
       icon: CalendarClock,
       tone: 'red',
-      link: '/alerts'
+      link: '/alerts/expiration'
     },
     {
       label: 'Out-of-Stock',
@@ -477,15 +488,15 @@ export default function DashboardPage() {
       detail: 'Currently unavailable',
       icon: AlertTriangle,
       tone: 'red',
-      link: '/alerts'
+      link: '/inventory'
     },
     {
       label: 'Defective Products',
       value: totals.defectiveProducts || 0,
-      detail: 'Reported as damaged or defective',
+      detail: 'Products with a recorded damage movement',
       icon: AlertTriangle,
       tone: 'red',
-      link: '/stock-movements?movementType=damaged'
+      link: '/stock-movements'
     },
     {
       label: 'Movements Today',
@@ -525,7 +536,7 @@ export default function DashboardPage() {
       detail: 'Gross sales minus refunds',
       icon: Wallet,
       tone: 'green',
-      link: '/reports'
+      link: '/sales'
     },
     {
       label: 'Returns Today',
@@ -838,7 +849,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="chart-grid">
-        <GlassCard className="chart-card category-distribution-chart">
+        <GlassCard className="chart-card">
           <div className="section-heading">
             <div>
               <h3>Inventory by Category</h3>
@@ -947,7 +958,7 @@ export default function DashboardPage() {
               <h3>Low-stock attention</h3>
               <p>Products at or below reorder level</p>
             </div>
-            <Link to="/alerts">View alerts</Link>
+            <Link to="/alerts/low-stock">View alerts</Link>
           </div>
 
           <div className="mini-list">

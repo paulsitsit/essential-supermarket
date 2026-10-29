@@ -1,0 +1,212 @@
+/*
+ * Essential Supermarket login — storefront behind headline.
+ * The storefront uses the same absolute team-photo layer as the original
+ * login design. Intro text and feature cards are intentionally above it.
+ */
+.login-showcase.login-storefront-theme {
+  position: relative !important;
+  isolation: isolate !important;
+  display: grid !important;
+  place-items: center !important;
+  min-height: 100vh !important;
+  min-height: 100dvh !important;
+  padding: clamp(14px, 3vw, 44px) !important;
+  overflow-x: clip !important;
+  background: linear-gradient(135deg, #041a14 0%, #0b3326 52%, #071d18 100%) !important;
+}
+
+.login-showcase.login-storefront-theme .login-showcase-panel {
+  align-items: stretch !important;
+  min-height: min(720px, calc(100dvh - 48px)) !important;
+  margin: 0 auto !important;
+}
+
+.login-showcase.login-storefront-theme .login-intro {
+  position: relative !important;
+  isolation: isolate !important;
+  min-width: 0 !important;
+  min-height: 690px !important;
+  overflow: visible !important;
+}
+
+/* Brand and copy remain in the foreground. */
+.login-showcase.login-storefront-theme .showcase-brand {
+  position: relative !important;
+  z-index: 4 !important;
+}
+
+.login-showcase.login-storefront-theme .intro-copy {
+  position: relative !important;
+  z-index: 4 !important;
+  max-width: 640px !important;
+  margin-top: clamp(34px, 5vh, 62px) !important;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, .28) !important;
+}
+
+/* Reuse the original team-photo layer: absolutely positioned behind the copy. */
+.login-showcase.login-storefront-theme .login-storefront-wrap {
+  position: absolute !important;
+  z-index: 1 !important;
+  right: -12px !important;
+  bottom: 42px !important;
+  inset: auto -12px 42px auto !important;
+  width: min(100%, 860px) !important;
+  height: min(68%, 500px) !important;
+  min-height: 360px !important;
+  max-height: 500px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.login-showcase.login-storefront-theme .login-storefront-wrap::before {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 2 !important;
+  display: block !important;
+  background: linear-gradient(
+    180deg,
+    rgba(4, 26, 20, .62) 0%,
+    rgba(4, 26, 20, .32) 28%,
+    rgba(4, 26, 20, .16) 65%,
+    rgba(4, 26, 20, .34) 100%
+  ) !important;
+}
+
+.login-showcase.login-storefront-theme .login-storefront-wrap::after {
+  content: '' !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 3 !important;
+  display: block !important;
+  background: linear-gradient(90deg, rgba(4, 26, 20, .34), transparent 65%) !important;
+}
+
+.login-showcase.login-storefront-theme .login-storefront-image {
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 1 !important;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  object-fit: cover !important;
+  object-position: center 48% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  opacity: .86 !important;
+  filter: brightness(.76) saturate(.88) drop-shadow(0 12px 22px rgba(0, 0, 0, .12)) !important;
+  transform: none !important;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,.2) 5%, #000 27%);
+  mask-image: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,.2) 5%, #000 27%);
+}
+
+/* Feature cards/footnote stay above the storefront. */
+.login-showcase.login-storefront-theme .feature-grid {
+  position: relative !important;
+  z-index: 5 !important;
+  margin-top: auto !important;
+  padding-top: 26px !important;
+}
+
+.login-showcase.login-storefront-theme .intro-footnote {
+  position: relative !important;
+  z-index: 5 !important;
+  margin-top: 14px !important;
+}
+
+.login-showcase.login-storefront-theme .showcase-login-card {
+  position: relative !important;
+  z-index: 3 !important;
+  align-self: start !important;
+}
+
+@media (min-width: 1101px) {
+  .login-showcase.login-storefront-theme .login-showcase-panel {
+    grid-template-columns: minmax(0, 1.16fr) minmax(350px, .78fr) !important;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 1100px) {
+  .login-showcase.login-storefront-theme .login-showcase-panel {
+    align-items: start !important;
+    grid-template-columns: minmax(0, 1fr) minmax(310px, .86fr) !important;
+    gap: 24px !important;
+    padding: 26px !important;
+  }
+  .login-showcase.login-storefront-theme .login-intro {
+    min-height: 650px !important;
+  }
+  .login-showcase.login-storefront-theme .login-storefront-wrap {
+    height: 62% !important;
+    min-height: 320px !important;
+    bottom: 54px !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .login-showcase.login-storefront-theme {
+    display: block !important;
+    padding: 12px !important;
+    overflow-x: clip !important;
+    overflow-y: auto !important;
+  }
+  .login-showcase.login-storefront-theme .login-showcase-panel {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 20px !important;
+    min-height: 0 !important;
+  }
+  .login-showcase.login-storefront-theme .login-intro {
+    min-height: 720px !important;
+  }
+  .login-showcase.login-storefront-theme .intro-copy {
+    margin-top: 25px !important;
+  }
+  .login-showcase.login-storefront-theme .login-storefront-wrap {
+    right: -4px !important;
+    bottom: 104px !important;
+    width: 100% !important;
+    height: 48% !important;
+    min-height: 260px !important;
+    max-height: none !important;
+  }
+  .login-showcase.login-storefront-theme .feature-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin-top: auto !important;
+    padding-top: 0 !important;
+  }
+  .login-showcase.login-storefront-theme .feature-card {
+    padding: 11px 8px !important;
+  }
+  .login-showcase.login-storefront-theme .showcase-login-card {
+    align-self: stretch !important;
+  }
+}
+
+@media (max-width: 420px) {
+  .login-showcase.login-storefront-theme .login-intro {
+    min-height: 690px !important;
+  }
+  .login-showcase.login-storefront-theme .login-storefront-wrap {
+    bottom: 112px !important;
+    height: 43% !important;
+    min-height: 220px !important;
+  }
+  .login-showcase.login-storefront-theme .feature-card p {
+    display: none !important;
+  }
+}

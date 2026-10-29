@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import {
   Activity,
@@ -15,8 +14,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../context/AuthContext';
 import Logo from '../assets/logo.png';
-import TeamPhoto from '../assets/team-photo-transparent.png';
+import StorefrontPhoto from '../assets/essential-supermarket-storefront.webp';
 import GhostFibers from './GhostFibers';
+import './login-storefront.css';
 
 const features = [
   {
@@ -98,8 +98,8 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="login-page login-showcase">
-      {/* Existing animated background: GhostFibers.jsx is unchanged. */}
+    <main className="login-page login-showcase login-storefront-theme">
+      {/* Keep the existing animated background behind the login content. */}
       <div className="login-background" aria-hidden="true">
         <GhostFibers
           lineColor="#22C55E"
@@ -142,7 +142,7 @@ export default function LoginPage() {
       />
 
       <div className="login-showcase-panel">
-        {/* LEFT: branding, large transparent team image and features */}
+        {/* LEFT: supermarket storefront image, branding, and features */}
         <section className="login-intro">
           <div className="showcase-brand">
             <div className="showcase-logo">
@@ -175,12 +175,11 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Transparent cutout, no rectangular photo background. */}
-          <div className="team-photo-wrap">
+          <div className="team-photo-wrap login-storefront-wrap">
             <img
-              className="team-photo"
-              src={TeamPhoto}
-              alt="The Essential Supermarket project team"
+              className="team-photo login-storefront-image"
+              src={StorefrontPhoto}
+              alt="Modern Essential Supermarket storefront with tropical landscaping and a spacious entrance"
               fetchPriority="high"
             />
           </div>
@@ -206,7 +205,7 @@ export default function LoginPage() {
           </p>
         </section>
 
-        {/* RIGHT: functional login form */}
+        {/* RIGHT: keep the existing functional login form and auth flow */}
         <section className="login-card glass-card showcase-login-card">
           <div className="login-logo">
             <div className="brand-mark large">

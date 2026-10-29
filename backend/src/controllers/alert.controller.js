@@ -9,9 +9,18 @@ const productFields = [
   'currentStock',
   'reorderLevel',
   'status',
-  'expirationDate'
+  'expirationDate',
+  'isArchived'
 ].join(' ');
 
+/**
+ * Return low-stock alerts that still apply to the current inventory.
+ *
+ * Active alerts are visible only when their product exists, is not archived,
+ * and its current stock is at or below its reorder level. Resolved alerts are
+ * kept visible for history, even if the related product is no longer present.
+ * This filters the response; it does not delete or change old records.
+ */
 export async function listLowStockAlerts(req, res) {
   const filter = req.query.status
     ? { status: req.query.status }
@@ -26,7 +35,40 @@ export async function listLowStockAlerts(req, res) {
       createdAt: -1
     });
 
-  res.json(alerts);
+  const visibleAlerts = alerts.filter(alert => {
+    // Resolved alerts are retained as history.
+    if (alert.status === 'resolved') {
+      return true;
+    }
+
+    const product = alert.product;
+
+    // Hide active alerts whose product was deleted or archived.
+    if (!product || product.isArchived) {
+      return false;
+    }
+
+    const currentStock = Number(
+      product.currentStock ?? alert.currentStock ?? 0
+    );
+    const reorderLevel = Number(
+      product.reorderLevel ?? alert.reorderLevel ?? 0
+    );
+
+    // If stock has recovered, the active alert is stale.
+    if (currentStock > reorderLevel) {
+      return false;
+    }
+
+    // Return the current stock data rather than stale snapshot values.
+    alert.currentStock = currentStock;
+    alert.reorderLevel = reorderLevel;
+    alert.severity = currentStock <= 0 ? 'critical' : 'warning';
+
+    return true;
+  });
+
+  res.json(visibleAlerts);
 }
 
 export async function markLowStockRead(req, res) {

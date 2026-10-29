@@ -158,102 +158,167 @@ export async function notifyStockAdded({
   };
 }
 
+/**
+ * Keep low-stock alerts synchronized with the current product stock.
+ *
+ * - A product at or below its reorder level has an active alert.
+ * - Zero stock is marked critical; positive low stock is a warning.
+ * - When stock rises above the reorder level, all active alerts for that
+ *   product are resolved and a socket event is sent to refresh the UI.
+ */
 export async function createOrUpdateAlert(
   product,
   account,
   req,
   io
 ) {
-  if (product.currentStock <= product.reorderLevel) {
-    let alert = await LowStockAlert.findOne({
-      product: product._id,
-      status: {
-        $ne: 'resolved'
-      }
+  const currentStock = Number(product.currentStock ?? 0);
+  const reorderLevel = Number(product.reorderLevel ?? 0);
+
+  const activeAlerts = await LowStockAlert.find({
+    product: product._id,
+    status: { $ne: 'resolved' }
+  }).sort({ createdAt: 1 });
+
+  // Stock recovered: resolve any stale active alert(s).
+  if (currentStock > reorderLevel) {
+    if (!activeAlerts.length) {
+      return null;
+    }
+
+    const resolvedAt = new Date();
+    const resolvedAlerts = [];
+
+    for (const alert of activeAlerts) {
+      alert.status = 'resolved';
+      alert.resolvedAt = resolvedAt;
+      await alert.save();
+      resolvedAlerts.push(alert);
+
+      io?.emit('lowStockAlertResolved', alert);
+    }
+
+    try {
+      await writeAudit({
+        req,
+        account,
+        action: 'low_stock_alert_auto_resolved',
+        affectedRecord: product._id.toString(),
+        metadata: {
+          currentStock,
+          reorderLevel,
+          resolvedAlertIds: resolvedAlerts.map(
+            alert => alert._id.toString()
+          )
+        }
+      });
+    } catch (auditError) {
+      // A failed audit log must not undo stock recovery or alert resolution.
+      console.error(
+        'Unable to write automatic low-stock alert resolution audit:',
+        auditError
+      );
+    }
+
+    io?.emit('lowStockAlertUpdated', {
+      product,
+      currentStock,
+      reorderLevel,
+      status: 'resolved'
     });
 
-    if (!alert) {
-      alert = await LowStockAlert.create({
-        product: product._id,
-        currentStock: product.currentStock,
-        reorderLevel: product.reorderLevel,
-        severity:
-          product.currentStock === 0
-            ? 'critical'
-            : 'warning',
-        status: 'unread'
-      });
+    return null;
+  }
 
+  // Stock is at or below reorder level: update an active alert or create one.
+  let alert = activeAlerts[0] || null;
+
+  if (!alert) {
+    alert = await LowStockAlert.create({
+      product: product._id,
+      currentStock,
+      reorderLevel,
+      severity: currentStock <= 0 ? 'critical' : 'warning',
+      status: 'unread'
+    });
+
+    try {
       await writeAudit({
         req,
         account,
         action: 'low_stock_alert_created',
         affectedRecord: product._id.toString(),
         metadata: {
-          currentStock: product.currentStock,
-          reorderLevel: product.reorderLevel
+          currentStock,
+          reorderLevel
         }
       });
-
-      io?.emit('lowStockAlertCreated', {
-        product,
-        alert
-      });
-
-      try {
-        const isOutOfStock =
-          Number(product.currentStock || 0) === 0;
-
-        await sendPushToAccount(account?._id, {
-          title: isOutOfStock
-            ? 'Out of stock'
-            : 'Low stock alert',
-
-          body: isOutOfStock
-            ? `${product.name} is out of stock.`
-            : `${product.name} has only ${
-                product.currentStock
-              } unit${
-                Number(product.currentStock) === 1
-                  ? ''
-                  : 's'
-              } remaining.`,
-
-          url: '/alerts',
-          tag: `low-stock-${product._id.toString()}`
-        });
-      } catch (pushError) {
-        console.error(
-          'Low-stock push notification failed:',
-          pushError
-        );
-      }
-    } else {
-      alert.currentStock = product.currentStock;
-      alert.reorderLevel = product.reorderLevel;
-      alert.severity =
-        product.currentStock === 0
-          ? 'critical'
-          : 'warning';
-
-      await alert.save();
-
-      io?.emit('productUpdated', {
-        product,
-        alert
-      });
+    } catch (auditError) {
+      // Do not block stock processing if audit logging fails.
+      console.error(
+        'Unable to write low-stock alert creation audit:',
+        auditError
+      );
     }
 
-    return alert;
+    io?.emit('lowStockAlertCreated', {
+      product,
+      alert
+    });
+
+    try {
+      const isOutOfStock = currentStock <= 0;
+
+      await sendPushToAccount(account?._id, {
+        title: isOutOfStock
+          ? 'Out of stock'
+          : 'Low stock alert',
+        body: isOutOfStock
+          ? `${product.name} is out of stock.`
+          : `${product.name} has only ${currentStock} unit${currentStock === 1 ? '' : 's'} remaining.`,
+        url: '/alerts/low-stock',
+        tag: `low-stock-${product._id.toString()}`
+      });
+    } catch (pushError) {
+      console.error(
+        'Low-stock push notification failed:',
+        pushError
+      );
+    }
+  } else {
+    alert.currentStock = currentStock;
+    alert.reorderLevel = reorderLevel;
+    alert.severity = currentStock <= 0 ? 'critical' : 'warning';
+
+    await alert.save();
+
+    io?.emit('lowStockAlertUpdated', {
+      product,
+      alert
+    });
   }
 
-  return null;
+  // Repair any duplicate active alert records for the same product.
+  // Keep the oldest active alert and resolve the extras.
+  const duplicateAlerts = activeAlerts.slice(1);
+  if (duplicateAlerts.length) {
+    const resolvedAt = new Date();
+
+    for (const duplicate of duplicateAlerts) {
+      duplicate.status = 'resolved';
+      duplicate.resolvedAt = resolvedAt;
+      await duplicate.save();
+      io?.emit('lowStockAlertResolved', duplicate);
+    }
+  }
+
+  return alert;
 }
 
 /**
- * Create stock ledger entries for each batch allocation
- * CRITICAL: batchAllocations must include batchStockBefore and batchStockAfter
- * from allocateBatchesFEFO or createReceivedBatch
+ * Create stock ledger entries for each batch allocation.
+ * batchAllocations must include batchStockBefore and batchStockAfter
+ * from allocateBatchesFEFO or createReceivedBatch.
  */
 async function createBatchLedgerEntries({
   product,
@@ -269,8 +334,6 @@ async function createBatchLedgerEntries({
 
   const ledgerEntries = await Promise.all(
     batchAllocations.map(async (allocation) => {
-      // batchAllocations should already have batchStockBefore and batchStockAfter
-      // from the allocation logic
       const batchStockBefore = allocation.batchStockBefore;
       const batchStockAfter = allocation.batchStockAfter;
 
@@ -381,13 +444,13 @@ export async function applyMovement({
       }
     ];
   } else if (change < 0) {
-    // allocateBatchesFEFO must return batchStockBefore and batchStockAfter
+    // allocateBatchesFEFO must return batchStockBefore and batchStockAfter.
     batchAllocations = await allocateBatchesFEFO({
       product,
       quantity: Math.abs(change)
     });
 
-    // Add movementType to each allocation for ledger creation
+    // Add movementType to each allocation for ledger creation.
     batchAllocations = batchAllocations.map(allocation => ({
       ...allocation,
       movementType
@@ -411,7 +474,7 @@ export async function applyMovement({
     referenceId
   });
 
-  // Create batch-level ledger entries
+  // Create batch-level ledger entries.
   const ledgerEntries = await createBatchLedgerEntries({
     product,
     batchAllocations,

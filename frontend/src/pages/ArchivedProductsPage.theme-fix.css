@@ -1,25 +1,13 @@
 /*
- * Essential Supermarket — Archived Products Light Mode Contrast Fix
- * Import this AFTER ArchivedProductsPage.css.
- * Scoped to light mode only; dark-mode styles remain unchanged.
+ * Essential Supermarket — Archived Products Light Mode Fix v2
+ * Replace the existing ArchivedProductsPage.theme-fix.css.
+ * Fixes the mixed dark-card/white-cell appearance in light mode.
+ * Dark mode is intentionally untouched.
  */
 
+/* Archive summary cards */
 html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-summary-card span,
-html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-summary-card small {
-  color: #475569 !important;
-  -webkit-text-fill-color: #475569 !important;
-}
-
-html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-summary-card strong {
-  color: #0f172a !important;
-  -webkit-text-fill-color: #0f172a !important;
-}
-
-html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-list-heading h2 {
-  color: #0f172a !important;
-  -webkit-text-fill-color: #0f172a !important;
-}
-
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-summary-card small,
 html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-list-heading p,
 html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-stock-filter > span,
 html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-permission-note,
@@ -28,7 +16,13 @@ html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-admin-note
   -webkit-text-fill-color: #475569 !important;
 }
 
-/* Search and filter controls: readable text on white fields. */
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-summary-card strong,
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-list-heading h2 {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+
+/* Search and filter controls */
 html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-search {
   color: #475569 !important;
   background: #ffffff !important;
@@ -54,28 +48,40 @@ html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-stock-filt
   background: #ffffff !important;
 }
 
-/* Archive register table: override dark-palette text from the shared stylesheet. */
+/*
+ * CARD ROW FIX:
+ * Keep the entire product row on one light surface. The previous
+ * override painted every TD white but left its parent TR dark navy,
+ * producing separate white rectangles inside a dark card.
+ */
 html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table-wrap {
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table tbody tr {
   background: #ffffff !important;
-  border-color: #cbd5e1 !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.07) !important;
 }
 
-html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table th {
-  color: #334155 !important;
-  -webkit-text-fill-color: #334155 !important;
-  background: #f1f5f9 !important;
-  border-bottom-color: #cbd5e1 !important;
-}
-
-html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table td {
-  color: #334155 !important;
-  -webkit-text-fill-color: #334155 !important;
-  background: #ffffff !important;
-  border-top-color: #e2e8f0 !important;
-}
-
-html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table tbody tr:hover td {
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table tbody tr:hover {
   background: #f8fafc !important;
+  border-color: #94a3b8 !important;
+}
+
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table tbody td,
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table tbody tr:hover td {
+  color: #334155 !important;
+  -webkit-text-fill-color: #334155 !important;
+  background: transparent !important;
+  border-color: transparent !important;
+}
+
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table tbody td::before {
+  color: #64748b !important;
+  -webkit-text-fill-color: #64748b !important;
+  background: transparent !important;
 }
 
 html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .archive-product-cell strong,
@@ -92,23 +98,26 @@ html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .arc
   -webkit-text-fill-color: #475569 !important;
 }
 
-/* Stock badges retain their semantic warning/success/error colors. */
+/* Preserve readable semantic stock badges. */
 html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .archive-stock-badge.normal {
   color: #166534 !important;
   -webkit-text-fill-color: #166534 !important;
   background: #dcfce7 !important;
 }
+
 html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .archive-stock-badge.low {
   color: #92400e !important;
   -webkit-text-fill-color: #92400e !important;
   background: #fef3c7 !important;
 }
+
 html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .archive-stock-badge.out {
   color: #991b1b !important;
   -webkit-text-fill-color: #991b1b !important;
   background: #fee2e2 !important;
 }
 
+/* Restore button and product thumbnail */
 html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .archive-restore-btn {
   color: #166534 !important;
   -webkit-text-fill-color: #166534 !important;
@@ -122,6 +131,12 @@ html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .arc
   background: #bbf7d0 !important;
 }
 
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .archive-product-image,
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .archive-product-icon {
+  border-color: #cbd5e1 !important;
+  background: #f8fafc !important;
+}
+
 html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-notice {
   color: #166534 !important;
   -webkit-text-fill-color: #166534 !important;
@@ -129,8 +144,7 @@ html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-notice {
   border-color: #86efac !important;
 }
 
-html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .archive-product-image,
-html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .archive-product-icon {
-  border-color: #cbd5e1 !important;
-  background: #f8fafc !important;
+/* Add breathing room before the archive summary footer. */
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table tbody {
+  margin-bottom: 12px !important;
 }

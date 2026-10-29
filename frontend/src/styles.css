@@ -6797,3 +6797,19 @@ html.dark body .report-stat .quantity-positive,
 body.dark-mode .report-stat .quantity-positive {
   color: #166534 !important;
 }
+
+/* Fix native dropdown option contrast in dark mode across the app */
+html.dark body select option,
+body.dark-mode select option {
+  color: #1f2937 !important;
+  -webkit-text-fill-color: #1f2937 !important;
+  background-color: #f8fafc !important;
+}
+
+/* Keep the selected option readable when highlighted */
+html.dark body select option:checked,
+body.dark-mode select option:checked {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  background-color: #166534 !important;
+}

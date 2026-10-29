@@ -39,7 +39,10 @@ import {
   syncPendingStockReceipts
 } from './services/stockOutbox.js';
 
+/* Keep the modal override after the global stylesheet so it wins over
+   broad dark-mode text rules without changing ordinary page styles. */
 import './styles.css';
+import './modal-contrast-fix.css';
 
 function OfflineSyncWatcher() {
   const isOnline = useOnlineStatus();

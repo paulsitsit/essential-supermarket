@@ -1,0 +1,275 @@
+/*
+ * Essential Supermarket — global modal readability and contrast fix.
+ * Imported AFTER styles.css so these dialog-specific rules win over
+ * broad dark-mode text selectors. This intentionally changes modal UI
+ * only; normal pages and their layout are untouched.
+ */
+
+/* Keep all standard dialogs consistently dark in dark mode. */
+html.dark body .modal-backdrop .modal-card,
+html.dark body .modal-backdrop .modal-panel,
+body.dark-mode .modal-backdrop .modal-card,
+body.dark-mode .modal-backdrop .modal-panel {
+  color: #f8fafc !important;
+  background: #1e293b !important;
+  border-color: #475569 !important;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42) !important;
+}
+
+html.dark body .modal-backdrop,
+body.dark-mode .modal-backdrop {
+  background: rgba(2, 6, 23, 0.72) !important;
+}
+
+/* Main dialog text on the dark dialog surface. */
+html.dark body .modal-card :is(h1, h2, h3, h4, h5, h6),
+body.dark-mode .modal-card :is(h1, h2, h3, h4, h5, h6),
+html.dark body .modal-panel :is(h1, h2, h3, h4, h5, h6),
+body.dark-mode .modal-panel :is(h1, h2, h3, h4, h5, h6) {
+  color: #f8fafc !important;
+}
+
+html.dark body .modal-card p:not(.eyebrow),
+body.dark-mode .modal-card p:not(.eyebrow),
+html.dark body .modal-panel p:not(.eyebrow),
+body.dark-mode .modal-panel p:not(.eyebrow) {
+  color: #cbd5e1 !important;
+}
+
+html.dark body .modal-card .eyebrow,
+body.dark-mode .modal-card .eyebrow,
+html.dark body .modal-panel .eyebrow,
+body.dark-mode .modal-panel .eyebrow {
+  color: #86efac !important;
+}
+
+html.dark body .modal-card label,
+body.dark-mode .modal-card label,
+html.dark body .modal-panel label,
+body.dark-mode .modal-panel label {
+  color: #e2e8f0 !important;
+}
+
+html.dark body .modal-card .field-hint,
+body.dark-mode .modal-card .field-hint,
+html.dark body .modal-panel .field-hint,
+body.dark-mode .modal-panel .field-hint {
+  color: #94a3b8 !important;
+}
+
+/* Use dark controls and readable field text for all modal forms. */
+html.dark body .modal-card :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]), select, textarea),
+body.dark-mode .modal-card :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]), select, textarea),
+html.dark body .modal-panel :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]), select, textarea),
+body.dark-mode .modal-panel :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]), select, textarea) {
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  background: #0f172a !important;
+  border-color: #475569 !important;
+}
+
+html.dark body .modal-card :is(input, textarea)::placeholder,
+body.dark-mode .modal-card :is(input, textarea)::placeholder,
+html.dark body .modal-panel :is(input, textarea)::placeholder,
+body.dark-mode .modal-panel :is(input, textarea)::placeholder {
+  color: #94a3b8 !important;
+  -webkit-text-fill-color: #94a3b8 !important;
+  opacity: 1;
+}
+
+/* Native option lists use a light popup surface, so use dark option text. */
+html.dark body .modal-card option,
+body.dark-mode .modal-card option,
+html.dark body .modal-panel option,
+body.dark-mode .modal-panel option {
+  color: #1f2937 !important;
+  -webkit-text-fill-color: #1f2937 !important;
+  background: #f8fafc !important;
+}
+
+/* PRODUCT DETAILS: darken pale inset panels so global white text stays readable. */
+html.dark body .details-modal .details-product-overview,
+body.dark-mode .details-modal .details-product-overview,
+html.dark body .details-modal .details-status,
+body.dark-mode .details-modal .details-status,
+html.dark body .details-modal .details-qr-section,
+body.dark-mode .details-modal .details-qr-section,
+html.dark body .modal-card .stock-summary,
+body.dark-mode .modal-card .stock-summary {
+  color: #f8fafc !important;
+  background: #172033 !important;
+  border: 1px solid #334155 !important;
+}
+
+html.dark body .details-modal .details-product-summary h4,
+body.dark-mode .details-modal .details-product-summary h4,
+html.dark body .details-modal .details-item strong,
+body.dark-mode .details-modal .details-item strong,
+html.dark body .details-modal .details-product-summary span,
+body.dark-mode .details-modal .details-product-summary span,
+html.dark body .details-modal .details-product-summary p,
+body.dark-mode .details-modal .details-product-summary p,
+html.dark body .details-modal .details-status > span,
+body.dark-mode .details-modal .details-status > span,
+html.dark body .details-modal .details-description p,
+body.dark-mode .details-modal .details-description p,
+html.dark body .details-modal .details-section-label,
+body.dark-mode .details-modal .details-section-label,
+html.dark body .modal-card .stock-summary strong,
+body.dark-mode .modal-card .stock-summary strong {
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+}
+
+html.dark body .details-modal .details-item > span,
+body.dark-mode .details-modal .details-item > span,
+html.dark body .details-modal .details-description > span,
+body.dark-mode .details-modal .details-description > span,
+html.dark body .details-modal .details-status > span,
+body.dark-mode .details-modal .details-status > span,
+html.dark body .details-modal .details-section-label,
+body.dark-mode .details-modal .details-section-label,
+html.dark body .details-modal .details-product-summary p,
+body.dark-mode .details-modal .details-product-summary p,
+html.dark body .details-modal .details-product-summary span,
+body.dark-mode .details-modal .details-product-summary span,
+html.dark body .modal-card .stock-summary span,
+body.dark-mode .modal-card .stock-summary span {
+  color: #cbd5e1 !important;
+  -webkit-text-fill-color: #cbd5e1 !important;
+  font-size: 12px !important;
+}
+
+html.dark body .details-modal .details-item strong,
+body.dark-mode .details-modal .details-item strong,
+html.dark body .modal-card .stock-summary strong,
+body.dark-mode .modal-card .stock-summary strong {
+  font-size: 13px !important;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+html.dark body .details-modal .details-description p,
+body.dark-mode .details-modal .details-description p {
+  color: #cbd5e1 !important;
+  font-size: 13px !important;
+  line-height: 1.65;
+}
+
+html.dark body .details-modal .details-product-image-fallback,
+body.dark-mode .details-modal .details-product-image-fallback {
+  color: #f8fafc !important;
+  background: #0f172a !important;
+  border-color: #475569 !important;
+}
+
+html.dark body .details-modal .details-product-image-fallback svg,
+body.dark-mode .details-modal .details-product-image-fallback svg {
+  color: #cbd5e1 !important;
+}
+
+/* The QR artwork itself stays on white for scanner contrast. */
+html.dark body .details-modal .qr-code-box,
+body.dark-mode .details-modal .qr-code-box,
+html.dark body .qr-modal .qr-code-box,
+body.dark-mode .qr-modal .qr-code-box {
+  color: #123d26 !important;
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+}
+
+/* QR dialog previously used translucent white glass with white text. */
+html.dark body .qr-modal,
+body.dark-mode .qr-modal {
+  color: #f8fafc !important;
+  background: #1e293b !important;
+  border: 1px solid #475569 !important;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45) !important;
+}
+
+html.dark body .qr-modal .qr-value,
+body.dark-mode .qr-modal .qr-value {
+  color: #cbd5e1 !important;
+  font-size: 13px !important;
+}
+
+html.dark body .qr-modal .qr-value strong,
+body.dark-mode .qr-modal .qr-value strong {
+  color: #86efac !important;
+}
+
+/* Status and feedback panels inside dialogs keep their semantic colors. */
+html.dark body .modal-card .inventory-cache-notice,
+body.dark-mode .modal-card .inventory-cache-notice {
+  color: #fde68a !important;
+  background: #422006 !important;
+  border-color: #92400e !important;
+}
+
+html.dark body .modal-card .inventory-cache-notice span,
+body.dark-mode .modal-card .inventory-cache-notice span {
+  color: #fde68a !important;
+}
+
+html.dark body .modal-card .scan-success-message,
+body.dark-mode .modal-card .scan-success-message {
+  color: #bbf7d0 !important;
+  background: #052e16 !important;
+  border-color: #166534 !important;
+}
+
+html.dark body .modal-card .scan-success-message span,
+body.dark-mode .modal-card .scan-success-message span {
+  color: #bbf7d0 !important;
+}
+
+html.dark body .modal-card .form-error,
+body.dark-mode .modal-card .form-error,
+html.dark body .modal-panel .form-error,
+body.dark-mode .modal-panel .form-error {
+  color: #fecaca !important;
+  background: #450a0a !important;
+  border-color: #991b1b !important;
+}
+
+/* Buttons inside dark dialogs must have readable labels and clear focus. */
+html.dark body .modal-card .secondary-btn,
+body.dark-mode .modal-card .secondary-btn,
+html.dark body .modal-panel .secondary-btn,
+body.dark-mode .modal-panel .secondary-btn,
+html.dark body .qr-modal .secondary-btn,
+body.dark-mode .qr-modal .secondary-btn {
+  color: #e2e8f0 !important;
+  background: #334155 !important;
+  border-color: #64748b !important;
+}
+
+html.dark body .modal-card :is(button, input, select, textarea):focus-visible,
+body.dark-mode .modal-card :is(button, input, select, textarea):focus-visible,
+html.dark body .modal-panel :is(button, input, select, textarea):focus-visible,
+body.dark-mode .modal-panel :is(button, input, select, textarea):focus-visible,
+html.dark body .qr-modal :is(button, input, select, textarea):focus-visible,
+body.dark-mode .qr-modal :is(button, input, select, textarea):focus-visible {
+  outline: 2px solid #86efac !important;
+  outline-offset: 3px;
+}
+
+/* Slightly increase tiny details text without changing the overall modal layout. */
+html.dark body .modal-card .details-section-label,
+body.dark-mode .modal-card .details-section-label,
+html.dark body .modal-card .details-item > span,
+body.dark-mode .modal-card .details-item > span {
+  font-size: 12px !important;
+  line-height: 1.4;
+}
+
+@media (max-width: 520px) {
+  html.dark body .modal-backdrop .modal-card,
+  body.dark-mode .modal-backdrop .modal-card,
+  html.dark body .qr-backdrop .qr-modal,
+  body.dark-mode .qr-backdrop .qr-modal {
+    max-height: calc(100dvh - 24px) !important;
+    overflow-y: auto !important;
+  }
+}

@@ -4,7 +4,7 @@
  * The right-side glass login form keeps the existing authentication behavior.
  */
 
-/* Replace the animated backdrop with a clean dark-green environment. */
+/* Keep the animated GhostFibers backdrop active under the storefront design. */
 .login-showcase.login-storefront-theme {
   position: relative !important;
   display: block !important;
@@ -22,7 +22,27 @@
     linear-gradient(125deg, #061a15 0%, #0a3025 57%, #041711 100%) !important;
 }
 
-.login-showcase.login-storefront-theme .login-background,
+/* The animation stays on behind both columns, subtle enough not to compete
+   with the storefront photograph or the login form. Decorative blobs remain off. */
+.login-showcase.login-storefront-theme .login-background {
+  display: block !important;
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: -1 !important;
+  opacity: 0.36 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+
+.login-showcase.login-storefront-theme .login-background .ghost-fibers-container,
+.login-showcase.login-storefront-theme .login-background canvas {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  pointer-events: none !important;
+}
+
 .login-showcase.login-storefront-theme .login-decoration {
   display: none !important;
 }

@@ -273,3 +273,86 @@
   .archive-list-card { padding: 14px; }
   .archive-summary-card { padding: 15px; }
 }
+
+
+/* ==========================================================
+   ARCHIVED PRODUCTS: HIGH-CONTRAST, READABLE TABLE OVERRIDES
+   Higher-specificity rules are intentional: the shared
+   .data-table styles otherwise keep nested <strong> text small.
+   ========================================================== */
+.archived-products-page .archive-table th {
+  padding: 16px 15px !important;
+  color: #e2e8f0 !important;
+  font-size: 12px !important;
+  line-height: 1.45 !important;
+  letter-spacing: .04em !important;
+}
+
+.archived-products-page .archive-table td {
+  padding: 18px 15px !important;
+  color: #f1f5f9 !important;
+  font-size: 14px !important;
+  line-height: 1.55 !important;
+}
+
+.archived-products-page .archive-table .archive-product-cell strong,
+.archived-products-page .archive-table .archive-code-cell strong,
+.archived-products-page .archive-table .archive-stock-cell strong {
+  color: #ffffff !important;
+  font-size: 16px !important;
+  font-weight: 750 !important;
+  line-height: 1.45 !important;
+}
+
+.archived-products-page .archive-table .archive-product-cell small,
+.archived-products-page .archive-table .archive-code-cell small,
+.archived-products-page .archive-table .archive-stock-cell small {
+  color: #dbe4ef !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+}
+
+.archived-products-page .archive-table .archive-stock-badge {
+  padding: 5px 9px !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+  font-weight: 750 !important;
+}
+
+.archived-products-page .archive-table .archive-restore-btn {
+  min-height: 40px !important;
+  padding: 0 14px !important;
+  color: #a7f3d0 !important;
+  font-size: 14px !important;
+  font-weight: 750 !important;
+}
+
+.archived-products-page .archive-table .archive-product-image,
+.archived-products-page .archive-table .archive-product-icon {
+  flex-basis: 56px !important;
+  width: 56px !important;
+  height: 56px !important;
+}
+
+/* Keep horizontal scrolling inside the table rather than shrinking text. */
+.archived-products-page .archive-table {
+  min-width: 1280px !important;
+}
+
+@media (max-width: 620px) {
+  .archived-products-page .archive-table th {
+    padding: 14px 12px !important;
+    font-size: 11px !important;
+  }
+
+  .archived-products-page .archive-table td {
+    padding: 16px 12px !important;
+    font-size: 14px !important;
+  }
+
+  .archived-products-page .archive-table .archive-product-cell strong,
+  .archived-products-page .archive-table .archive-code-cell strong,
+  .archived-products-page .archive-table .archive-stock-cell strong {
+    font-size: 15px !important;
+  }
+}

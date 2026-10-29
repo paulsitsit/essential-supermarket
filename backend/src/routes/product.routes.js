@@ -16,6 +16,11 @@ import {
   syncProductDraft
 } from '../controllers/product.controller.js';
 
+import {
+  listArchivedProducts,
+  restoreArchivedProduct
+} from '../controllers/archivedProduct.controller.js';
+
 import { protect } from '../middleware/auth.js';
 import { allowRoles } from '../middleware/roles.js';
 
@@ -47,6 +52,13 @@ router.get(
   listProducts
 );
 
+// Keep this static route above '/:id' so "archived" is not treated as an ID.
+router.get(
+  '/archived',
+  allowRoles('admin', 'manager'),
+  listArchivedProducts
+);
+
 router.get(
   '/lookup/:barcode',
   allowRoles('admin', 'manager', 'staff'),
@@ -72,9 +84,7 @@ router.post(
 
 /*
  * Upload or replace a product photo after the product exists.
- *
- * Field name required by multer:
- * image
+ * Field name required by multer: image
  */
 router.post(
   '/:id/image',
@@ -124,6 +134,14 @@ router.patch(
   productIdRules,
   validateRequest,
   archiveProduct
+);
+
+router.patch(
+  '/:id/restore',
+  allowRoles('admin'),
+  productIdRules,
+  validateRequest,
+  restoreArchivedProduct
 );
 
 router.delete(

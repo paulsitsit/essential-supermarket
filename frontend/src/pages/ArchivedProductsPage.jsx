@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   Archive,
   ArrowLeft,
+  ImageOff,
   Package,
   PackageCheck,
   PackageX,
@@ -22,6 +23,7 @@ function formatDate(value) {
   if (!value) return 'Not recorded';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Not recorded';
+
   return new Intl.DateTimeFormat('en-PH', {
     year: 'numeric',
     month: 'short',
@@ -38,11 +40,41 @@ function formatCurrency(value) {
 
 function getStockStatus(product) {
   const stock = Number(product.currentStock || 0);
-  const reorder = Number(product.reorderLevel ?? 10);
+  const reorderLevel = Number(product.reorderLevel ?? 10);
 
   if (stock <= 0) return { label: 'Out of stock', tone: 'out' };
-  if (stock <= reorder) return { label: 'Low stock', tone: 'low' };
+  if (stock <= reorderLevel) return { label: 'Low stock', tone: 'low' };
   return { label: 'In stock', tone: 'normal' };
+}
+
+function ProductThumbnail({ product }) {
+  const [failed, setFailed] = useState(false);
+  const imageUrl = typeof product.imageUrl === 'string'
+    ? product.imageUrl.trim()
+    : '';
+  // Do not render inline Base64 images in the archive table. The backend
+  // deliberately removes them from list responses to keep requests light.
+  const canShowImage = imageUrl &&
+    !imageUrl.startsWith('data:image/') &&
+    !failed;
+
+  if (canShowImage) {
+    return (
+      <img
+        className="archive-product-image"
+        src={imageUrl}
+        alt={product.name ? `${product.name} product` : 'Product'}
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+
+  return (
+    <div className="archive-product-icon" aria-label="Product image unavailable">
+      {imageUrl && failed ? <ImageOff size={21} /> : <Package size={22} />}
+    </div>
+  );
 }
 
 export default function ArchivedProductsPage() {
@@ -83,7 +115,7 @@ export default function ArchivedProductsPage() {
 
     return products.filter(product => {
       const status = getStockStatus(product);
-      const searchText = [
+      const searchable = [
         product.name,
         product.sku,
         product.barcode,
@@ -92,7 +124,7 @@ export default function ArchivedProductsPage() {
         product.supplier?.name
       ].filter(Boolean).join(' ').toLowerCase();
 
-      const matchesSearch = !query || searchText.includes(query);
+      const matchesSearch = !query || searchable.includes(query);
       const matchesStock = stockFilter === 'all' ||
         (stockFilter === 'in-stock' && status.tone === 'normal') ||
         (stockFilter === 'low-stock' && status.tone === 'low') ||
@@ -104,6 +136,7 @@ export default function ArchivedProductsPage() {
 
   const inStockCount = products.filter(product => Number(product.currentStock || 0) > 0).length;
   const outOfStockCount = products.filter(product => Number(product.currentStock || 0) <= 0).length;
+  const lowStockCount = products.filter(product => getStockStatus(product).tone === 'low').length;
 
   async function restoreProduct(product) {
     if (!isAdmin) return;
@@ -111,7 +144,6 @@ export default function ArchivedProductsPage() {
     const confirmed = window.confirm(
       `Restore "${product.name}" to the active product catalog?`
     );
-
     if (!confirmed) return;
 
     const id = product._id || product.id;
@@ -126,7 +158,9 @@ export default function ArchivedProductsPage() {
 
     try {
       const response = await client.patch(`/products/${id}/restore`);
-      setProducts(current => current.filter(item => String(item._id || item.id) !== String(id)));
+      setProducts(current => current.filter(item =>
+        String(item._id || item.id) !== String(id)
+      ));
       setNotice(response.data?.message || `${product.name} was restored.`);
     } catch (err) {
       setError(getErrorMessage(err, `Unable to restore ${product.name}.`));
@@ -165,30 +199,42 @@ export default function ArchivedProductsPage() {
 
       <div className="archive-summary-grid">
         <GlassCard className="archive-summary-card">
-          <div className="archive-summary-icon archive-tone-purple"><Archive size={21} /></div>
-          <div><span>Archived products</span><strong>{products.length.toLocaleString('en-PH')}</strong><small>Removed from active catalog</small></div>
+          <div className="archive-summary-icon archive-tone-purple"><Archive size={22} /></div>
+          <div>
+            <span>Archived products</span>
+            <strong>{products.length.toLocaleString('en-PH')}</strong>
+            <small>Removed from active catalog</small>
+          </div>
         </GlassCard>
         <GlassCard className="archive-summary-card">
-          <div className="archive-summary-icon archive-tone-green"><PackageCheck size={21} /></div>
-          <div><span>With stock remaining</span><strong>{inStockCount.toLocaleString('en-PH')}</strong><small>Stock is preserved while archived</small></div>
+          <div className="archive-summary-icon archive-tone-green"><PackageCheck size={22} /></div>
+          <div>
+            <span>With stock remaining</span>
+            <strong>{inStockCount.toLocaleString('en-PH')}</strong>
+            <small>Stock is preserved while archived</small>
+          </div>
         </GlassCard>
         <GlassCard className="archive-summary-card">
-          <div className="archive-summary-icon archive-tone-red"><PackageX size={21} /></div>
-          <div><span>Out of stock</span><strong>{outOfStockCount.toLocaleString('en-PH')}</strong><small>No units currently available</small></div>
+          <div className="archive-summary-icon archive-tone-red"><PackageX size={22} /></div>
+          <div>
+            <span>Out of stock</span>
+            <strong>{outOfStockCount.toLocaleString('en-PH')}</strong>
+            <small>No units currently available</small>
+          </div>
         </GlassCard>
       </div>
 
       <GlassCard className="archive-list-card">
         <div className="archive-list-heading">
           <div>
-            <h2><Archive size={18} /> Archive register</h2>
-            <p>{filteredProducts.length} of {products.length} archived products</p>
+            <h2><Archive size={19} /> Archive register</h2>
+            <p>{filteredProducts.length.toLocaleString('en-PH')} of {products.length.toLocaleString('en-PH')} archived products</p>
           </div>
         </div>
 
         <div className="archive-toolbar">
           <label className="archive-search">
-            <Search size={17} />
+            <Search size={18} />
             <input
               value={search}
               onChange={event => setSearch(event.target.value)}
@@ -239,8 +285,8 @@ export default function ArchivedProductsPage() {
                     <tr key={id}>
                       <td>
                         <div className="archive-product-cell">
-                          <div className="archive-product-icon"><Package size={17} /></div>
-                          <div>
+                          <ProductThumbnail product={product} />
+                          <div className="archive-product-text">
                             <strong>{product.name || 'Unnamed product'}</strong>
                             <small>{product.brand || 'No brand recorded'}</small>
                           </div>
@@ -272,7 +318,7 @@ export default function ArchivedProductsPage() {
                             disabled={Boolean(restoringId)}
                             title={`Restore ${product.name || 'product'}`}
                           >
-                            <RotateCcw size={14} />
+                            <RotateCcw size={15} />
                             {restoringId === String(product._id || product.id) ? 'Restoring...' : 'Restore'}
                           </button>
                         ) : (
@@ -289,6 +335,11 @@ export default function ArchivedProductsPage() {
 
         {!isAdmin && products.length > 0 && (
           <p className="archive-permission-note">You can view archived products. An administrator must restore a product to the active catalog.</p>
+        )}
+        {lowStockCount > 0 && (
+          <p className="archive-permission-note">
+            {lowStockCount} archived product{lowStockCount === 1 ? '' : 's'} currently have positive stock at or below the reorder level.
+          </p>
         )}
       </GlassCard>
     </div>

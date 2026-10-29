@@ -1,0 +1,136 @@
+/*
+ * Essential Supermarket — Archived Products Light Mode Contrast Fix
+ * Import this AFTER ArchivedProductsPage.css.
+ * Scoped to light mode only; dark-mode styles remain unchanged.
+ */
+
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-summary-card span,
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-summary-card small {
+  color: #475569 !important;
+  -webkit-text-fill-color: #475569 !important;
+}
+
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-summary-card strong {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-list-heading h2 {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-list-heading p,
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-stock-filter > span,
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-permission-note,
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-admin-note {
+  color: #475569 !important;
+  -webkit-text-fill-color: #475569 !important;
+}
+
+/* Search and filter controls: readable text on white fields. */
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-search {
+  color: #475569 !important;
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-search input,
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-stock-filter select {
+  color: #1f2937 !important;
+  -webkit-text-fill-color: #1f2937 !important;
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-search input::placeholder {
+  color: #64748b !important;
+  -webkit-text-fill-color: #64748b !important;
+  opacity: 1 !important;
+}
+
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-stock-filter option {
+  color: #1f2937 !important;
+  background: #ffffff !important;
+}
+
+/* Archive register table: override dark-palette text from the shared stylesheet. */
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table-wrap {
+  background: #ffffff !important;
+  border-color: #cbd5e1 !important;
+}
+
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table th {
+  color: #334155 !important;
+  -webkit-text-fill-color: #334155 !important;
+  background: #f1f5f9 !important;
+  border-bottom-color: #cbd5e1 !important;
+}
+
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table td {
+  color: #334155 !important;
+  -webkit-text-fill-color: #334155 !important;
+  background: #ffffff !important;
+  border-top-color: #e2e8f0 !important;
+}
+
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table tbody tr:hover td {
+  background: #f8fafc !important;
+}
+
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .archive-product-cell strong,
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .archive-code-cell strong,
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .archive-stock-cell strong {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .archive-product-cell small,
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .archive-code-cell small,
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .archive-stock-cell small {
+  color: #475569 !important;
+  -webkit-text-fill-color: #475569 !important;
+}
+
+/* Stock badges retain their semantic warning/success/error colors. */
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .archive-stock-badge.normal {
+  color: #166534 !important;
+  -webkit-text-fill-color: #166534 !important;
+  background: #dcfce7 !important;
+}
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .archive-stock-badge.low {
+  color: #92400e !important;
+  -webkit-text-fill-color: #92400e !important;
+  background: #fef3c7 !important;
+}
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .archive-stock-badge.out {
+  color: #991b1b !important;
+  -webkit-text-fill-color: #991b1b !important;
+  background: #fee2e2 !important;
+}
+
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .archive-restore-btn {
+  color: #166534 !important;
+  -webkit-text-fill-color: #166534 !important;
+  background: #dcfce7 !important;
+  border-color: #86efac !important;
+}
+
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .archive-restore-btn:hover:not(:disabled) {
+  color: #14532d !important;
+  -webkit-text-fill-color: #14532d !important;
+  background: #bbf7d0 !important;
+}
+
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-notice {
+  color: #166534 !important;
+  -webkit-text-fill-color: #166534 !important;
+  background: #f0fdf4 !important;
+  border-color: #86efac !important;
+}
+
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .archive-product-image,
+html:not(.dark) body:not(.dark-mode) .archived-products-page .archive-table .archive-product-icon {
+  border-color: #cbd5e1 !important;
+  background: #f8fafc !important;
+}

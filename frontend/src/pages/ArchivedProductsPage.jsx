@@ -18,6 +18,7 @@ import EmptyState from '../components/common/EmptyState';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '../utils/errors';
 import './ArchivedProductsPage.css';
+import './ArchivedProductsPage.theme-fix.css';
 
 function formatDate(value) {
   if (!value) return 'Not recorded';

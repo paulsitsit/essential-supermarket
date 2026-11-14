@@ -1,18 +1,41 @@
 
 import { useState } from 'react';
 import {
+  Activity,
+  BellRing,
+  Boxes,
   Eye,
   EyeOff,
+  Leaf,
   LockKeyhole,
   Mail,
   ShieldCheck,
-  Leaf,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../context/AuthContext';
+import Logo from '../assets/logo.png';
+import StorefrontPhoto from '../assets/essential-supermarket-storefront.webp';
 import GhostFibers from './GhostFibers';
 import './login-storefront.css';
+
+const features = [
+  {
+    icon: Boxes,
+    title: 'Product Management',
+    description: 'Easily add, update, and organize products.',
+  },
+  {
+    icon: Activity,
+    title: 'Real-Time Monitoring',
+    description: 'View accurate stock levels anytime.',
+  },
+  {
+    icon: BellRing,
+    title: 'Low-Stock Alerts',
+    description: 'Get notified before items run out.',
+  },
+];
 
 export default function LoginPage() {
   const [form, setForm] = useState({
@@ -53,9 +76,13 @@ export default function LoginPage() {
         return;
       }
 
-      const requestedPath = location.state?.from?.pathname;
+      const requestedPath =
+        location.state?.from?.pathname;
+
       const fallbackPath =
-        account?.role === 'staff' ? '/scanner' : '/dashboard';
+        account?.role === 'staff'
+          ? '/scanner'
+          : '/dashboard';
 
       navigate(requestedPath || fallbackPath, {
         replace: true,
@@ -105,105 +132,190 @@ export default function LoginPage() {
         />
       </div>
 
-      <section className="login-card glass-card showcase-login-card">
-        <div className="login-logo-copy">
-          <h1>
-            Essential<span>Supermarket</span>
-          </h1>
-          <p>Inventory management system</p>
-        </div>
+      <div
+        className="login-decoration decoration-one"
+        aria-hidden="true"
+      />
+      <div
+        className="login-decoration decoration-two"
+        aria-hidden="true"
+      />
 
-        <div className="login-heading">
-          <h2>Welcome back</h2>
-          <p>
-            Sign in to manage inventory and supermarket operations.
-          </p>
-        </div>
+      <div className="login-showcase-panel">
+        {/* LEFT: desktop storefront image, branding, and features */}
+        <section className="login-intro">
+          <div className="showcase-brand">
+            <div className="showcase-logo">
+              <img src={Logo} alt="Essential Supermarket logo" />
+            </div>
 
-        {error && (
-          <div className="form-error" role="alert">
-            {error}
+            <div className="showcase-brand-copy">
+              <h1>
+                Essential<span>Supermarket</span>
+              </h1>
+              <p>Inventory management system</p>
+            </div>
           </div>
-        )}
 
-        <form onSubmit={submit}>
-          <label htmlFor="login-email">
-            Email address
+          <div className="intro-copy">
+            <p className="showcase-eyebrow">
+              <span className="status-dot" />
+              INVENTORY MANAGEMENT
+            </p>
 
-            <div className="input-wrap">
-              <Mail size={19} aria-hidden="true" />
+            <h2>
+              A smarter
+              <span>inventory system</span>
+              <small>for a better supermarket.</small>
+            </h2>
 
-              <input
-                id="login-email"
-                type="email"
-                required
-                autoComplete="username"
-                value={form.email}
-                onChange={event =>
-                  updateField('email', event.target.value)
-                }
-                placeholder="name@supermarket.com"
-              />
-            </div>
-          </label>
+            <p className="intro-description">
+              Manage products, monitor stock levels, and keep
+              your supermarket operations organized in one place.
+            </p>
+          </div>
 
-          <label htmlFor="login-password">
-            Password
+          <div className="team-photo-wrap login-storefront-wrap">
+            <img
+              className="team-photo login-storefront-image"
+              src={StorefrontPhoto}
+              alt="Modern Essential Supermarket storefront with tropical landscaping and a spacious entrance"
+              fetchPriority="high"
+            />
+          </div>
 
-            <div className="input-wrap">
-              <LockKeyhole size={19} aria-hidden="true" />
+          <div className="feature-grid">
+            {features.map(({ icon: Icon, title, description }) => (
+              <article className="feature-card" key={title}>
+                <Icon
+                  className="feature-icon"
+                  size={27}
+                  strokeWidth={2.2}
+                  aria-hidden="true"
+                />
+                <h3>{title}</h3>
+                <p>{description}</p>
+              </article>
+            ))}
+          </div>
 
-              <input
-                id="login-password"
-                type={showPassword ? 'text' : 'password'}
-                required
-                autoComplete="current-password"
-                value={form.password}
-                onChange={event =>
-                  updateField('password', event.target.value)
-                }
-                placeholder="Enter your password"
-              />
-
-              <button
-                type="button"
-                className="input-action"
-                onClick={() =>
-                  setShowPassword(previous => !previous)
-                }
-                aria-label={
-                  showPassword ? 'Hide password' : 'Show password'
-                }
-              >
-                {showPassword ? (
-                  <EyeOff size={19} />
-                ) : (
-                  <Eye size={19} />
-                )}
-              </button>
-            </div>
-          </label>
-
-          <button
-            type="submit"
-            className="primary-btn full-width showcase-submit"
-            disabled={busy}
-          >
-            {busy ? 'Signing in...' : 'Sign in'}
-            <Leaf size={19} aria-hidden="true" />
-          </button>
-        </form>
-
-        <div className="showcase-login-footer">
-          <ShieldCheck size={15} aria-hidden="true" />
-          <p>
-            Authorized inventory accounts only.
-            <span>
-              Cashiers sign in through the Point of Sale system.
-            </span>
+          <p className="intro-footnote">
+            <ShieldCheck size={15} aria-hidden="true" />
+            Smarter stock management starts here.
           </p>
-        </div>
-      </section>
+        </section>
+
+        {/* RIGHT: functional login form */}
+        <section className="login-card glass-card showcase-login-card">
+          <div className="login-logo">
+            <div className="brand-mark large">
+              <img
+                src={Logo}
+                alt="Essential Supermarket"
+                className="brand-logo-img"
+              />
+            </div>
+
+            <div className="login-logo-copy">
+              <h1>
+                Essential<span>Supermarket</span>
+              </h1>
+              <p>Inventory management system</p>
+            </div>
+          </div>
+
+          <div className="login-heading">
+            <h2>Welcome back</h2>
+            <p>
+              Sign in to manage inventory and supermarket operations.
+            </p>
+          </div>
+
+          {error && (
+            <div className="form-error" role="alert">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={submit}>
+            <label htmlFor="login-email">
+              Email address
+
+              <div className="input-wrap">
+                <Mail size={19} aria-hidden="true" />
+
+                <input
+                  id="login-email"
+                  type="email"
+                  required
+                  autoComplete="username"
+                  value={form.email}
+                  onChange={event =>
+                    updateField('email', event.target.value)
+                  }
+                  placeholder="name@supermarket.com"
+                />
+              </div>
+            </label>
+
+            <label htmlFor="login-password">
+              Password
+
+              <div className="input-wrap">
+                <LockKeyhole size={19} aria-hidden="true" />
+
+                <input
+                  id="login-password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  autoComplete="current-password"
+                  value={form.password}
+                  onChange={event =>
+                    updateField('password', event.target.value)
+                  }
+                  placeholder="Enter your password"
+                />
+
+                <button
+                  type="button"
+                  className="input-action"
+                  onClick={() =>
+                    setShowPassword(previous => !previous)
+                  }
+                  aria-label={
+                    showPassword ? 'Hide password' : 'Show password'
+                  }
+                >
+                  {showPassword ? (
+                    <EyeOff size={19} />
+                  ) : (
+                    <Eye size={19} />
+                  )}
+                </button>
+              </div>
+            </label>
+
+            <button
+              type="submit"
+              className="primary-btn full-width showcase-submit"
+              disabled={busy}
+            >
+              {busy ? 'Signing in...' : 'Sign in'}
+              <Leaf size={19} aria-hidden="true" />
+            </button>
+          </form>
+
+          <div className="showcase-login-footer">
+            <ShieldCheck size={15} aria-hidden="true" />
+            <p>
+              Authorized inventory accounts only.
+              <span>
+                Cashiers sign in through the Point of Sale system.
+              </span>
+            </p>
+          </div>
+        </section>
+      </div>
     </main>
   );
 }

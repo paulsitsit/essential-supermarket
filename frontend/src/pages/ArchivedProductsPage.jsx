@@ -14,6 +14,7 @@ import { Link } from 'react-router-dom';
 
 import client from '../api/client';
 import GlassCard from '../components/common/GlassCard';
+import ConfirmDialog from '../components/common/ConfirmDialog';
 import EmptyState from '../components/common/EmptyState';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '../utils/errors';
@@ -88,6 +89,7 @@ export default function ArchivedProductsPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [restoringId, setRestoringId] = useState('');
+  const [confirmProduct, setConfirmProduct] = useState(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
@@ -140,12 +142,7 @@ export default function ArchivedProductsPage() {
   const lowStockCount = products.filter(product => getStockStatus(product).tone === 'low').length;
 
   async function restoreProduct(product) {
-    if (!isAdmin) return;
-
-    const confirmed = window.confirm(
-      `Restore "${product.name}" to the active product catalog?`
-    );
-    if (!confirmed) return;
+    if (!isAdmin || !product) return;
 
     const id = product._id || product.id;
     if (!id) {
@@ -315,7 +312,7 @@ export default function ArchivedProductsPage() {
                           <button
                             type="button"
                             className="archive-restore-btn"
-                            onClick={() => restoreProduct(product)}
+                            onClick={() => setConfirmProduct(product)}
                             disabled={Boolean(restoringId)}
                             title={`Restore ${product.name || 'product'}`}
                           >
@@ -343,6 +340,19 @@ export default function ArchivedProductsPage() {
           </p>
         )}
       </GlassCard>
+
+      <ConfirmDialog
+        open={Boolean(confirmProduct)}
+        title="Restore product?"
+        message={`Restore "${confirmProduct?.name || 'this product'}" to the active product catalog?`}
+        confirmText="Restore"
+        onCancel={() => setConfirmProduct(null)}
+        onConfirm={() => {
+          const product = confirmProduct;
+          setConfirmProduct(null);
+          restoreProduct(product);
+        }}
+      />
     </div>
   );
 }

@@ -16,6 +16,7 @@ import CategoryForm from '../components/management/CategoryForm';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { getErrorMessage } from '../utils/errors';
 import { downloadServerReport } from '../utils/serverExport';
+import { unitLabel } from '../utils/format';
 import './CategoriesPage.css';
 
 export default function CategoriesPage() {
@@ -366,7 +367,7 @@ export default function CategoriesPage() {
                         <td>{product.sku || '—'}</td>
                         <td>{product.barcode || '—'}</td>
                         <td>{product.supplier?.name || '—'}</td>
-                        <td>{Number(product.currentStock || 0).toLocaleString()} {product.unitType || 'piece'}</td>
+                        <td>{Number(product.currentStock || 0).toLocaleString()} {unitLabel(product.unitType, product.currentStock || 0)}</td>
                         <td>{Number(product.reorderLevel || 0).toLocaleString()}</td>
                         <td><span className={`status-badge ${`status-${product.status || 'normal'}`}`}>{String(product.status || 'normal').replaceAll('_', ' ')}</span></td>
                       </tr>

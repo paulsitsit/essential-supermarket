@@ -8,6 +8,7 @@ import Sale from '../models/Sale.js';
 import SaleReturn from '../models/SaleReturn.js';
 
 import { writeAudit } from '../utils/audit.js';
+import { unitLabel } from '../utils/unitLabel.js';
 
 function productFilter(query) {
   const filter = {
@@ -273,7 +274,7 @@ async function getCategoryProductsReport(query) {
       product.brand || '',
       product.supplier?.name || '',
       Number(product.currentStock || 0),
-      product.unitType || 'piece',
+      unitLabel(product.unitType, product.currentStock),
       Number(product.reorderLevel || 0),
       product.status || 'normal',
       formatDate(product.updatedAt)

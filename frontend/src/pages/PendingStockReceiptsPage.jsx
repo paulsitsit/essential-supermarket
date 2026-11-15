@@ -28,6 +28,8 @@ import {
   useOnlineStatus
 } from '../hooks/useOnlineStatus.js';
 
+import { unitLabel } from '../utils/format';
+
 const statusLabels = {
   pending: 'Waiting to sync',
   syncing: 'Synchronizing',
@@ -426,8 +428,11 @@ export default function PendingStockReceiptsPage() {
                         </strong>{' '}
 
                         <small>
-                          {product.unitType ||
-                            'units'}
+                          {unitLabel(
+                            product.unitType,
+                            receipt.quantity || 0,
+                            'units'
+                          )}
                         </small>
                       </td>
 

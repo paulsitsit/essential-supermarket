@@ -23,6 +23,7 @@ import {
   savePendingStockReceipt
 } from '../../services/stockOutbox';
 
+import { unitLabel } from '../../utils/format';
 const receiveReasons = [
   'New delivery received',
   'Returned stock',
@@ -202,7 +203,7 @@ export default function ReceiveStockModal({
           });
 
         setMessage(
-          `Stock receipt saved on this device for ${qty} ${product?.unitType || 'unit(s)'}. It will synchronize when the connection returns.`
+          `Stock receipt saved on this device for ${qty} ${unitLabel(product?.unitType, qty, 'unit(s)')}. It will synchronize when the connection returns.`
         );
 
         onSaved?.({
@@ -366,7 +367,7 @@ export default function ReceiveStockModal({
 
             <strong>
               {product?.currentStock ?? 0}{' '}
-              {product?.unitType || 'units'}
+              {unitLabel(product?.unitType, product?.currentStock ?? 0, 'units')}
             </strong>
           </div>
 
@@ -375,7 +376,7 @@ export default function ReceiveStockModal({
 
             <strong>
               {product?.reorderLevel ?? 0}{' '}
-              {product?.unitType || 'units'}
+              {unitLabel(product?.unitType, product?.reorderLevel ?? 0, 'units')}
             </strong>
           </div>
 

@@ -6,6 +6,7 @@ import {
   ShieldAlert
 } from 'lucide-react';
 
+import { unitLabel } from '../../utils/format';
 function getAlertType(alert) {
   return (
     alert.alertType ||
@@ -278,16 +279,20 @@ export default function AlertCard({
 
             <InfoField
               label="Current stock"
-              value={`${currentStock} ${
-                alert.product?.unitType || 'units'
-              }`}
+              value={`${currentStock} ${unitLabel(
+                alert.product?.unitType,
+                currentStock,
+                'units'
+              )}`}
             />
 
             <InfoField
               label="Reorder level"
-              value={`${reorderLevel} ${
-                alert.product?.unitType || 'units'
-              }`}
+              value={`${reorderLevel} ${unitLabel(
+                alert.product?.unitType,
+                reorderLevel,
+                'units'
+              )}`}
             />
 
             <InfoField

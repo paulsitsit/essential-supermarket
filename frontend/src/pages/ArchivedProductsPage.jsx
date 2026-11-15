@@ -21,6 +21,7 @@ import { getErrorMessage } from '../utils/errors';
 import './ArchivedProductsPage.css';
 import './ArchivedProductsPage.theme-fix.css';
 
+import { unitLabel } from '../utils/format';
 function formatDate(value) {
   if (!value) return 'Not recorded';
   const date = new Date(value);
@@ -299,7 +300,7 @@ export default function ArchivedProductsPage() {
                       <td>{product.category?.name || 'Uncategorized'}</td>
                       <td>
                         <div className="archive-stock-cell">
-                          <strong>{Number(product.currentStock || 0).toLocaleString('en-PH')} {product.unitType || 'units'}</strong>
+                          <strong>{Number(product.currentStock || 0).toLocaleString('en-PH')} {unitLabel(product.unitType, product.currentStock || 0, 'units')}</strong>
                           <span className={`archive-stock-badge ${status.tone}`}>{status.label}</span>
                           <small>Reorder level: {Number(product.reorderLevel ?? 10).toLocaleString('en-PH')}</small>
                         </div>

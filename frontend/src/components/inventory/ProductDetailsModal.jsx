@@ -8,6 +8,7 @@ import ProductQrCode from '../common/ProductQrCode';
 import StatusBadge from '../common/StatusBadge';
 import { peso, dateTime } from '../../utils/format';
 
+import { unitLabel } from '../../utils/format';
 function ProductImage({ product }) {
   const [imageFailed, setImageFailed] =
     React.useState(false);
@@ -138,7 +139,7 @@ export default function ProductDetailsModal({
 
               <DetailItem label="Current stock">
                 {product.currentStock ?? 0}{' '}
-                {product.unitType || 'piece'}
+                {unitLabel(product.unitType, product.currentStock ?? 0)}
               </DetailItem>
 
               <DetailItem label="Reorder level">

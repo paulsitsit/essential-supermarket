@@ -21,6 +21,7 @@ import {
   dateOnly
 } from '../../utils/format';
 
+import { unitLabel } from '../../utils/format';
 function getProductId(product) {
   return (
     product?._id ||
@@ -196,8 +197,7 @@ export default function ProductTable({
                         {product.brand ||
                           'No brand'}{' '}
                         · per{' '}
-                        {product.unitType ||
-                          'piece'}
+                        {unitLabel(product.unitType, 1)}
                       </small>
                     </div>
                   </div>
@@ -225,7 +225,10 @@ export default function ProductTable({
                   </strong>{' '}
 
                   <small>
-                    {product.unitType || 'piece'}
+                    {unitLabel(
+                      product.unitType,
+                      product.currentStock ?? 0
+                    )}
                   </small>
                 </td>
 

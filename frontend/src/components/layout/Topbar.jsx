@@ -19,6 +19,7 @@ import {
 import client from '../../api/client';
 import ThemeToggle from '../common/ThemeToggle';
 
+import { unitLabel } from '../../utils/format';
 export default function Topbar({
   onMenu,
   alertCount = 0,
@@ -256,13 +257,13 @@ export default function Topbar({
     }
 
     if (alert?.currentStock !== undefined) {
-      return `${alert.currentStock} units remaining`;
+      return `${alert.currentStock} ${unitLabel(alert.product?.unitType, alert.currentStock, 'units')} remaining`;
     }
 
     if (
       alert?.product?.currentStock !== undefined
     ) {
-      return `${alert.product.currentStock} units remaining`;
+      return `${alert.product.currentStock} ${unitLabel(alert.product.unitType, alert.product.currentStock, 'units')} remaining`;
     }
 
     return 'Product requires attention';

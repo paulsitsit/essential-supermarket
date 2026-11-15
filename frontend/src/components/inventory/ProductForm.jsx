@@ -1406,7 +1406,7 @@ export default function ProductForm({
                   key={value}
                   value={value}
                 >
-                  {value}
+                  {value === 'piece' ? 'Pc' : value}
                 </option>
               ))}
             </select>

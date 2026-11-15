@@ -44,6 +44,7 @@ import GlassCard from '../components/common/GlassCard';
 import StatusBadge from '../components/common/StatusBadge';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
+import { unitLabel } from '../utils/format';
 
 const peso = value =>
   new Intl.NumberFormat('en-PH', {
@@ -939,7 +940,7 @@ export default function DashboardPage() {
                     <strong>{product.name}</strong>
                     <small>
                       {product.barcode} · {product.currentStock}{' '}
-                      {product.unitType}
+                      {unitLabel(product.unitType, product.currentStock)}
                     </small>
                   </div>
 

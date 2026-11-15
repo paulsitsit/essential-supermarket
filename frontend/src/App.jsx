@@ -33,6 +33,7 @@ import ReturnsPage from './pages/ReturnsPage';
 import QuarantinePage from './pages/QuarantinePage';
 import PendingProductsPage from './pages/PendingProductsPage';
 import PendingStockReceiptsPage from './pages/PendingStockReceiptsPage';
+import AboutPage from './pages/AboutPage';
 
 const MANAGEMENT_ROLES = [
   'admin',
@@ -144,6 +145,7 @@ export default function App() {
               }
             >
               <Route path="scanner" element={<ScannerPage />} />
+              <Route path="about" element={<AboutPage />} />
             </Route>
           </Route>
         </Route>

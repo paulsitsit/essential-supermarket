@@ -137,7 +137,7 @@ const groups = [
         label: 'Suppliers',
         path: '/suppliers',
         icon: Truck,
-        roles: ['admin', 'manager']
+        roles: ['manager']
       },
       {
         label: 'Reports',
@@ -149,7 +149,7 @@ const groups = [
         label: 'Account management',
         path: '/accounts',
         icon: Users,
-        roles: ['admin']
+        roles: ['manager']
       },
       {
         label: 'Settings',

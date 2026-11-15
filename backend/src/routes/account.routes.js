@@ -7,7 +7,7 @@ const router = Router();
 
 router.use(
   protect,
-  allowRoles('admin')
+  allowRoles('manager')
 );
 
 router.get('/', controller.list);

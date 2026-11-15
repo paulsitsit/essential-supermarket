@@ -43,6 +43,10 @@ const ADMIN_ROLES = [
   'admin'
 ];
 
+const MANAGER_ONLY_ROLES = [
+  'manager'
+];
+
 const STAFF_ROLES = [
   'admin',
   'manager',
@@ -89,7 +93,6 @@ export default function App() {
               <Route path="inventory" element={<InventoryPage />} />
               <Route path="stock-movements" element={<StockMovementsPage />} />
               <Route path="categories" element={<CategoriesPage />} />
-              <Route path="suppliers" element={<SuppliersPage />} />
               <Route path="reports" element={<ReportsPage />} />
               <Route path="returns" element={<ReturnsPage />} />
               <Route path="quarantine" element={<QuarantinePage />} />
@@ -103,7 +106,6 @@ export default function App() {
               }
             >
               <Route path="products/new" element={<AddProductPage />} />
-              <Route path="accounts" element={<AccountsPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="audit-logs" element={<AuditLogsPage />} />
               <Route path="pending-products" element={<PendingProductsPage />} />
@@ -121,6 +123,17 @@ export default function App() {
               <Route path="sales/:id/returns" element={<ReturnsPage />} />
               <Route path="alerts/low-stock" element={<LowStockAlertsPage />} />
               <Route path="alerts/expiration" element={<ExpirationAlertsPage />} />
+            </Route>
+
+            <Route
+              element={
+                <ProtectedRoute
+                  roles={MANAGER_ONLY_ROLES}
+                />
+              }
+            >
+              <Route path="accounts" element={<AccountsPage />} />
+              <Route path="suppliers" element={<SuppliersPage />} />
             </Route>
 
             <Route

@@ -1,13 +1,7 @@
-import {
-  Navigate,
-  Route,
-  Routes
-} from 'react-router-dom';
-
+import { Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './routes/ProtectedRoute';
 import AppLayout from './layouts/AppLayout';
 import OfflineStatus from './components/OfflineStatus';
-
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ProductsPage from './pages/ProductsPage';
@@ -35,55 +29,21 @@ import PendingProductsPage from './pages/PendingProductsPage';
 import PendingStockReceiptsPage from './pages/PendingStockReceiptsPage';
 import AboutPage from './pages/AboutPage';
 
-const MANAGEMENT_ROLES = [
-  'admin',
-  'manager'
-];
-
-const ADMIN_ROLES = [
-  'admin'
-];
-
-const MANAGER_ONLY_ROLES = [
-  'manager'
-];
-
-const STAFF_ROLES = [
-  'admin',
-  'manager',
-  'staff'
-];
+const MANAGEMENT_ROLES = ['admin', 'manager'];
+const ADMIN_ROLES = ['admin'];
+const MANAGER_ONLY_ROLES = ['manager'];
+const STAFF_ROLES = ['admin', 'manager', 'staff'];
 
 export default function App() {
   return (
     <>
       <OfflineStatus />
-
       <Routes>
-        <Route
-          path="/login"
-          element={<LoginPage />}
-        />
-
+        <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
-            <Route
-              index
-              element={
-                <Navigate
-                  to="/dashboard"
-                  replace
-                />
-              }
-            />
-
-            <Route
-              element={
-                <ProtectedRoute
-                  roles={MANAGEMENT_ROLES}
-                />
-              }
-            >
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route element={<ProtectedRoute roles={MANAGEMENT_ROLES} />}>
               <Route path="dashboard" element={<DashboardPage />} />
               <Route path="products" element={<ProductsPage />} />
               <Route path="products/:id/edit" element={<EditProductPage />} />
@@ -97,68 +57,31 @@ export default function App() {
               <Route path="reports" element={<ReportsPage />} />
               <Route path="returns" element={<ReturnsPage />} />
               <Route path="quarantine" element={<QuarantinePage />} />
+              <Route path="about" element={<AboutPage />} />
             </Route>
-
-            <Route
-              element={
-                <ProtectedRoute
-                  roles={ADMIN_ROLES}
-                />
-              }
-            >
+            <Route element={<ProtectedRoute roles={ADMIN_ROLES} />}>
               <Route path="products/new" element={<AddProductPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="audit-logs" element={<AuditLogsPage />} />
               <Route path="pending-products" element={<PendingProductsPage />} />
               <Route path="pending-stock-receipts" element={<PendingStockReceiptsPage />} />
             </Route>
-
-            <Route
-              element={
-                <ProtectedRoute
-                  roles={MANAGEMENT_ROLES}
-                />
-              }
-            >
+            <Route element={<ProtectedRoute roles={MANAGEMENT_ROLES} />}>
               <Route path="sales" element={<SalesPage />} />
               <Route path="sales/:id/returns" element={<ReturnsPage />} />
               <Route path="alerts/low-stock" element={<LowStockAlertsPage />} />
               <Route path="alerts/expiration" element={<ExpirationAlertsPage />} />
             </Route>
-
-            <Route
-              element={
-                <ProtectedRoute
-                  roles={MANAGER_ONLY_ROLES}
-                />
-              }
-            >
+            <Route element={<ProtectedRoute roles={MANAGER_ONLY_ROLES} />}>
               <Route path="accounts" element={<AccountsPage />} />
               <Route path="suppliers" element={<SuppliersPage />} />
             </Route>
-
-            <Route
-              element={
-                <ProtectedRoute
-                  roles={STAFF_ROLES}
-                />
-              }
-            >
+            <Route element={<ProtectedRoute roles={STAFF_ROLES} />}>
               <Route path="scanner" element={<ScannerPage />} />
-              <Route path="about" element={<AboutPage />} />
             </Route>
           </Route>
         </Route>
-
-        <Route
-          path="*"
-          element={
-            <Navigate
-              to="/dashboard"
-              replace
-            />
-          }
-        />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </>
   );

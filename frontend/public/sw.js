@@ -9,6 +9,22 @@ import {
   registerRoute
 } from 'workbox-routing';
 
+/*
+ * Force the new service worker to activate immediately without waiting
+ * for old tabs to close or requiring a manual hard refresh.
+ */
+self.skipWaiting();
+
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(self.clients.claim());
+});
+
 cleanupOutdatedCaches();
 
 precacheAndRoute(self.__WB_MANIFEST);

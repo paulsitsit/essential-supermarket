@@ -67,24 +67,21 @@ export default function AboutPage() {
 
   useEffect(() => {
     let animId;
-    const handleScroll = () => {
+
+    const onScroll = () => {
       cancelAnimationFrame(animId);
       animId = requestAnimationFrame(() => {
         const el = containerRef.current;
         const video = videoRef.current;
         if (!el || !video || !video.duration) return;
 
-        const rect = el.getBoundingClientRect();
-        const totalScrollable = el.offsetHeight - window.innerHeight;
+        const totalScrollable = el.scrollHeight - el.clientHeight;
         if (totalScrollable <= 0) return;
 
-        // Continuous scroll progress 0.0 -> 1.0
-        const progress = Math.min(Math.max(-rect.top / totalScrollable, 0), 1);
+        const progress = Math.min(Math.max(el.scrollTop / totalScrollable, 0), 1);
 
-        // Frame scrub: video time moves ONLY when user scrolls
         video.currentTime = progress * video.duration;
 
-        // Sync text scene to current scroll position
         const sceneIndex = Math.min(
           SCENES.length - 1,
           Math.floor(progress * SCENES.length)
@@ -93,10 +90,16 @@ export default function AboutPage() {
       });
     };
 
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener('scroll', onScroll, { passive: true });
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+
     return () => {
-      window.removeEventListener('scroll', handleScroll);
+      if (container) container.removeEventListener('scroll', onScroll);
+      window.removeEventListener('scroll', onScroll);
       cancelAnimationFrame(animId);
     };
   }, []);
@@ -106,32 +109,40 @@ export default function AboutPage() {
   return (
     <div ref={containerRef} className="scroll-video-walkthrough">
       <style>{`
-        /* Total scrollable track: 4 screen heights for smooth scrub */
         .scroll-video-walkthrough {
           position: relative;
           color: #ffffff;
           background: #020611;
-          height: 400vh;
+          height: calc(100vh - 110px);
+          min-height: 520px;
+          border-radius: 20px;
+          overflow-y: scroll;
+          overflow-x: hidden;
+          -webkit-overflow-scrolling: touch;
+          touch-action: pan-y;
           font-family: inherit;
         }
 
-        /* Sticky Fullscreen Stage (locks to screen while user scrolls) */
+        .scroll-track {
+          height: 400%;
+          position: relative;
+        }
+
         .sticky-viewport {
           position: sticky;
           top: 0;
           left: 0;
           width: 100%;
-          height: 100vh;
+          height: 100%;
           overflow: hidden;
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          padding: 24px clamp(18px, 4vw, 52px);
+          padding: 22px clamp(16px, 3.5vw, 48px);
           box-sizing: border-box;
           pointer-events: none;
         }
 
-        /* Silent Video Scrubbed Exclusively by Scroll Position */
         .video-scrubber {
           position: absolute;
           inset: 0;
@@ -141,7 +152,6 @@ export default function AboutPage() {
           z-index: 1;
         }
 
-        /* L'Ecrin Dark Vignette Overlay for Readability */
         .vignette-overlay {
           position: absolute;
           inset: 0;
@@ -160,7 +170,6 @@ export default function AboutPage() {
           z-index: 2;
         }
 
-        /* Minimal Header Tag */
         .stage-header {
           position: relative;
           z-index: 5;
@@ -182,7 +191,6 @@ export default function AboutPage() {
           text-transform: uppercase;
         }
 
-        /* Center Content: Minimal Luxe Typography */
         .content-center {
           position: relative;
           z-index: 5;
@@ -190,7 +198,7 @@ export default function AboutPage() {
           width: 100%;
           margin: 0 auto;
           text-align: center;
-          animation: fadeStory 0.35s ease;
+          animation: fadeStory 0.3s ease;
         }
         @keyframes fadeStory {
           from {
@@ -237,7 +245,6 @@ export default function AboutPage() {
           text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
         }
 
-        /* Glass Feature Card */
         .bullet-strip {
           display: inline-flex;
           flex-direction: column;
@@ -259,55 +266,55 @@ export default function AboutPage() {
           color: #f1f5f9;
         }
 
-        /* Empty Bottom Spacer */
         .stage-footer {
           position: relative;
           z-index: 5;
-          height: 20px;
+          height: 16px;
         }
       `}</style>
 
-      <div className="sticky-viewport">
-        {/* The video does NOT autoplay; its currentTime is scrubbed strictly by scroll */}
-        <video
-          ref={videoRef}
-          src="/supermarket-walk.mp4"
-          muted
-          playsInline
-          preload="auto"
-          className="video-scrubber"
-        />
+      <div className="scroll-track">
+        <div className="sticky-viewport">
+          <video
+            ref={videoRef}
+            src="/supermarket-walk.mp4"
+            muted
+            playsInline
+            preload="auto"
+            className="video-scrubber"
+          />
 
-        <div className="vignette-overlay" />
+          <div className="vignette-overlay" />
 
-        <header className="stage-header">
-          <div className="tag-pill" style={{ color: scene.accent }}>
-            <span>{scene.tag}</span>
-          </div>
-          <div className="tag-pill" style={{ color: '#ffffff' }}>
-            <span>ZONE {activeIdx + 1} OF {SCENES.length}</span>
-          </div>
-        </header>
+          <header className="stage-header">
+            <div className="tag-pill" style={{ color: scene.accent }}>
+              <span>{scene.tag}</span>
+            </div>
+            <div className="tag-pill" style={{ color: '#ffffff' }}>
+              <span>ZONE {activeIdx + 1} OF {SCENES.length}</span>
+            </div>
+          </header>
 
-        <main className="content-center" key={scene.tag}>
-          <span className="eyebrow-focus" style={{ color: scene.accent }}>
-            {scene.focus}
-          </span>
-          <h1 className="cinematic-title">{scene.title}</h1>
-          <h2 className="cinematic-headline">{scene.headline}</h2>
-          <p className="cinematic-desc">{scene.description}</p>
+          <main className="content-center" key={scene.tag}>
+            <span className="eyebrow-focus" style={{ color: scene.accent }}>
+              {scene.focus}
+            </span>
+            <h1 className="cinematic-title">{scene.title}</h1>
+            <h2 className="cinematic-headline">{scene.headline}</h2>
+            <p className="cinematic-desc">{scene.description}</p>
 
-          <div className="bullet-strip">
-            {scene.points.map((pt, idx) => (
-              <div key={idx} className="bullet-item">
-                <CheckCircle2 size={13} style={{ color: scene.accent, flexShrink: 0 }} />
-                <span>{pt}</span>
-              </div>
-            ))}
-          </div>
-        </main>
+            <div className="bullet-strip">
+              {scene.points.map((pt, idx) => (
+                <div key={idx} className="bullet-item">
+                  <CheckCircle2 size={13} style={{ color: scene.accent, flexShrink: 0 }} />
+                  <span>{pt}</span>
+                </div>
+              ))}
+            </div>
+          </main>
 
-        <footer className="stage-footer" />
+          <footer className="stage-footer" />
+        </div>
       </div>
     </div>
   );

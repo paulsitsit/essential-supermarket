@@ -1,399 +1,72 @@
-import { useEffect, useRef, useState } from 'react';
-import { CheckCircle2 } from 'lucide-react';
+import { useRef, useState } from 'react';
 
-const SCENES = [
-  {
-    tag: 'STORE ENTRANCE & INTAKE',
-    title: 'Essential Supermarket',
-    headline: 'Next-Generation Retail & Inventory Intelligence',
-    description:
-      'A complete operating platform engineered for supermarket chains. Unifying supply chain receiving, cold chain safety, mobile floor operations, and checkout sales into a single synchronized system.',
-    focus: 'Enterprise Store Ecosystem',
-    accent: '#38bdf8',
-    poster: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1600&q=80',
-    points: [
-      'Tailored for supermarkets handling high-turnover grocery and perishables.',
-      'Synchronized across desktop web workstations and Android mobile devices.',
-      'Audit-proof ledger tracking every item from supplier dock to shopper receipt.'
-    ]
-  },
-  {
-    tag: 'CENTER GROCERY AISLES',
-    title: 'Automated Catalog & Stock Sync',
-    headline: 'Real-Time Inventory & System Centralization',
-    description:
-      'Rolling through the product rows. Live WebSocket feeds distribute active stock movements, price changes, and threshold warnings across all connected store terminals.',
-    focus: 'Real-Time Store Synchrony',
-    accent: '#818cf8',
-    poster: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1600&q=80',
-    points: [
-      'Instant catalog lookup for over thousands of products and active SKUs.',
-      'Role-governed security shielding administrative controls behind JWT validation.',
-      'Multi-branch ready architecture supporting multi-location inventory.'
-    ]
-  },
-  {
-    tag: 'PERISHABLES & REFRIGERATION',
-    title: 'Cold Storage & Fresh Goods',
-    headline: 'Automated 06:00 AM Expiration Control',
-    description:
-      'Approaching refrigerated displays. Automated scheduled background engines analyze expiration deadlines every morning, alerting floor staff and segregating items into quarantine.',
-    focus: 'Food Safety & Waste Elimination',
-    accent: '#34d399',
-    poster: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1600&q=80',
-    points: [
-      'Automated cron job runs daily at 06:00 Asia/Manila across all batches.',
-      'Isolated quarantine holding ledger removes recalled stock from active POS.',
-      'Markdown workflows guide early discounting before products expire.'
-    ]
-  },
-  {
-    tag: 'CHECKOUT & REPORTING',
-    title: 'Floor Audits & Sales Depletion',
-    headline: 'High-Speed Barcode & FIFO Checkout',
-    description:
-      'Reaching checkout registers. Staff perform rapid camera barcode cycle counts while customer purchases deduct stock through First-In-First-Out batch selection.',
-    focus: 'Shelf Replenishment & Financial Ledger',
-    accent: '#f59e0b',
-    poster: 'https://images.unsplash.com/photo-1556742049-0a67c5574f73?auto=format&fit=crop&w=1600&q=80',
-    points: [
-      'Fast camera barcode scanning powered by html5-qrcode on phone and tablet.',
-      'Instant cashier sale processing linked directly to the live stock ledger.',
-      'Role-protected audit reports in Excel, CSV, and PDF formats.'
-    ]
-  }
+const scenes = [
+  ['Essential Supermarket', 'Enterprise Store Ecosystem', 'A connected platform for supermarket receiving, inventory, food safety, and checkout.', ['Track stock from receiving to sale.', 'Connect desktop and mobile operations.', 'Keep an auditable inventory ledger.']],
+  ['Automated Catalog & Stock Sync', 'Real-Time Store Synchrony', 'Explore catalog management and synchronized stock movements across store operations.', ['Search products and SKUs.', 'Monitor stock movements and thresholds.', 'Manage role-based access.']],
+  ['Cold Storage & Fresh Goods', 'Food Safety & Waste Reduction', 'Follow perishable batches, expiration alerts, and quarantine workflows.', ['Review expiration deadlines.', 'Separate quarantined stock.', 'Plan markdowns before expiry.']],
+  ['Floor Audits & Sales Depletion', 'Checkout & Reporting', 'Connect barcode stock counts, checkout sales, and inventory reporting.', ['Perform barcode-assisted counts.', 'Record sales against inventory.', 'Review operational reports.']]
 ];
 
 export default function AboutPage() {
-  const [activeIdx, setActiveIdx] = useState(0);
-  const videoRef = useRef(null);
-  const touchStartY = useRef(null);
-  const touchStartX = useRef(null);
-  const wheelLock = useRef(0);
-
-  const goTo = (index) => {
-    const clamped = Math.max(0, Math.min(SCENES.length - 1, index));
-    if (clamped === activeIdx) return;
-    setActiveIdx(clamped);
-
-    const video = videoRef.current;
-    if (video && video.duration) {
-      video.currentTime = (clamped / (SCENES.length - 1)) * video.duration;
+  const [index, setIndex] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [status, setStatus] = useState('Loading background video…');
+  const video = useRef(null);
+  const touch = useRef(null);
+  const scene = scenes[index];
+  const move = (step) => setIndex(current => Math.max(0, Math.min(scenes.length - 1, current + step)));
+  const play = async () => {
+    try {
+      await video.current.play();
+      setStatus('');
+    } catch {
+      setStatus('Playback was blocked or the video could not load. Try opening the video below.');
     }
   };
-
-  const handleTouchStart = (e) => {
-    touchStartY.current = e.touches[0].clientY;
-    touchStartX.current = e.touches[0].clientX;
-  };
-
-  const handleTouchEnd = (e) => {
-    if (touchStartY.current === null) return;
-    const deltaY = touchStartY.current - e.changedTouches[0].clientY;
-    const deltaX = touchStartX.current - e.changedTouches[0].clientX;
-    touchStartY.current = null;
-    touchStartX.current = null;
-
-    const maxDelta = Math.abs(deltaY) > Math.abs(deltaX) ? deltaY : deltaX;
-    if (Math.abs(maxDelta) > 25) {
-      if (maxDelta > 0) goTo(activeIdx + 1);
-      else goTo(activeIdx - 1);
-    }
-  };
-
-  const handleWheel = (e) => {
-    const now = Date.now();
-    if (now - wheelLock.current < 450) return;
-    if (Math.abs(e.deltaY) > 20) {
-      wheelLock.current = now;
-      if (e.deltaY > 0) goTo(activeIdx + 1);
-      else goTo(activeIdx - 1);
-    }
-  };
-
-  useEffect(() => {
-    const onKeyDown = (e) => {
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        goTo(activeIdx + 1);
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        goTo(activeIdx - 1);
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [activeIdx]);
-
-  const scene = SCENES[activeIdx];
-  const progressPct = ((activeIdx + 1) / SCENES.length) * 100;
 
   return (
-    <div
-      className="about-interactive-stage"
-      onWheel={handleWheel}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
+    <section className="es-about" aria-label="About Essential Supermarket" onTouchStart={event => { touch.current = event.touches[0].clientX; }} onTouchEnd={event => { if (touch.current !== null) { const delta = touch.current - event.changedTouches[0].clientX; if (Math.abs(delta) > 45) move(delta > 0 ? 1 : -1); } touch.current = null; }} onTouchCancel={() => { touch.current = null; }}>
       <style>{`
-        .about-interactive-stage {
-          position: relative;
-          color: #ffffff;
-          background: #020611;
-          height: calc(100vh - 120px);
-          min-height: 520px;
-          border-radius: 22px;
-          overflow: hidden;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          padding: 24px clamp(16px, 3.5vw, 48px);
-          box-sizing: border-box;
-          user-select: none;
-          font-family: inherit;
-        }
-
-        .fallback-photo-bg {
-          position: absolute;
-          inset: 0;
-          background-size: cover;
-          background-position: center;
-          transition: opacity 0.7s ease;
-          z-index: 1;
-        }
-
-        .video-canvas-bg {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          z-index: 2;
-        }
-
-        .vignette-overlay {
-          position: absolute;
-          inset: 0;
-          background: radial-gradient(
-            circle at center,
-            rgba(2, 6, 17, 0.2) 0%,
-            rgba(2, 6, 17, 0.65) 60%,
-            rgba(2, 6, 17, 0.94) 100%
-          ),
-          linear-gradient(
-            180deg,
-            rgba(2, 6, 17, 0.72) 0%,
-            rgba(2, 6, 17, 0.32) 45%,
-            rgba(2, 6, 17, 0.92) 100%
-          );
-          z-index: 3;
-          pointer-events: none;
-        }
-
-        .top-rail {
-          position: absolute;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 4px;
-          background: rgba(255, 255, 255, 0.15);
-          z-index: 10;
-        }
-        .top-rail-fill {
-          height: 100%;
-          transition: width 0.35s ease, background-color 0.35s ease;
-        }
-
-        .stage-header {
-          position: relative;
-          z-index: 5;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          width: 100%;
-        }
-        .tag-pill {
-          display: inline-block;
-          padding: 7px 16px;
-          border-radius: 999px;
-          background: rgba(10, 18, 34, 0.82);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          backdrop-filter: blur(14px);
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.12em;
-          text-transform: uppercase;
-        }
-
-        .content-center {
-          position: relative;
-          z-index: 5;
-          max-width: 860px;
-          width: 100%;
-          margin: 0 auto;
-          text-align: center;
-        }
-        .eyebrow-focus {
-          display: inline-block;
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 0.18em;
-          text-transform: uppercase;
-          margin-bottom: 8px;
-          text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
-        }
-        .cinematic-title {
-          font-size: clamp(28px, 5vw, 54px);
-          font-weight: 850;
-          line-height: 1.05;
-          letter-spacing: -0.03em;
-          margin: 0 0 8px;
-          color: #ffffff;
-          text-shadow: 0 4px 24px rgba(0, 0, 0, 0.9);
-        }
-        .cinematic-headline {
-          font-size: clamp(14px, 2vw, 19px);
-          font-weight: 600;
-          color: rgba(255, 255, 255, 0.95);
-          margin: 0 0 12px;
-          line-height: 1.35;
-          text-shadow: 0 2px 14px rgba(0, 0, 0, 0.9);
-        }
-        .cinematic-desc {
-          font-size: clamp(12px, 1.6vw, 14px);
-          line-height: 1.6;
-          color: rgba(226, 232, 240, 0.92);
-          max-width: 680px;
-          margin: 0 auto 14px;
-          text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
-        }
-
-        .bullet-strip {
-          display: inline-flex;
-          flex-direction: column;
-          gap: 6px;
-          background: rgba(10, 18, 34, 0.72);
-          border: 1px solid rgba(255, 255, 255, 0.16);
-          backdrop-filter: blur(14px);
-          border-radius: 14px;
-          padding: 10px 18px;
-          text-align: left;
-          max-width: 640px;
-          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
-        }
-        .bullet-item {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 12px;
-          color: #f1f5f9;
-        }
-
-        .stage-footer {
-          position: relative;
-          z-index: 5;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          width: 100%;
-        }
-        .dots-row {
-          display: flex;
-          gap: 6px;
-        }
-        .dot-indicator {
-          width: 22px;
-          height: 4px;
-          border-radius: 2px;
-          background: rgba(255, 255, 255, 0.25);
-          cursor: pointer;
-          transition: all 0.3s ease;
-        }
-        .dot-indicator.active {
-          width: 38px;
-        }
-        .swipe-hint {
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.1em;
-          text-transform: uppercase;
-          color: rgba(255, 255, 255, 0.75);
-        }
+        .es-about { position:relative; isolation:isolate; width:100%; min-width:0; box-sizing:border-box; border-radius:18px; overflow:hidden; color:#fff; background:linear-gradient(135deg,#143b3b,#0c172b); padding:clamp(18px,3vw,36px); touch-action:pan-y pinch-zoom; }
+        .es-about *, .es-about *::before, .es-about *::after { box-sizing:border-box; }
+        .es-about .es-about-video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:-3; pointer-events:none; transition:opacity .25s; }
+        .es-about::before { content:''; position:absolute; inset:0; background:linear-gradient(90deg,rgba(2,6,17,.78),rgba(2,6,17,.35)); z-index:-2; pointer-events:none; }
+        .es-about .es-about-body { position:relative; display:grid; gap:16px; max-width:760px; margin:0; padding:0; min-height:0; }
+        .es-about .es-about-zone { margin:0; font-size:12px; color:#a7f3d0; letter-spacing:.08em; }
+        .es-about h1 { margin:0; color:#fff; font-size:clamp(26px,3.4vw,44px); line-height:1.12; overflow-wrap:anywhere; }
+        .es-about h2 { margin:0; color:#d1fae5; font-size:clamp(15px,1.7vw,20px); line-height:1.4; }
+        .es-about p { margin:0; line-height:1.65; font-size:15px; }
+        .es-about ul { margin:0; padding:16px 16px 16px 34px; border:1px solid #ffffff30; border-radius:12px; background:#071325a6; font-size:14px; line-height:1.8; }
+        .es-about .es-about-nav, .es-about .es-about-media { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+        .es-about button, .es-about a { min-height:44px; padding:10px 14px; border-radius:9px; border:1px solid #ffffff50; background:#102b39; color:#fff; font:inherit; font-size:14px; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; }
+        .es-about button[aria-current='step'] { background:#166534; border-color:#86efac; }
+        .es-about button:disabled { opacity:.4; cursor:default; }
+        .es-about button:focus-visible, .es-about a:focus-visible { outline:3px solid #86efac; outline-offset:3px; }
+        .es-about .es-about-status { font-size:13px; color:#d1d5db; }
+        @media(max-width:600px) { .es-about { padding:18px; border-radius:12px; } .es-about .es-about-body { gap:12px; } }
+        @media(prefers-reduced-motion:reduce) { .es-about .es-about-video { transition:none; } }
       `}</style>
-
-      <div className="top-rail">
-        <div
-          className="top-rail-fill"
-          style={{
-            width: `${progressPct}%`,
-            backgroundColor: scene.accent
-          }}
-        />
+      <video ref={video} className="es-about-video" src="/supermarket-walk.mp4" autoPlay loop muted playsInline preload="metadata" aria-hidden="true" style={{ opacity: playing ? 1 : 0 }} onPlaying={() => { setPlaying(true); setStatus(''); }} onPause={() => setPlaying(false)} onError={() => { setPlaying(false); setStatus('Background video could not load. Open the video to check playback.'); }} onLoadedData={() => { setStatus('Video ready — tap Play background if it does not start.'); }} />
+      <div className="es-about-body">
+        <p className="es-about-zone">ZONE {index + 1} OF {scenes.length}</p>
+        <div aria-live="polite" aria-atomic="true" style={{ display:'grid', gap:12 }}>
+          <h1>{scene[0]}</h1>
+          <h2>{scene[1]}</h2>
+          <p>{scene[2]}</p>
+          <ul>{scene[3].map(point => <li key={point}>{point}</li>)}</ul>
+        </div>
+        <nav className="es-about-nav" aria-label="Walkthrough scenes">
+          <button type="button" onClick={() => move(-1)} disabled={index === 0}>Previous</button>
+          {scenes.map((item, i) => <button type="button" key={item[0]} aria-label={`Scene ${i + 1}: ${item[0]}`} aria-current={i === index ? 'step' : undefined} onClick={() => setIndex(i)}>{i + 1}</button>)}
+          <button type="button" onClick={() => move(1)} disabled={index === scenes.length - 1}>Next</button>
+        </nav>
+        <div className="es-about-media">
+          <button type="button" onClick={() => { if (playing) video.current.pause(); else play(); }}>{playing ? 'Pause background' : 'Play background'}</button>
+          <a href="/supermarket-walk.mp4" target="_blank" rel="noreferrer">Open video</a>
+        </div>
+        <p className="es-about-status" role="status">{status || 'Background video playing.'}</p>
+        <p className="es-about-status">Use Next, the scene numbers, or swipe sideways. Scroll normally anywhere on the page.</p>
       </div>
-
-      <div
-        className="fallback-photo-bg"
-        style={{ backgroundImage: `url(${scene.poster})` }}
-      />
-
-      <video
-        ref={videoRef}
-        src="/supermarket-walk.mp4"
-        autoPlay
-        loop
-        muted
-        playsInline
-        preload="auto"
-        className="video-canvas-bg"
-      />
-
-      <div className="vignette-overlay" />
-
-      <header className="stage-header">
-        <div className="tag-pill" style={{ color: scene.accent }}>
-          <span>{scene.tag}</span>
-        </div>
-        <div className="tag-pill" style={{ color: '#ffffff' }}>
-          <span>ZONE {activeIdx + 1} OF {SCENES.length}</span>
-        </div>
-      </header>
-
-      <main className="content-center" key={scene.tag}>
-        <span className="eyebrow-focus" style={{ color: scene.accent }}>
-          {scene.focus}
-        </span>
-        <h1 className="cinematic-title">{scene.title}</h1>
-        <h2 className="cinematic-headline">{scene.headline}</h2>
-        <p className="cinematic-desc">{scene.description}</p>
-
-        <div className="bullet-strip">
-          {scene.points.map((pt, idx) => (
-            <div key={idx} className="bullet-item">
-              <CheckCircle2 size={13} style={{ color: scene.accent, flexShrink: 0 }} />
-              <span>{pt}</span>
-            </div>
-          ))}
-        </div>
-      </main>
-
-      <footer className="stage-footer">
-        <div className="dots-row">
-          {SCENES.map((_, i) => (
-            <div
-              key={i}
-              className={`dot-indicator ${i === activeIdx ? 'active' : ''}`}
-              onClick={() => goTo(i)}
-              style={
-                i === activeIdx
-                  ? { backgroundColor: scene.accent }
-                  : undefined
-              }
-            />
-          ))}
-        </div>
-
-        <div className="swipe-hint">
-          Swipe or scroll to walk through
-        </div>
-      </footer>
-    </div>
+    </section>
   );
 }

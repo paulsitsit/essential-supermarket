@@ -10,6 +10,7 @@ const SCENES = [
       'A complete operating platform engineered for supermarket chains. Unifying supply chain receiving, cold chain safety, mobile floor operations, and checkout sales into a single synchronized system.',
     focus: 'Enterprise Store Ecosystem',
     accent: '#38bdf8',
+    poster: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1600&q=80',
     points: [
       'Tailored for supermarkets handling high-turnover grocery and perishables.',
       'Synchronized across desktop web workstations and Android mobile devices.',
@@ -24,6 +25,7 @@ const SCENES = [
       'Rolling through the product rows. Live WebSocket feeds distribute active stock movements, price changes, and threshold warnings across all connected store terminals.',
     focus: 'Real-Time Store Synchrony',
     accent: '#818cf8',
+    poster: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=1600&q=80',
     points: [
       'Instant catalog lookup for over thousands of products and active SKUs.',
       'Role-governed security shielding administrative controls behind JWT validation.',
@@ -38,6 +40,7 @@ const SCENES = [
       'Approaching refrigerated displays. Automated scheduled background engines analyze expiration deadlines every morning, alerting floor staff and segregating items into quarantine.',
     focus: 'Food Safety & Waste Elimination',
     accent: '#34d399',
+    poster: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1600&q=80',
     points: [
       'Automated cron job runs daily at 06:00 Asia/Manila across all batches.',
       'Isolated quarantine holding ledger removes recalled stock from active POS.',
@@ -52,6 +55,7 @@ const SCENES = [
       'Reaching checkout registers. Staff perform rapid camera barcode cycle counts while customer purchases deduct stock through First-In-First-Out batch selection.',
     focus: 'Shelf Replenishment & Financial Ledger',
     accent: '#f59e0b',
+    poster: 'https://images.unsplash.com/photo-1556742049-0a67c5574f73?auto=format&fit=crop&w=1600&q=80',
     points: [
       'Fast camera barcode scanning powered by html5-qrcode on phone and tablet.',
       'Instant cashier sale processing linked directly to the live stock ledger.',
@@ -61,89 +65,99 @@ const SCENES = [
 ];
 
 export default function AboutPage() {
-  const containerRef = useRef(null);
-  const videoRef = useRef(null);
   const [activeIdx, setActiveIdx] = useState(0);
+  const videoRef = useRef(null);
+  const touchStartY = useRef(null);
+  const touchStartX = useRef(null);
+  const wheelLock = useRef(0);
 
-  useEffect(() => {
-    let animId;
+  const goTo = (index) => {
+    const clamped = Math.max(0, Math.min(SCENES.length - 1, index));
+    if (clamped === activeIdx) return;
+    setActiveIdx(clamped);
 
-    const onScroll = () => {
-      cancelAnimationFrame(animId);
-      animId = requestAnimationFrame(() => {
-        const el = containerRef.current;
-        const video = videoRef.current;
-        if (!el || !video || !video.duration) return;
-
-        const totalScrollable = el.scrollHeight - el.clientHeight;
-        if (totalScrollable <= 0) return;
-
-        const progress = Math.min(Math.max(el.scrollTop / totalScrollable, 0), 1);
-
-        video.currentTime = progress * video.duration;
-
-        const sceneIndex = Math.min(
-          SCENES.length - 1,
-          Math.floor(progress * SCENES.length)
-        );
-        setActiveIdx(sceneIndex);
-      });
-    };
-
-    const container = containerRef.current;
-    if (container) {
-      container.addEventListener('scroll', onScroll, { passive: true });
+    // Scrub video position smoothly to match the active zone
+    const video = videoRef.current;
+    if (video && video.duration) {
+      video.currentTime = (clamped / (SCENES.length - 1)) * video.duration;
     }
+  };
 
-    window.addEventListener('scroll', onScroll, { passive: true });
+  // 1. Mobile Touch Gestures (Swiping Up/Down or Left/Right smoothly cycles scenes)
+  const handleTouchStart = (e) => {
+    touchStartY.current = e.touches[0].clientY;
+    touchStartX.current = e.touches[0].clientX;
+  };
 
-    return () => {
-      if (container) container.removeEventListener('scroll', onScroll);
-      window.removeEventListener('scroll', onScroll);
-      cancelAnimationFrame(animId);
+  const handleTouchEnd = (e) => {
+    if (touchStartY.current === null) return;
+    const deltaY = touchStartY.current - e.changedTouches[0].clientY;
+    const deltaX = touchStartX.current - e.changedTouches[0].clientX;
+    touchStartY.current = null;
+    touchStartX.current = null;
+
+    const maxDelta = Math.abs(deltaY) > Math.abs(deltaX) ? deltaY : deltaX;
+    if (Math.abs(maxDelta) > 30) {
+      if (maxDelta > 0) goTo(activeIdx + 1);
+      else goTo(activeIdx - 1);
+    }
+  };
+
+  // 2. Desktop Mouse Wheel & Trackpad
+  const handleWheel = (e) => {
+    const now = Date.now();
+    if (now - wheelLock.current < 450) return;
+    if (Math.abs(e.deltaY) > 20) {
+      wheelLock.current = now;
+      if (e.deltaY > 0) goTo(activeIdx + 1);
+      else goTo(activeIdx - 1);
+    }
+  };
+
+  // 3. Keyboard Arrow Keys
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        goTo(activeIdx + 1);
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        goTo(activeIdx - 1);
+      }
     };
-  }, []);
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activeIdx]);
 
   const scene = SCENES[activeIdx];
+  const progressPct = ((activeIdx + 1) / SCENES.length) * 100;
 
   return (
-    <div ref={containerRef} className="scroll-video-walkthrough">
+    <div
+      className="about-interactive-stage"
+      onWheel={handleWheel}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       <style>{`
-        .scroll-video-walkthrough {
+        .about-interactive-stage {
           position: relative;
           color: #ffffff;
           background: #020611;
-          height: calc(100vh - 110px);
+          height: calc(100vh - 120px);
           min-height: 520px;
-          border-radius: 20px;
-          overflow-y: scroll;
-          overflow-x: hidden;
-          -webkit-overflow-scrolling: touch;
-          touch-action: pan-y;
-          font-family: inherit;
-        }
-
-        .scroll-track {
-          height: 400%;
-          position: relative;
-        }
-
-        .sticky-viewport {
-          position: sticky;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
+          border-radius: 22px;
           overflow: hidden;
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          padding: 22px clamp(16px, 3.5vw, 48px);
+          padding: 24px clamp(16px, 3.5vw, 48px);
           box-sizing: border-box;
-          pointer-events: none;
+          touch-action: none;
+          user-select: none;
+          font-family: inherit;
         }
 
-        .video-scrubber {
+        /* Video Background: plays video, with photographic fallback if decoding stalls */
+        .video-canvas-bg {
           position: absolute;
           inset: 0;
           width: 100%;
@@ -152,12 +166,23 @@ export default function AboutPage() {
           z-index: 1;
         }
 
+        /* Fallback photo background if video is pending */
+        .fallback-photo-bg {
+          position: absolute;
+          inset: 0;
+          background-size: cover;
+          background-position: center;
+          transition: opacity 0.7s ease;
+          z-index: 0;
+        }
+
+        /* Dark Vignette Overlay */
         .vignette-overlay {
           position: absolute;
           inset: 0;
           background: radial-gradient(
             circle at center,
-            rgba(2, 6, 17, 0.22) 0%,
+            rgba(2, 6, 17, 0.2) 0%,
             rgba(2, 6, 17, 0.65) 60%,
             rgba(2, 6, 17, 0.94) 100%
           ),
@@ -168,8 +193,25 @@ export default function AboutPage() {
             rgba(2, 6, 17, 0.92) 100%
           );
           z-index: 2;
+          pointer-events: none;
         }
 
+        /* Top Progress Line */
+        .top-rail {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: rgba(255, 255, 255, 0.15);
+          z-index: 10;
+        }
+        .top-rail-fill {
+          height: 100%;
+          transition: width 0.35s ease, background-color 0.35s ease;
+        }
+
+        /* Header Tag HUD */
         .stage-header {
           position: relative;
           z-index: 5;
@@ -191,6 +233,7 @@ export default function AboutPage() {
           text-transform: uppercase;
         }
 
+        /* Center Content: Minimal Luxe Typography */
         .content-center {
           position: relative;
           z-index: 5;
@@ -198,16 +241,16 @@ export default function AboutPage() {
           width: 100%;
           margin: 0 auto;
           text-align: center;
-          animation: fadeStory 0.3s ease;
+          animation: fadeStory 0.35s ease;
         }
         @keyframes fadeStory {
           from {
             opacity: 0;
-            transform: translateY(10px);
+            transform: translateY(10px) scale(0.98);
           }
           to {
             opacity: 1;
-            transform: translateY(0);
+            transform: translateY(0) scale(1);
           }
         }
         .eyebrow-focus {
@@ -245,6 +288,7 @@ export default function AboutPage() {
           text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
         }
 
+        /* Glass Feature Card */
         .bullet-strip {
           display: inline-flex;
           flex-direction: column;
@@ -266,56 +310,118 @@ export default function AboutPage() {
           color: #f1f5f9;
         }
 
+        /* Bottom Floor HUD: Progress Dots & Swipe Hint */
         .stage-footer {
           position: relative;
           z-index: 5;
-          height: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+        }
+        .dots-row {
+          display: flex;
+          gap: 6px;
+        }
+        .dot-indicator {
+          width: 22px;
+          height: 4px;
+          border-radius: 2px;
+          background: rgba(255, 255, 255, 0.25);
+          cursor: pointer;
+          transition: all 0.3s ease;
+        }
+        .dot-indicator.active {
+          width: 38px;
+        }
+        .swipe-hint {
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: rgba(255, 255, 255, 0.75);
         }
       `}</style>
 
-      <div className="scroll-track">
-        <div className="sticky-viewport">
-          <video
-            ref={videoRef}
-            src="/supermarket-walk.mp4"
-            muted
-            playsInline
-            preload="auto"
-            className="video-scrubber"
-          />
-
-          <div className="vignette-overlay" />
-
-          <header className="stage-header">
-            <div className="tag-pill" style={{ color: scene.accent }}>
-              <span>{scene.tag}</span>
-            </div>
-            <div className="tag-pill" style={{ color: '#ffffff' }}>
-              <span>ZONE {activeIdx + 1} OF {SCENES.length}</span>
-            </div>
-          </header>
-
-          <main className="content-center" key={scene.tag}>
-            <span className="eyebrow-focus" style={{ color: scene.accent }}>
-              {scene.focus}
-            </span>
-            <h1 className="cinematic-title">{scene.title}</h1>
-            <h2 className="cinematic-headline">{scene.headline}</h2>
-            <p className="cinematic-desc">{scene.description}</p>
-
-            <div className="bullet-strip">
-              {scene.points.map((pt, idx) => (
-                <div key={idx} className="bullet-item">
-                  <CheckCircle2 size={13} style={{ color: scene.accent, flexShrink: 0 }} />
-                  <span>{pt}</span>
-                </div>
-              ))}
-            </div>
-          </main>
-
-          <footer className="stage-footer" />
-        </div>
+      {/* Top Progress Rail */}
+      <div className="top-rail">
+        <div
+          className="top-rail-fill"
+          style={{
+            width: `${progressPct}%`,
+            backgroundColor: scene.accent
+          }}
+        />
       </div>
+
+      {/* Fallback photographic background */}
+      <div
+        className="fallback-photo-bg"
+        style={{ backgroundImage: `url(${scene.poster})` }}
+      />
+
+      {/* Supermarket Video Scrubber */}
+      <video
+        ref={videoRef}
+        src="/supermarket-walk.mp4"
+        muted
+        playsInline
+        preload="auto"
+        className="video-canvas-bg"
+      />
+
+      <div className="vignette-overlay" />
+
+      {/* Top HUD */}
+      <header className="stage-header">
+        <div className="tag-pill" style={{ color: scene.accent }}>
+          <span>{scene.tag}</span>
+        </div>
+        <div className="tag-pill" style={{ color: '#ffffff' }}>
+          <span>ZONE {activeIdx + 1} OF {SCENES.length}</span>
+        </div>
+      </header>
+
+      {/* Center Story Content */}
+      <main className="content-center" key={scene.tag}>
+        <span className="eyebrow-focus" style={{ color: scene.accent }}>
+          {scene.focus}
+        </span>
+        <h1 className="cinematic-title">{scene.title}</h1>
+        <h2 className="cinematic-headline">{scene.headline}</h2>
+        <p className="cinematic-desc">{scene.description}</p>
+
+        <div className="bullet-strip">
+          {scene.points.map((pt, idx) => (
+            <div key={idx} className="bullet-item">
+              <CheckCircle2 size={13} style={{ color: scene.accent, flexShrink: 0 }} />
+              <span>{pt}</span>
+            </div>
+          ))}
+        </div>
+      </main>
+
+      {/* Bottom Scene Dots & Gesture Hint */}
+      <footer className="stage-footer">
+        <div className="dots-row">
+          {SCENES.map((_, i) => (
+            <div
+              key={i}
+              className={`dot-indicator ${i === activeIdx ? 'active' : ''}`}
+              onClick={() => goTo(i)}
+              style={
+                i === activeIdx
+                  ? { backgroundColor: scene.accent }
+                  : undefined
+              }
+            />
+          ))}
+        </div>
+
+        <div className="swipe-hint">
+          Swipe or scroll to walk through
+        </div>
+      </footer>
     </div>
   );
 }

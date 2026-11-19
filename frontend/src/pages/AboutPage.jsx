@@ -1,29 +1,32 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   ArrowDown,
-  ArrowLeft,
-  ArrowRight,
+  BarChart3,
   CheckCircle2,
   Clock,
+  Layers,
   MapPin,
   Package,
+  Pause,
+  Play,
   QrCode,
+  RotateCcw,
   ShoppingCart,
-  Store
+  Store,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 
 const SCENES = [
   {
-    id: 'exterior',
-    tag: 'OUTSIDE STORE',
+    time: 0.0,
+    tag: 'STORE AISLE INTAKE',
     title: 'Essential Supermarket',
     headline: 'Next-Generation Retail & Inventory Intelligence',
     description:
       'A complete operating platform engineered for modern supermarket chains. Unifying supply chain receiving, cold chain safety, mobile floor operations, and checkout sales into a single synchronized system.',
     focus: 'Enterprise Store Ecosystem',
     accent: '#38bdf8',
-    image:
-      'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=2000&q=80',
     icon: Store,
     points: [
       'Tailored for supermarkets handling high-turnover grocery and perishables.',
@@ -32,16 +35,14 @@ const SCENES = [
     ]
   },
   {
-    id: 'entrance',
-    tag: 'STORE ENTRANCE',
-    title: 'The Operational Portal',
+    time: 2.1,
+    tag: 'BEVERAGE & DRY GOODS',
+    title: 'Automated Catalog & Stock Sync',
     headline: 'Real-Time Inventory & System Centralization',
     description:
-      'Step inside the store. Live WebSocket feeds distribute active stock movements, price changes, and system alerts instantly across all manager and cashier terminals.',
+      'Rolling past center product stacks. Live WebSocket feeds distribute active stock movements, price changes, and threshold warnings across all connected store terminals.',
     focus: 'Real-Time Store Synchrony',
     accent: '#818cf8',
-    image:
-      'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=2000&q=80',
     icon: MapPin,
     points: [
       'Instant catalog lookup for over thousands of products and active SKUs.',
@@ -50,34 +51,14 @@ const SCENES = [
     ]
   },
   {
-    id: 'receiving',
-    tag: 'RECEIVING DOCK',
-    title: 'Back-of-House Intake',
-    headline: 'Granular Batch-Level Traceability',
-    description:
-      'Every pallet delivered at the dock is tagged with discrete batch identifiers, manufacturing timestamps, and purchase costs before stock is ever placed on shelves.',
-    focus: 'Intake & Supplier Audits',
-    accent: '#34d399',
-    image:
-      'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=2000&q=80',
-    icon: Package,
-    points: [
-      'Discrete batch IDs linked to supplier delivery logs for total accountability.',
-      'Pending stock receipts verified before entering active sellable counts.',
-      'Unit cost margin monitoring and supplier performance analytics.'
-    ]
-  },
-  {
-    id: 'fresh',
-    tag: 'FRESH & PERISHABLES',
-    title: 'Cold Storage & Fresh Produce',
+    time: 4.2,
+    tag: 'BOTTLED GOODS & REFRIGERATION',
+    title: 'Cold Storage & Fresh Goods',
     headline: 'Automated 06:00 AM Expiration Control',
     description:
-      'Protect shoppers and eliminate spoilage. Automated scheduled background engines analyze expiration deadlines every morning, alerting managers and quarantining items.',
+      'Approaching refrigerated displays. Automated scheduled background engines analyze expiration deadlines every morning, alerting floor staff and segregating items into quarantine.',
     focus: 'Food Safety & Waste Elimination',
-    accent: '#10b981',
-    image:
-      'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=2000&q=80',
+    accent: '#34d399',
     icon: Clock,
     points: [
       'Automated cron job runs daily at 06:00 Asia/Manila across all batches.',
@@ -86,187 +67,150 @@ const SCENES = [
     ]
   },
   {
-    id: 'aisles',
-    tag: 'CENTER AISLES',
-    title: 'On-Floor Operations',
-    headline: 'High-Speed Barcode & Restock Audits',
+    time: 6.2,
+    tag: 'SHELF RESTOCK & CHECKOUT',
+    title: 'Floor Audits & Sales Depletion',
+    headline: 'High-Speed Barcode & FIFO Checkout',
     description:
-      'Staff walk the aisles equipped with mobile barcode scanners. Built-in threshold formulas alert teams the instant fast-moving goods drop below reorder levels.',
-    focus: 'Shelf Replenishment & Mobile Scanning',
+      'Gliding toward the checkout line. Staff perform rapid camera barcode cycle counts while customer purchases deduct stock through First-In-First-Out batch selection.',
+    focus: 'Shelf Replenishment & Financial Ledger',
     accent: '#f59e0b',
-    image:
-      'https://images.unsplash.com/photo-1583258292688-d0213dc5a3a8?auto=format&fit=crop&w=2000&q=80',
-    icon: QrCode,
-    points: [
-      'Fast camera barcode scanning powered by html5-qrcode on phone and tablet.',
-      'Live stock movement logs classify transfers, damages, and cycle counts.',
-      'Dynamic threshold calculations prevent empty shelves.'
-    ]
-  },
-  {
-    id: 'checkout',
-    tag: 'CHECKOUT & REPORTING',
-    title: 'Front-End Registers & Analytics',
-    headline: 'FIFO Sales Depletion & Protected Reports',
-    description:
-      'Customer checkout sales automatically deduct stock through First-In-First-Out (FIFO) batch selection, while executive dashboards generate exportable compliance audits.',
-    focus: 'Financial Integrity & Business Analytics',
-    accent: '#c084fc',
-    image:
-      'https://images.unsplash.com/photo-1556742049-0a67c5574f73?auto=format&fit=crop&w=2000&q=80',
     icon: ShoppingCart,
     points: [
-      'Instant cashier sale processing linked to the live stock ledger.',
-      'Automated customer return handling and restocking logs.',
+      'Fast camera barcode scanning powered by html5-qrcode on phone and tablet.',
+      'Instant cashier sale processing linked directly to the live stock ledger.',
       'Role-protected audit reports in Excel, CSV, and PDF formats.'
     ]
   }
 ];
 
 export default function AboutPage() {
+  const videoRef = useRef(null);
   const [activeIdx, setActiveIdx] = useState(0);
-  const touchStartY = useRef(null);
-  const touchStartX = useRef(null);
-  const wheelLock = useRef(0);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [isMuted, setIsMuted] = useState(true);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(8.2);
 
-  const goTo = (index) => {
-    const clamped = Math.max(0, Math.min(SCENES.length - 1, index));
-    if (clamped === activeIdx) return;
-    setActiveIdx(clamped);
-  };
+  const handleTimeUpdate = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    const cur = video.currentTime;
+    setCurrentTime(cur);
 
-  // Keyboard navigation
-  useEffect(() => {
-    const onKeyDown = (e) => {
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'PageDown') {
-        goTo(activeIdx + 1);
-      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'PageUp') {
-        goTo(activeIdx - 1);
+    let matchedIdx = 0;
+    for (let i = SCENES.length - 1; i >= 0; i--) {
+      if (cur >= SCENES[i].time) {
+        matchedIdx = i;
+        break;
       }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [activeIdx]);
+    }
+    setActiveIdx(matchedIdx);
+  };
 
-  // Desktop Mouse Wheel & Trackpad Listener (Works inside any nested overflow container)
-  const handleWheel = (e) => {
-    const now = Date.now();
-    if (now - wheelLock.current < 450) return;
-    if (Math.abs(e.deltaY) > 22) {
-      wheelLock.current = now;
-      if (e.deltaY > 0) goTo(activeIdx + 1);
-      else goTo(activeIdx - 1);
+  const togglePlay = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      video.play();
+      setIsPlaying(true);
+    } else {
+      video.pause();
+      setIsPlaying(false);
     }
   };
 
-  // Mobile Touch Gestures (Swiping Up / Down or Left / Right advances the scene)
-  const handleTouchStart = (e) => {
-    touchStartY.current = e.touches[0].clientY;
-    touchStartX.current = e.touches[0].clientX;
+  const toggleMute = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = !video.muted;
+    setIsMuted(video.muted);
   };
 
-  const handleTouchEnd = (e) => {
-    if (touchStartY.current === null) return;
-    const deltaY = touchStartY.current - e.changedTouches[0].clientY;
-    const deltaX = touchStartX.current - e.changedTouches[0].clientX;
-    touchStartY.current = null;
-    touchStartX.current = null;
-
-    // Trigger on whichever axis had the bigger swipe gesture
-    const maxDelta = Math.abs(deltaY) > Math.abs(deltaX) ? deltaY : deltaX;
-    if (Math.abs(maxDelta) > 35) {
-      if (maxDelta > 0) goTo(activeIdx + 1);
-      else goTo(activeIdx - 1);
+  const seekToScene = (time) => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.currentTime = time;
+    if (video.paused) {
+      video.play();
+      setIsPlaying(true);
     }
+  };
+
+  const restartVideo = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.currentTime = 0;
+    video.play();
+    setIsPlaying(true);
   };
 
   const currentScene = SCENES[activeIdx];
   const SceneIcon = currentScene.icon;
-  const progressPct = ((activeIdx + 1) / SCENES.length) * 100;
+  const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div
-      className="lecrin-walkthrough"
-      onWheel={handleWheel}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
+    <div className="lecrin-video-walkthrough">
       <style>{`
-        .lecrin-walkthrough {
+        .lecrin-video-walkthrough {
           position: relative;
           color: #ffffff;
           background: #020611;
           height: calc(100vh - 120px);
-          min-height: 520px;
-          border-radius: 20px;
+          min-height: 540px;
+          border-radius: 22px;
           overflow: hidden;
           display: flex;
           flex-direction: column;
           justify-content: space-between;
-          padding: 22px clamp(16px, 3.5vw, 48px);
+          padding: 22px clamp(16px, 3.5vw, 44px);
           box-sizing: border-box;
-          touch-action: pan-y;
           user-select: none;
           font-family: inherit;
         }
 
-        /* Full photographic supermarket images */
-        .cinematic-bg {
+        .video-canvas-bg {
           position: absolute;
           inset: 0;
-          background-size: cover;
-          background-position: center center;
-          transition: opacity 0.85s cubic-bezier(0.4, 0, 0.2, 1), transform 1.4s cubic-bezier(0.16, 1, 0.3, 1);
-          transform: scale(1.08);
-          will-change: opacity, transform;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
           z-index: 1;
-          pointer-events: none;
-        }
-        .cinematic-bg.visible {
-          opacity: 1;
-          transform: scale(1.0);
-        }
-        .cinematic-bg.hidden {
-          opacity: 0;
-          transform: scale(1.12);
         }
 
-        /* Vignette gradient overlay for text readability */
         .vignette-overlay {
           position: absolute;
           inset: 0;
           background: radial-gradient(
             circle at center,
-            rgba(2, 6, 17, 0.3) 0%,
-            rgba(2, 6, 17, 0.72) 65%,
-            rgba(2, 6, 17, 0.95) 100%
+            rgba(2, 6, 17, 0.2) 0%,
+            rgba(2, 6, 17, 0.65) 60%,
+            rgba(2, 6, 17, 0.94) 100%
           ),
           linear-gradient(
             180deg,
-            rgba(2, 6, 17, 0.75) 0%,
-            rgba(2, 6, 17, 0.4) 45%,
+            rgba(2, 6, 17, 0.72) 0%,
+            rgba(2, 6, 17, 0.35) 45%,
             rgba(2, 6, 17, 0.92) 100%
           );
           z-index: 2;
           pointer-events: none;
         }
 
-        /* Top Progress Rail */
         .top-rail {
           position: absolute;
           top: 0;
           left: 0;
           right: 0;
-          height: 3px;
-          background: rgba(255, 255, 255, 0.12);
+          height: 4px;
+          background: rgba(255, 255, 255, 0.15);
           z-index: 10;
         }
         .top-rail-fill {
           height: 100%;
-          transition: width 0.35s ease, background-color 0.35s ease;
+          transition: width 0.15s linear, background-color 0.3s ease;
         }
 
-        /* Overhead Aisle Brand HUD */
         .brand-header {
           position: relative;
           z-index: 5;
@@ -281,8 +225,8 @@ export default function AboutPage() {
           gap: 8px;
           padding: 7px 16px;
           border-radius: 999px;
-          background: rgba(10, 18, 34, 0.82);
-          border: 1px solid rgba(255, 255, 255, 0.2);
+          background: rgba(10, 18, 34, 0.85);
+          border: 1px solid rgba(255, 255, 255, 0.22);
           backdrop-filter: blur(14px);
           font-size: 11px;
           font-weight: 700;
@@ -291,7 +235,27 @@ export default function AboutPage() {
           box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
         }
 
-        /* Center Stage: Minimal Luxe Typography (With Fallback for SVG Text Fill) */
+        .video-ctrl-btns {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .ctrl-btn {
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          display: grid;
+          place-items: center;
+          background: rgba(10, 18, 34, 0.85);
+          border: 1px solid rgba(255, 255, 255, 0.22);
+          color: #ffffff;
+          cursor: pointer;
+          transition: background 0.2s ease;
+        }
+        .ctrl-btn:hover {
+          background: rgba(255, 255, 255, 0.15);
+        }
+
         .hero-story-center {
           position: relative;
           z-index: 5;
@@ -299,16 +263,16 @@ export default function AboutPage() {
           width: 100%;
           margin: 0 auto;
           text-align: center;
-          animation: fadeStory 0.45s ease;
+          animation: fadeStory 0.4s ease;
         }
         @keyframes fadeStory {
           from {
             opacity: 0;
-            transform: translateY(12px) scale(0.98);
+            transform: translateY(10px);
           }
           to {
             opacity: 1;
-            transform: translateY(0) scale(1);
+            transform: translateY(0);
           }
         }
         .eyebrow-focus {
@@ -317,36 +281,35 @@ export default function AboutPage() {
           font-weight: 800;
           letter-spacing: 0.18em;
           text-transform: uppercase;
-          margin-bottom: 10px;
+          margin-bottom: 8px;
           text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
         }
         .cinematic-title {
-          font-size: clamp(32px, 5.8vw, 62px);
+          font-size: clamp(30px, 5.5vw, 58px);
           font-weight: 850;
           line-height: 1.05;
           letter-spacing: -0.03em;
-          margin: 0 0 10px;
+          margin: 0 0 8px;
           color: #ffffff;
           text-shadow: 0 4px 24px rgba(0, 0, 0, 0.9);
         }
         .cinematic-headline {
-          font-size: clamp(15px, 2.2vw, 20px);
+          font-size: clamp(14px, 2vw, 19px);
           font-weight: 600;
           color: rgba(255, 255, 255, 0.95);
-          margin: 0 0 14px;
+          margin: 0 0 12px;
           line-height: 1.35;
           text-shadow: 0 2px 14px rgba(0, 0, 0, 0.9);
         }
         .cinematic-desc {
-          font-size: clamp(12px, 1.7vw, 15px);
+          font-size: clamp(12px, 1.6vw, 14px);
           line-height: 1.6;
           color: rgba(226, 232, 240, 0.92);
-          max-width: 700px;
-          margin: 0 auto 16px;
+          max-width: 680px;
+          margin: 0 auto 14px;
           text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
         }
 
-        /* Glass Feature Points Card */
         .bullet-strip {
           display: inline-flex;
           flex-direction: column;
@@ -355,9 +318,9 @@ export default function AboutPage() {
           border: 1px solid rgba(255, 255, 255, 0.16);
           backdrop-filter: blur(14px);
           border-radius: 14px;
-          padding: 12px 18px;
+          padding: 10px 18px;
           text-align: left;
-          max-width: 660px;
+          max-width: 640px;
           box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
         }
         .bullet-item {
@@ -368,7 +331,6 @@ export default function AboutPage() {
           color: #f1f5f9;
         }
 
-        /* Bottom Floor HUD: Scene Dots & Gesture Prompts */
         .bottom-hud {
           position: relative;
           z-index: 5;
@@ -376,23 +338,30 @@ export default function AboutPage() {
           align-items: center;
           justify-content: space-between;
           width: 100%;
+          gap: 12px;
+          flex-wrap: wrap;
         }
-        .scene-indicator {
+        .scene-pills {
           display: flex;
           gap: 6px;
+          flex-wrap: wrap;
         }
-        .scene-dot {
-          width: 22px;
-          height: 4px;
-          border-radius: 2px;
-          background: rgba(255, 255, 255, 0.25);
+        .timeline-pill {
+          padding: 6px 12px;
+          border-radius: 999px;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          background: rgba(10, 18, 34, 0.85);
+          color: rgba(241, 245, 249, 0.88);
+          font-size: 10px;
+          font-weight: 700;
           cursor: pointer;
-          transition: all 0.3s ease;
+          transition: all 0.2s ease;
         }
-        .scene-dot.active {
-          width: 38px;
+        .timeline-pill.active {
+          color: #020611;
+          border-color: transparent;
         }
-        .scroll-prompt {
+        .live-tag {
           display: flex;
           align-items: center;
           gap: 6px;
@@ -400,16 +369,21 @@ export default function AboutPage() {
           font-weight: 700;
           letter-spacing: 0.1em;
           text-transform: uppercase;
-          color: rgba(255, 255, 255, 0.75);
-          animation: floatPrompt 2s infinite ease-in-out;
+          color: rgba(255, 255, 255, 0.8);
         }
-        @keyframes floatPrompt {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(3px); }
+        .pulse-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          animation: pulseGlow 1.8s infinite;
+        }
+        @keyframes pulseGlow {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.4; transform: scale(1.2); }
         }
       `}</style>
 
-      {/* Top Progress Rail */}
+      {/* Top Progress Line */}
       <div className="top-rail">
         <div
           className="top-rail-fill"
@@ -420,16 +394,23 @@ export default function AboutPage() {
         />
       </div>
 
-      {/* Photographic Backgrounds with Smooth Cross-Fade and Ken-Burns Glides */}
-      {SCENES.map((scene, i) => (
-        <div
-          key={scene.id}
-          className={`cinematic-bg ${i === activeIdx ? 'visible' : 'hidden'}`}
-          style={{ backgroundImage: `url(${scene.image})` }}
-        />
-      ))}
+      {/* 8.2-second Supermarket Cart Walkthrough Video */}
+      <video
+        ref={videoRef}
+        src="/supermarket-walk.mp4"
+        autoPlay
+        loop
+        muted
+        playsInline
+        preload="auto"
+        className="video-canvas-bg"
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={(e) => {
+          setDuration(e.target.duration || 8.2);
+        }}
+      />
 
-      {/* Deep Vignette Overlay for Readability */}
+      {/* Vignette Overlay */}
       <div className="vignette-overlay" />
 
       {/* Header HUD */}
@@ -439,13 +420,36 @@ export default function AboutPage() {
           <span>{currentScene.tag}</span>
         </div>
 
-        <div className="aisle-pill" style={{ color: '#ffffff' }}>
-          <span>ZONE {activeIdx + 1} OF {SCENES.length}</span>
+        <div className="video-ctrl-btns">
+          <button
+            type="button"
+            className="ctrl-btn"
+            onClick={togglePlay}
+            aria-label={isPlaying ? 'Pause' : 'Play'}
+          >
+            {isPlaying ? <Pause size={14} /> : <Play size={14} />}
+          </button>
+          <button
+            type="button"
+            className="ctrl-btn"
+            onClick={toggleMute}
+            aria-label={isMuted ? 'Unmute' : 'Mute'}
+          >
+            {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+          </button>
+          <button
+            type="button"
+            className="ctrl-btn"
+            onClick={restartVideo}
+            aria-label="Restart Walkthrough"
+          >
+            <RotateCcw size={14} />
+          </button>
         </div>
       </header>
 
-      {/* Center Typography & Purpose Narrative */}
-      <main className="hero-story-center" key={currentScene.id}>
+      {/* Center Story Narrative */}
+      <main className="hero-story-center" key={currentScene.tag}>
         <span className="eyebrow-focus" style={{ color: currentScene.accent }}>
           {currentScene.focus}
         </span>
@@ -463,26 +467,32 @@ export default function AboutPage() {
         </div>
       </main>
 
-      {/* Bottom HUD: Scene Tracking Dots & Gesture Indicator */}
+      {/* Bottom Timeline HUD */}
       <footer className="bottom-hud">
-        <div className="scene-indicator">
-          {SCENES.map((_, i) => (
-            <div
-              key={i}
-              className={`scene-dot ${i === activeIdx ? 'active' : ''}`}
-              onClick={() => goTo(i)}
+        <div className="scene-pills">
+          {SCENES.map((scene, idx) => (
+            <button
+              key={scene.tag}
+              type="button"
+              className={`timeline-pill ${idx === activeIdx ? 'active' : ''}`}
+              onClick={() => seekToScene(scene.time)}
               style={
-                i === activeIdx
-                  ? { backgroundColor: currentScene.accent }
+                idx === activeIdx
+                  ? { backgroundColor: scene.accent }
                   : undefined
               }
-            />
+            >
+              {scene.tag}
+            </button>
           ))}
         </div>
 
-        <div className="scroll-prompt">
-          <span>Swipe or scroll to walk through</span>
-          <ArrowDown size={13} />
+        <div className="live-tag">
+          <div
+            className="pulse-dot"
+            style={{ backgroundColor: currentScene.accent }}
+          />
+          <span>Supermarket Aisle Walkthrough</span>
         </div>
       </footer>
     </div>

@@ -76,14 +76,12 @@ export default function AboutPage() {
     if (clamped === activeIdx) return;
     setActiveIdx(clamped);
 
-    // Scrub video position smoothly to match the active zone
     const video = videoRef.current;
     if (video && video.duration) {
       video.currentTime = (clamped / (SCENES.length - 1)) * video.duration;
     }
   };
 
-  // 1. Mobile Touch Gestures (Swiping Up/Down or Left/Right smoothly cycles scenes)
   const handleTouchStart = (e) => {
     touchStartY.current = e.touches[0].clientY;
     touchStartX.current = e.touches[0].clientX;
@@ -97,13 +95,12 @@ export default function AboutPage() {
     touchStartX.current = null;
 
     const maxDelta = Math.abs(deltaY) > Math.abs(deltaX) ? deltaY : deltaX;
-    if (Math.abs(maxDelta) > 30) {
+    if (Math.abs(maxDelta) > 25) {
       if (maxDelta > 0) goTo(activeIdx + 1);
       else goTo(activeIdx - 1);
     }
   };
 
-  // 2. Desktop Mouse Wheel & Trackpad
   const handleWheel = (e) => {
     const now = Date.now();
     if (now - wheelLock.current < 450) return;
@@ -114,7 +111,6 @@ export default function AboutPage() {
     }
   };
 
-  // 3. Keyboard Arrow Keys
   useEffect(() => {
     const onKeyDown = (e) => {
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
@@ -151,32 +147,28 @@ export default function AboutPage() {
           justify-content: space-between;
           padding: 24px clamp(16px, 3.5vw, 48px);
           box-sizing: border-box;
-          touch-action: none;
           user-select: none;
           font-family: inherit;
         }
 
-        /* Video Background: plays video, with photographic fallback if decoding stalls */
-        .video-canvas-bg {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          z-index: 1;
-        }
-
-        /* Fallback photo background if video is pending */
         .fallback-photo-bg {
           position: absolute;
           inset: 0;
           background-size: cover;
           background-position: center;
           transition: opacity 0.7s ease;
-          z-index: 0;
+          z-index: 1;
         }
 
-        /* Dark Vignette Overlay */
+        .video-canvas-bg {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          z-index: 2;
+        }
+
         .vignette-overlay {
           position: absolute;
           inset: 0;
@@ -192,11 +184,10 @@ export default function AboutPage() {
             rgba(2, 6, 17, 0.32) 45%,
             rgba(2, 6, 17, 0.92) 100%
           );
-          z-index: 2;
+          z-index: 3;
           pointer-events: none;
         }
 
-        /* Top Progress Line */
         .top-rail {
           position: absolute;
           top: 0;
@@ -211,7 +202,6 @@ export default function AboutPage() {
           transition: width 0.35s ease, background-color 0.35s ease;
         }
 
-        /* Header Tag HUD */
         .stage-header {
           position: relative;
           z-index: 5;
@@ -233,7 +223,6 @@ export default function AboutPage() {
           text-transform: uppercase;
         }
 
-        /* Center Content: Minimal Luxe Typography */
         .content-center {
           position: relative;
           z-index: 5;
@@ -241,17 +230,6 @@ export default function AboutPage() {
           width: 100%;
           margin: 0 auto;
           text-align: center;
-          animation: fadeStory 0.35s ease;
-        }
-        @keyframes fadeStory {
-          from {
-            opacity: 0;
-            transform: translateY(10px) scale(0.98);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
         }
         .eyebrow-focus {
           display: inline-block;
@@ -263,7 +241,7 @@ export default function AboutPage() {
           text-shadow: 0 2px 10px rgba(0, 0, 0, 0.8);
         }
         .cinematic-title {
-          font-size: clamp(30px, 5.5vw, 58px);
+          font-size: clamp(28px, 5vw, 54px);
           font-weight: 850;
           line-height: 1.05;
           letter-spacing: -0.03em;
@@ -288,7 +266,6 @@ export default function AboutPage() {
           text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
         }
 
-        /* Glass Feature Card */
         .bullet-strip {
           display: inline-flex;
           flex-direction: column;
@@ -310,7 +287,6 @@ export default function AboutPage() {
           color: #f1f5f9;
         }
 
-        /* Bottom Floor HUD: Progress Dots & Swipe Hint */
         .stage-footer {
           position: relative;
           z-index: 5;
@@ -343,7 +319,6 @@ export default function AboutPage() {
         }
       `}</style>
 
-      {/* Top Progress Rail */}
       <div className="top-rail">
         <div
           className="top-rail-fill"
@@ -354,16 +329,16 @@ export default function AboutPage() {
         />
       </div>
 
-      {/* Fallback photographic background */}
       <div
         className="fallback-photo-bg"
         style={{ backgroundImage: `url(${scene.poster})` }}
       />
 
-      {/* Supermarket Video Scrubber */}
       <video
         ref={videoRef}
         src="/supermarket-walk.mp4"
+        autoPlay
+        loop
         muted
         playsInline
         preload="auto"
@@ -372,7 +347,6 @@ export default function AboutPage() {
 
       <div className="vignette-overlay" />
 
-      {/* Top HUD */}
       <header className="stage-header">
         <div className="tag-pill" style={{ color: scene.accent }}>
           <span>{scene.tag}</span>
@@ -382,7 +356,6 @@ export default function AboutPage() {
         </div>
       </header>
 
-      {/* Center Story Content */}
       <main className="content-center" key={scene.tag}>
         <span className="eyebrow-focus" style={{ color: scene.accent }}>
           {scene.focus}
@@ -401,7 +374,6 @@ export default function AboutPage() {
         </div>
       </main>
 
-      {/* Bottom Scene Dots & Gesture Hint */}
       <footer className="stage-footer">
         <div className="dots-row">
           {SCENES.map((_, i) => (

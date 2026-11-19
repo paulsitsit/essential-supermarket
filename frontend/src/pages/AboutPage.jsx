@@ -15,7 +15,6 @@ import {
   TrendingDown
 } from 'lucide-react';
 
-// Curated high-resolution supermarket photography for each operational zone
 const ZONES = [
   {
     id: 'entrance',
@@ -171,79 +170,73 @@ const ZONES = [
 
 export default function AboutPage() {
   const [activeIndex, setActiveIndex] = useState(0);
-  const touchStartX = useRef(null);
-  const wheelLock = useRef(0);
+  const scrollContainerRef = useRef(null);
+  const sectionRefs = useRef([]);
 
-  const goTo = (index) => {
-    const clamped = Math.max(0, Math.min(ZONES.length - 1, index));
-    if (clamped === activeIndex) return;
-    setActiveIndex(clamped);
+  // Native scroll handler: inspects which section is centered in the scroll viewport
+  const handleScroll = () => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const scrollTop = container.scrollTop;
+    const containerHeight = container.clientHeight;
+    const viewportCenter = scrollTop + containerHeight / 2;
+
+    let closestIdx = 0;
+    let minDistance = Infinity;
+
+    sectionRefs.current.forEach((el, idx) => {
+      if (!el) return;
+      const elTop = el.offsetTop;
+      const elCenter = elTop + el.offsetHeight / 2;
+      const dist = Math.abs(viewportCenter - elCenter);
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestIdx = idx;
+      }
+    });
+
+    if (closestIdx !== activeIndex) {
+      setActiveIndex(closestIdx);
+    }
+  };
+
+  const scrollToZone = (index) => {
+    const el = sectionRefs.current[index];
+    if (!el || !scrollContainerRef.current) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
   useEffect(() => {
     const onKeyDown = (e) => {
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        goTo(activeIndex + 1);
+        scrollToZone(Math.min(ZONES.length - 1, activeIndex + 1));
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        goTo(activeIndex - 1);
+        scrollToZone(Math.max(0, activeIndex - 1));
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [activeIndex]);
 
-  const handleWheel = (e) => {
-    const now = Date.now();
-    if (now - wheelLock.current < 450) return;
-    if (Math.abs(e.deltaY) > 28) {
-      wheelLock.current = now;
-      if (e.deltaY > 0) goTo(activeIndex + 1);
-      else goTo(activeIndex - 1);
-    }
-  };
-
-  const handleTouchStart = (e) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
-
-  const handleTouchEnd = (e) => {
-    if (touchStartX.current === null) return;
-    const deltaX = touchStartX.current - e.changedTouches[0].clientX;
-    touchStartX.current = null;
-    if (Math.abs(deltaX) > 42) {
-      if (deltaX > 0) goTo(activeIndex + 1);
-      else goTo(activeIndex - 1);
-    }
-  };
-
   const zone = ZONES[activeIndex];
   const ZoneIcon = zone.icon;
   const progressPct = ((activeIndex + 1) / ZONES.length) * 100;
 
   return (
-    <div
-      className="about-walkthrough-root"
-      onWheel={handleWheel}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
+    <div className="about-walkthrough-root">
       <style>{`
         .about-walkthrough-root {
           position: relative;
           color: #ffffff;
           border-radius: 20px;
           overflow: hidden;
-          min-height: calc(100dvh - 90px);
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          padding: 20px clamp(16px, 3.5vw, 40px);
-          box-sizing: border-box;
+          height: calc(100dvh - 90px);
           font-family: inherit;
           background: #020611;
         }
 
-        /* Full photographic supermarket backgrounds cross-fading */
+        /* Fixed background photography cross-fades behind scroll */
         .photo-bg-layer {
           position: absolute;
           inset: 0;
@@ -251,9 +244,10 @@ export default function AboutPage() {
           height: 100%;
           background-size: cover;
           background-position: center;
-          transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), transform 1.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+          transition: opacity 0.7s ease, transform 0.9s ease;
           transform: scale(1.05);
           will-change: opacity, transform;
+          pointer-events: none;
         }
         .photo-bg-layer.active {
           opacity: 1;
@@ -265,21 +259,21 @@ export default function AboutPage() {
           z-index: 0;
         }
 
-        /* Cinematic dark gradient overlay so text remains readable */
+        /* Readability overlay */
         .cinematic-overlay {
           position: absolute;
           inset: 0;
           background: linear-gradient(
             180deg,
-            rgba(2, 6, 17, 0.72) 0%,
+            rgba(2, 6, 17, 0.75) 0%,
             rgba(2, 6, 17, 0.55) 40%,
-            rgba(2, 6, 17, 0.88) 100%
+            rgba(2, 6, 17, 0.9) 100%
           );
           z-index: 2;
           pointer-events: none;
         }
 
-        /* Progress indicator */
+        /* Top Progress Line */
         .progress-rail {
           position: absolute;
           top: 0;
@@ -291,77 +285,94 @@ export default function AboutPage() {
         }
         .progress-fill {
           height: 100%;
-          transition: width 0.4s ease, background 0.4s ease;
+          transition: width 0.35s ease, background 0.35s ease;
         }
 
-        /* Header HUD */
+        /* Top HUD */
         .stage-top {
-          position: relative;
-          z-index: 3;
+          position: absolute;
+          top: 14px;
+          left: 16px;
+          right: 16px;
+          z-index: 10;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 12px;
+          gap: 10px;
           flex-wrap: wrap;
+          pointer-events: none;
         }
         .overhead-sign {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          padding: 8px 16px;
+          padding: 7px 14px;
           border-radius: 999px;
-          background: rgba(10, 18, 34, 0.82);
+          background: rgba(10, 18, 34, 0.88);
           border: 1px solid rgba(255, 255, 255, 0.2);
           backdrop-filter: blur(14px);
           font-size: 11px;
           font-weight: 700;
-          letter-spacing: 0.12em;
+          letter-spacing: 0.1em;
           text-transform: uppercase;
-          box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+          pointer-events: auto;
         }
 
-        /* Center Content */
-        .stage-content {
+        /* Native Scrollable Viewport with Touch Momentum & Snap */
+        .scroll-viewport {
           position: relative;
           z-index: 3;
-          max-width: 960px;
+          height: 100%;
+          overflow-y: auto;
+          overflow-x: hidden;
+          scroll-snap-type: y mandatory;
+          -webkit-overflow-scrolling: touch;
+          padding: 70px 16px 120px;
+          box-sizing: border-box;
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255,255,255,0.2) transparent;
+        }
+
+        .aisle-section {
+          min-height: calc(100dvh - 200px);
+          scroll-snap-align: center;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 24px 0;
+          box-sizing: border-box;
+        }
+
+        .section-card-wrapper {
+          max-width: 920px;
           width: 100%;
-          margin: 18px auto;
           display: grid;
-          gap: 16px;
-          animation: fadeContent 0.5s ease;
+          gap: 14px;
         }
-        @keyframes fadeContent {
-          from {
-            opacity: 0;
-            transform: translateY(12px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
+
         .zone-header {
           text-align: center;
-          max-width: 780px;
+          max-width: 760px;
           margin: 0 auto;
         }
         .focus-pill {
           display: inline-block;
-          padding: 5px 14px;
+          padding: 4px 12px;
           border-radius: 999px;
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 800;
           text-transform: uppercase;
           letter-spacing: 0.08em;
-          margin-bottom: 10px;
+          margin-bottom: 8px;
           backdrop-filter: blur(10px);
           border: 1px solid;
-          box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+          background: rgba(10, 18, 34, 0.85);
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
         }
         .zone-title {
-          margin: 0 0 8px;
-          font-size: clamp(26px, 4.4vw, 46px);
+          margin: 0 0 6px;
+          font-size: clamp(24px, 4.2vw, 42px);
           line-height: 1.1;
           font-weight: 850;
           letter-spacing: -0.02em;
@@ -370,16 +381,16 @@ export default function AboutPage() {
         .zone-subtitle {
           margin: 0;
           color: rgba(241, 245, 249, 0.95);
-          font-size: clamp(13px, 1.9vw, 15px);
-          line-height: 1.6;
+          font-size: clamp(12px, 1.8vw, 15px);
+          line-height: 1.55;
           text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
         }
 
         .points-box {
-          background: rgba(10, 18, 34, 0.78);
+          background: rgba(10, 18, 34, 0.8);
           border: 1px solid rgba(255, 255, 255, 0.18);
           border-radius: 16px;
-          padding: 14px 20px;
+          padding: 12px 18px;
           backdrop-filter: blur(16px);
           box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
         }
@@ -401,62 +412,65 @@ export default function AboutPage() {
           gap: 12px;
         }
         .zone-card {
-          padding: 16px 18px;
-          border-radius: 16px;
+          padding: 14px 16px;
+          border-radius: 14px;
           border: 1px solid rgba(255, 255, 255, 0.16);
-          background: rgba(10, 18, 34, 0.76);
+          background: rgba(10, 18, 34, 0.8);
           backdrop-filter: blur(16px);
           box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
         }
         .zone-card-icon {
-          width: 36px;
-          height: 36px;
+          width: 34px;
+          height: 34px;
           border-radius: 10px;
           display: grid;
           place-items: center;
-          margin-bottom: 10px;
+          margin-bottom: 8px;
         }
         .zone-card h3 {
-          margin: 0 0 6px;
-          font-size: 15px;
+          margin: 0 0 4px;
+          font-size: 14px;
           font-weight: 700;
         }
         .zone-card p {
           margin: 0;
-          font-size: 13px;
+          font-size: 12px;
           line-height: 1.5;
           color: rgba(226, 232, 240, 0.88);
         }
 
-        /* Footer Controls */
+        /* Fixed Bottom HUD */
         .stage-bottom {
-          position: relative;
-          z-index: 3;
+          position: absolute;
+          bottom: 12px;
+          left: 16px;
+          right: 16px;
+          z-index: 10;
           display: flex;
           flex-direction: column;
-          gap: 10px;
-          padding-top: 12px;
-          border-top: 1px solid rgba(255, 255, 255, 0.15);
+          gap: 8px;
+          pointer-events: none;
         }
         .nav-row {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 10px;
+          gap: 8px;
           flex-wrap: wrap;
         }
         .aisle-nav {
           display: flex;
-          gap: 6px;
+          gap: 4px;
           flex-wrap: wrap;
+          pointer-events: auto;
         }
         .aisle-pill {
-          padding: 7px 14px;
+          padding: 6px 11px;
           border-radius: 999px;
           border: 1px solid rgba(255, 255, 255, 0.22);
-          background: rgba(10, 18, 34, 0.85);
+          background: rgba(10, 18, 34, 0.9);
           color: rgba(241, 245, 249, 0.9);
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 700;
           cursor: pointer;
           transition: all 0.2s ease;
@@ -468,17 +482,18 @@ export default function AboutPage() {
         }
         .cta-group {
           display: flex;
-          gap: 8px;
+          gap: 6px;
           flex-wrap: wrap;
+          pointer-events: auto;
         }
         .btn-primary,
         .btn-ghost {
           display: inline-flex;
           align-items: center;
-          gap: 6px;
-          padding: 8px 16px;
+          gap: 5px;
+          padding: 7px 14px;
           border-radius: 999px;
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 700;
           text-decoration: none;
           cursor: pointer;
@@ -491,7 +506,7 @@ export default function AboutPage() {
           box-shadow: 0 4px 16px rgba(56, 189, 248, 0.35);
         }
         .btn-ghost {
-          background: rgba(255, 255, 255, 0.1);
+          background: rgba(10, 18, 34, 0.85);
           border: 1px solid rgba(255, 255, 255, 0.25);
           color: #f1f5f9;
         }
@@ -501,13 +516,13 @@ export default function AboutPage() {
         }
         .swipe-hint {
           text-align: center;
-          font-size: 11px;
+          font-size: 10px;
           color: rgba(226, 232, 240, 0.85);
-          text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+          text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
         }
       `}</style>
 
-      {/* Progress line */}
+      {/* Progress indicator */}
       <div className="progress-rail">
         <div
           className="progress-fill"
@@ -515,7 +530,7 @@ export default function AboutPage() {
         />
       </div>
 
-      {/* Real Supermarket Background Photography Layers */}
+      {/* Fixed Photographic Background Layers that cross-fade as you scroll */}
       {ZONES.map((z, idx) => (
         <div
           key={z.id}
@@ -524,13 +539,13 @@ export default function AboutPage() {
         />
       ))}
 
-      {/* Cinematic dark readability overlay */}
+      {/* Cinematic dark overlay */}
       <div className="cinematic-overlay" />
 
-      {/* Header HUD */}
+      {/* Fixed Top HUD */}
       <header className="stage-top">
         <div className="overhead-sign" style={{ color: zone.accent }}>
-          <ZoneIcon size={15} />
+          <ZoneIcon size={14} />
           <span>{zone.aisle}</span>
           <span style={{ opacity: 0.5 }}>•</span>
           <span style={{ color: '#ffffff' }}>{zone.label}</span>
@@ -542,57 +557,68 @@ export default function AboutPage() {
         </div>
       </header>
 
-      {/* Center System Overview & Focus Content */}
-      <main className="stage-content" key={zone.id}>
-        <div className="zone-header">
-          <span
-            className="focus-pill"
-            style={{
-              color: zone.accent,
-              borderColor: `${zone.accent}88`,
-              background: 'rgba(10, 18, 34, 0.85)'
-            }}
+      {/* Native Scrollable Viewport with CSS Scroll Snap */}
+      <div
+        ref={scrollContainerRef}
+        className="scroll-viewport"
+        onScroll={handleScroll}
+      >
+        {ZONES.map((zItem, idx) => (
+          <section
+            key={zItem.id}
+            ref={(el) => (sectionRefs.current[idx] = el)}
+            className="aisle-section"
           >
-            Core Focus: {zone.focus}
-          </span>
-          <h1 className="zone-title">{zone.title}</h1>
-          <p className="zone-subtitle">{zone.subtitle}</p>
-        </div>
-
-        {/* System Focus Highlights */}
-        <div className="points-box">
-          <ul>
-            {zone.points.map((pt, i) => (
-              <li key={i}>{pt}</li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Action cards */}
-        <div className="zone-cards">
-          {zone.cards.map((card) => {
-            const CardIcon = card.icon;
-            return (
-              <article key={card.title} className="zone-card">
-                <div
-                  className="zone-card-icon"
+            <div className="section-card-wrapper">
+              <div className="zone-header">
+                <span
+                  className="focus-pill"
                   style={{
-                    background: `${zone.accent}33`,
-                    color: zone.accent,
-                    border: `1px solid ${zone.accent}66`
+                    color: zItem.accent,
+                    borderColor: `${zItem.accent}88`
                   }}
                 >
-                  <CardIcon size={18} />
-                </div>
-                <h3>{card.title}</h3>
-                <p>{card.text}</p>
-              </article>
-            );
-          })}
-        </div>
-      </main>
+                  Core Focus: {zItem.focus}
+                </span>
+                <h1 className="zone-title">{zItem.title}</h1>
+                <p className="zone-subtitle">{zItem.subtitle}</p>
+              </div>
 
-      {/* Footer Navigation */}
+              <div className="points-box">
+                <ul>
+                  {zItem.points.map((pt, pIdx) => (
+                    <li key={pIdx}>{pt}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="zone-cards">
+                {zItem.cards.map((card) => {
+                  const CardIcon = card.icon;
+                  return (
+                    <article key={card.title} className="zone-card">
+                      <div
+                        className="zone-card-icon"
+                        style={{
+                          background: `${zItem.accent}33`,
+                          color: zItem.accent,
+                          border: `1px solid ${zItem.accent}66`
+                        }}
+                      >
+                        <CardIcon size={17} />
+                      </div>
+                      <h3>{card.title}</h3>
+                      <p>{card.text}</p>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        ))}
+      </div>
+
+      {/* Fixed Bottom HUD */}
       <footer className="stage-bottom">
         <div className="nav-row">
           <nav className="aisle-nav" aria-label="Supermarket aisles">
@@ -600,7 +626,7 @@ export default function AboutPage() {
               <button
                 key={item.id}
                 type="button"
-                onClick={() => goTo(idx)}
+                onClick={() => scrollToZone(idx)}
                 className={`aisle-pill ${idx === activeIndex ? 'active' : ''}`}
                 style={
                   idx === activeIndex
@@ -618,27 +644,27 @@ export default function AboutPage() {
               type="button"
               className="btn-ghost"
               disabled={activeIndex === 0}
-              onClick={() => goTo(activeIndex - 1)}
+              onClick={() => scrollToZone(activeIndex - 1)}
             >
-              <ArrowLeft size={14} /> Prev
+              <ArrowLeft size={13} /> Prev
             </button>
             {activeIndex < ZONES.length - 1 ? (
               <button
                 type="button"
                 className="btn-primary"
-                onClick={() => goTo(activeIndex + 1)}
+                onClick={() => scrollToZone(activeIndex + 1)}
               >
-                Next Aisle <ArrowRight size={14} />
+                Next <ArrowRight size={13} />
               </button>
             ) : (
               <a className="btn-primary" href="/dashboard">
-                Explore Dashboard <ArrowRight size={14} />
+                Dashboard <ArrowRight size={13} />
               </a>
             )}
           </div>
         </div>
         <div className="swipe-hint">
-          Walk the aisles: use arrow keys, scroll, swipe left/right, or tap an aisle ({activeIndex + 1}/{ZONES.length})
+          Scroll up/down or swipe naturally on mobile ({activeIndex + 1}/{ZONES.length})
         </div>
       </footer>
     </div>
